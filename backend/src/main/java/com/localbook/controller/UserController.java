@@ -1,0 +1,145 @@
+package com.localbook.controller;
+import com.localbook.dto.LoginRequest;
+import com.localbook.model.User;
+import com.localbook.model.UserRole;
+import com.localbook.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.web.bind.annotation.RequestBody;
+
+@RestController
+@RequestMapping("/api/users")
+@CrossOrigin(origins = "*")  // Allow frontend to connect
+public class UserController {
+    
+    @Autowired
+    private UserService userService;
+    
+    // Register a new client
+    @PostMapping("/register/client")
+    public ResponseEntity<User> registerClient(@RequestBody User user) {
+        try {
+            User newUser = userService.registerClient(user);
+            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
+    }
+    
+    // Register a new business owner
+    @PostMapping("/register/business-owner")
+    public ResponseEntity<User> registerBusinessOwner(@RequestBody User user) {
+        try {
+            User newUser = userService.registerBusinessOwner(user);
+            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
+    }
+    
+    // Login (basic - improve with JWT later)
+    /* 
+    @PostMapping("/login")
+    public ResponseEntity<User> login(@RequestParam String email, @RequestParam String password) {
+        Optional<User> user = userService.login(email, password);
+        
+        if (user.isPresent()) {
+            return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(null, HttpStatus.UNAUTHORIZED);
+        }
+    }
+    */
+     @PostMapping("/login")
+    public ResponseEntity<User> login(@RequestBody LoginRequest loginRequest) {
+    Optional<User> user = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
+    
+    if (user.isPresent()) {
+        return new ResponseEntity<>(user.get(), HttpStatus.OK);
+    } else {
+        return new ResponseEntity<>(null, HttpStatus.UNAUTHORIZED);
+    }
+}
+
+
+
+    // Get all users (Admin only - add authorization later)
+    @GetMapping
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = userService.getAllUsers();
+        return new ResponseEntity<>(users, HttpStatus.OK);
+    }
+    
+    // Get user by ID
+    @GetMapping("/{id}")
+    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+        Optional<User> user = userService.getUserById(id);
+        
+        if (user.isPresent()) {
+            return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+    
+    // Get user by email
+    @GetMapping("/email/{email}")
+    public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
+        Optional<User> user = userService.getUserByEmail(email);
+        
+        if (user.isPresent()) {
+            return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+    
+    // Get all clients
+    @GetMapping("/clients")
+    public ResponseEntity<List<User>> getAllClients() {
+        List<User> clients = userService.getAllClients();
+        return new ResponseEntity<>(clients, HttpStatus.OK);
+    }
+    
+    // Get all business owners
+    @GetMapping("/business-owners")
+    public ResponseEntity<List<User>> getAllBusinessOwners() {
+        List<User> businessOwners = userService.getAllBusinessOwners();
+        return new ResponseEntity<>(businessOwners, HttpStatus.OK);
+    }
+    
+    // Update user profile
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+        try {
+            User updatedUser = userService.updateUser(id, user);
+            return new ResponseEntity<>(updatedUser, HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+        }
+    }
+    
+    // Delete user
+    @DeleteMapping("/{id}")
+    public ResponseEntity<String> deleteUser(@PathVariable Long id) {
+        try {
+            userService.deleteUser(id);
+            return new ResponseEntity<>("User deleted successfully", HttpStatus.OK);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+        }
+    }
+    
+    // Check if email exists
+    @GetMapping("/exists/email/{email}")
+    public ResponseEntity<Boolean> checkEmailExists(@PathVariable String email) {
+        boolean exists = userService.existsByEmail(email);
+        return new ResponseEntity<>(exists, HttpStatus.OK);
+    }
+
+    
+}
