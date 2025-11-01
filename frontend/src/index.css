@@ -13,6 +13,11 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -31,8 +36,10 @@ body {
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: 2.5cm;
   line-height: 1.1;
+  font-family: sans-serif;
+  color:blueviolet;
 }
 
 button {

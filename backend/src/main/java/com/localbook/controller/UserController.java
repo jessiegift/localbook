@@ -7,13 +7,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*")  // Allow frontend to connect
+@CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
     
     @Autowired
@@ -54,15 +56,27 @@ public class UserController {
         }
     }
     */
-     @PostMapping("/login")
-    public ResponseEntity<User> login(@RequestBody LoginRequest loginRequest) {
+    @PostMapping("/login")
+public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
     Optional<User> user = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
     
     if (user.isPresent()) {
-        return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        User foundUser = user.get();
+        
+        // Create response object
+        Map<String, Object> response = new HashMap<>();
+        response.put("user", foundUser);
+        // response.put("token", jwtToken); // Add token if you're using JWT
+        
+        return new ResponseEntity<>(response, HttpStatus.OK);
     } else {
-        return new ResponseEntity<>(null, HttpStatus.UNAUTHORIZED);
+        return new ResponseEntity<>(
+            Map.of("message", "Invalid email or password"), 
+            HttpStatus.UNAUTHORIZED
+        );
     }
+
+    
 }
 
 
