@@ -3,34 +3,38 @@ import {
   View,
   Text,
   ScrollView,
-  Image,
   TouchableOpacity,
-  StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { Calendar } from 'react-native-calendars'; 
 
 const BusinessDetailScreen = ({ route, navigation }) => {
   const { businessId } = route.params;
-  const { token } = useAuth(); // still okay to keep if you’ll use later
+  const { user, token } = useAuth();
+  
   const [business, setBusiness] = useState(null);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [servicesLoading, setServicesLoading] = useState(true);
 
   useEffect(() => {
     fetchBusinessDetails();
+    fetchBusinessServices();
   }, [businessId]);
 
   const fetchBusinessDetails = async () => {
     try {
+      setLoading(true);
       const response = await fetch(
         `http://192.168.1.15:8080/api/businesses/${businessId}`
       );
 
-      const data = await response.json();
-
       if (response.ok) {
-        setBusiness(data.business || data);
+        const data = await response.json();
+        console.log('Business data:', data);
+        setBusiness(data);
       } else {
         Alert.alert('Error', 'Failed to load business details');
         navigation.goBack();
@@ -44,166 +48,205 @@ const BusinessDetailScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleBookNow = () => {
-    navigation.navigate('BookAppointment', { business });
+  const fetchBusinessServices = async () => {
+    try {
+      setServicesLoading(true);
+      const response = await fetch(
+        `http://192.168.1.15:8080/api/businesses/${businessId}/services`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Services fetched:', data);
+        setServices(data);
+      } else {
+        console.log('No services found');
+        setServices([]);
+      }
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
   };
 
-  const renderService = (service) => (
-    <View key={service.id} style={styles.serviceItem}>
-      <View style={styles.serviceInfo}>
-        <Text style={styles.serviceName}>{service.name}</Text>
-        <Text style={styles.serviceDuration}>{service.duration} min</Text>
-      </View>
-      <Text style={styles.servicePrice}>${service.price}</Text>
-    </View>
-  );
-
-  const renderReview = (review) => (
-    <View key={review.id} style={styles.reviewItem}>
-      <View style={styles.reviewHeader}>
-        <Text style={styles.reviewerName}>{review.userName}</Text>
-        <Text style={styles.reviewRating}>⭐ {review.rating}</Text>
-      </View>
-      <Text style={styles.reviewComment}>{review.comment}</Text>
-      <Text style={styles.reviewDate}>
-        {new Date(review.createdAt).toLocaleDateString()}
-      </Text>
-    </View>
-  );
+  const handleBookService = (service) => {
+    // Navigate to dedicated booking screen
+    navigation.navigate('BookAppointment', {
+      business: business,
+      service: service,
+    });
+  };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="mt-3 text-base text-gray-600">Loading...</Text>
       </View>
     );
   }
 
   if (!business) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Business not found</Text>
+      <View className="flex-1 justify-center items-center bg-white px-6">
+        <Text className="text-6xl mb-4">🏪</Text>
+        <Text className="text-xl font-bold text-gray-900 mb-2">Business not found</Text>
+        <TouchableOpacity 
+          className="bg-blue-500 px-6 py-3 rounded-lg"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-white text-base font-semibold">Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Business Image */}
-        <Image
-          source={{ uri: business.image || 'https://via.placeholder.com/400' }}
-          style={styles.headerImage}
-        />
-
-        {/* Business Info */}
-        <View style={styles.content}>
-          {/* Name and Category */}
-          <Text style={styles.name}>{business.name}</Text>
-          <Text style={styles.category}>{business.category}</Text>
-
-          {/* Rating */}
-          {business.rating && (
-            <View style={styles.ratingContainer}>
-              <Text style={styles.rating}>⭐ {business.rating}</Text>
-              <Text style={styles.reviewCount}>
-                ({business.reviewCount || 0} reviews)
+    <ScrollView className="flex-1 bg-gray-50">
+      {/* Business Header */}
+      <View className="bg-white px-5 pt-5 pb-5 border-b border-gray-200">
+        <Text className="text-3xl font-bold text-gray-900 mb-3">
+          {business.businessName}
+        </Text>
+        
+        <View className="flex-row items-center">
+          <View className="bg-purple-100 px-4 py-2 rounded-full">
+            <Text className="text-purple-700 text-sm font-semibold">
+              {business.category}
+            </Text>
+          </View>
+          
+          {business.approved && (
+            <View className="bg-green-100 px-4 py-2 rounded-full ml-2">
+              <Text className="text-green-700 text-sm font-semibold">
+                ✓ Verified
               </Text>
             </View>
           )}
+        </View>
+      </View>
 
-          {/* Location */}
-          <View style={styles.infoSection}>
-            <Text style={styles.infoLabel}>📍 Location</Text>
-            <Text style={styles.infoText}>
-              {business.address || business.location}
+      {/* Business Information */}
+      <View className="px-5 py-4">
+        <View className="bg-white rounded-xl p-4 mb-3 flex-row items-start">
+          <Text className="text-2xl mr-3">📍</Text>
+          <View className="flex-1">
+            <Text className="text-xs font-semibold text-gray-500 mb-1">
+              LOCATION
+            </Text>
+            <Text className="text-base text-gray-900">
+              {business.location}
+            </Text>
+          </View>
+        </View>
+
+        {business.phoneNumber && (
+          <View className="bg-white rounded-xl p-4 mb-3 flex-row items-start">
+            <Text className="text-2xl mr-3">📞</Text>
+            <View className="flex-1">
+              <Text className="text-xs font-semibold text-gray-500 mb-1">
+                PHONE
+              </Text>
+              <Text className="text-base text-gray-900">
+                {business.phoneNumber}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {business.description && (
+          <View className="bg-white rounded-xl p-4 mb-3">
+            <Text className="text-lg font-bold text-gray-900 mb-3">
+              About
+            </Text>
+            <Text className="text-base text-gray-700 leading-6">
+              {business.description}
+            </Text>
+          </View>
+        )}
+
+        {/* Services Section */}
+        <View className="bg-white rounded-xl p-4 mb-6">
+          <View className="flex-row items-center mb-4">
+            <Text className="text-2xl mr-2">💼</Text>
+            <Text className="text-xl font-bold text-gray-900">
+              Services Offered
             </Text>
           </View>
 
-          {/* Contact */}
-          {business.phone && (
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>📞 Phone</Text>
-              <Text style={styles.infoText}>{business.phone}</Text>
+          {servicesLoading ? (
+            <View className="py-8 items-center">
+              <ActivityIndicator size="small" color="#3b82f6" />
+              <Text className="mt-3 text-sm text-gray-600">
+                Loading services...
+              </Text>
             </View>
-          )}
+          ) : services.length === 0 ? (
+            <View className="py-12 items-center">
+              <Text className="text-5xl mb-3">📭</Text>
+              <Text className="text-lg font-semibold text-gray-500 mb-1">
+                No services available
+              </Text>
+            </View>
+          ) : (
+            services.map((service, index) => (
+              <View 
+                key={service.id}
+                className={index < services.length - 1 ? "mb-4" : ""}
+              >
+                <View className="border-2 border-gray-200 rounded-xl p-4">
+                  <Text className="text-lg font-bold text-gray-900 mb-2">
+                    {service.serviceName}
+                  </Text>
 
-          {/* Hours */}
-          {business.hours && (
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>🕒 Hours</Text>
-              <Text style={styles.infoText}>{business.hours}</Text>
-            </View>
-          )}
+                  <Text className="text-sm text-gray-600 mb-4 leading-5">
+                    {service.description || 'No description provided'}
+                  </Text>
 
-          {/* Description */}
-          {business.description && (
-            <View style={styles.infoSection}>
-              <Text style={styles.infoLabel}>About</Text>
-              <Text style={styles.description}>{business.description}</Text>
-            </View>
-          )}
+                  <View className="bg-purple-50 rounded-lg p-4 mb-4">
+                    <View className="flex-row justify-between items-center">
+                      <View>
+                        <Text className="text-xs font-semibold text-gray-600 mb-1">
+                          PRICE
+                        </Text>
+                        <Text className="text-2xl font-bold text-purple-600">
+                          €{service.price.toFixed(2)}
+                        </Text>
+                      </View>
 
-          {/* Services */}
-          {business.services && business.services.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Services</Text>
-              {business.services.map(renderService)}
-            </View>
-          )}
+                      <View className="items-end">
+                        <Text className="text-xs font-semibold text-gray-600 mb-1">
+                          DURATION
+                        </Text>
+                        <View className="flex-row items-center">
+                          <Text className="text-xl mr-1">⏱️</Text>
+                          <Text className="text-lg font-semibold text-gray-700">
+                            {service.durationMinutes} min
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
 
-          {/* Reviews */}
-          {business.reviews && business.reviews.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Reviews</Text>
-              {business.reviews.map(renderReview)}
-            </View>
+                  {/* Book Button - Navigates to new page */}
+                  <TouchableOpacity
+                    className="bg-purple-600 py-3 rounded-lg active:bg-purple-700"
+                    onPress={() => handleBookService(service)}
+                  >
+                    <Text className="text-white text-center text-base font-semibold">
+                      📅 Book This Service
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
           )}
         </View>
-      </ScrollView>
-
-      {/* Book Now Button */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.bookButton} onPress={handleBookNow}>
-          <Text style={styles.bookButtonText}>Book Now</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorText: { fontSize: 16, color: '#666' },
-  headerImage: { width: '100%', height: 250, backgroundColor: '#f0f0f0' },
-  content: { padding: 20, paddingBottom: 100 },
-  name: { fontSize: 28, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 8 },
-  category: { fontSize: 16, color: '#007AFF', fontWeight: '600', marginBottom: 12 },
-  ratingContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  rating: { fontSize: 16, fontWeight: '600', color: '#333', marginRight: 6 },
-  reviewCount: { fontSize: 14, color: '#999' },
-  infoSection: { marginBottom: 16 },
-  infoLabel: { fontSize: 14, fontWeight: '600', color: '#666', marginBottom: 4 },
-  infoText: { fontSize: 16, color: '#333' },
-  description: { fontSize: 15, color: '#333', lineHeight: 22 },
-  section: { marginTop: 24, paddingTop: 24, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1a1a1a', marginBottom: 16 },
-  serviceItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  serviceInfo: { flex: 1 },
-  serviceName: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 4 },
-  serviceDuration: { fontSize: 14, color: '#999' },
-  servicePrice: { fontSize: 18, fontWeight: 'bold', color: '#007AFF' },
-  reviewItem: { marginBottom: 16, padding: 12, backgroundColor: '#f9f9f9', borderRadius: 8 },
-  reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  reviewerName: { fontSize: 15, fontWeight: '600', color: '#333' },
-  reviewRating: { fontSize: 14, fontWeight: '600', color: '#333' },
-  reviewComment: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 8 },
-  reviewDate: { fontSize: 12, color: '#999' },
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  bookButton: { backgroundColor: '#007AFF', padding: 16, borderRadius: 10, alignItems: 'center', shadowColor: '#007AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8 },
-  bookButtonText: { color: '#fff', fontSize: 18, fontWeight: '600' },
-});
 
 export default BusinessDetailScreen;
