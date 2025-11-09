@@ -8,6 +8,7 @@ const Settings = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [businessId, setBusinessId] = useState(null);
 
     // Business Profile State
     const [profileData, setProfileData] = useState({
@@ -33,27 +34,36 @@ const Settings = () => {
     });
 
     useEffect(() => {
-        fetchBusinessData();
-    }, []);
+        if (user?.id) {
+            fetchBusinessData();
+        }
+    }, [user]);
 
     const fetchBusinessData = async () => {
         try {
+            console.log('Fetching business for user:', user.id);
             const response = await api.get(`/businesses/owner/${user.id}`);
+            console.log('Business data response:', response.data);
+            
             if (response.data && response.data.length > 0) {
                 const business = response.data[0];
+                setBusinessId(business.id);
                 setProfileData({
                     businessName: business.name || '',
                     description: business.description || '',
                     category: business.category || '',
                     location: business.location || '',
                     address: business.address || '',
-                    phoneNumber: business.phoneNumber || '',
-                    email: business.email || '',
+                    phoneNumber: business.phoneNumber || business.contactNumber || '',
+                    email: business.email || business.businessemail || '',
                     website: business.website || ''
                 });
+            } else {
+                setError('No business found. Please complete business setup first.');
             }
         } catch (err) {
             console.error('Error fetching business data:', err);
+            setError('Unable to load business data. Please try again later.');
         }
     };
 
@@ -70,15 +80,22 @@ const Settings = () => {
 
     const handleSaveProfile = async (e) => {
         e.preventDefault();
+        
+        if (!businessId) {
+            setError('No business found. Please complete business setup first.');
+            return;
+        }
+        
         setLoading(true);
         setError('');
         setMessage('');
 
         try {
-            await api.put(`/businesses/${user.businessId}`, profileData);
+            await api.put(`/businesses/${businessId}`, profileData);
             setMessage('✅ Business profile updated successfully!');
             setTimeout(() => setMessage(''), 3000);
         } catch (err) {
+            console.error('Error updating profile:', err);
             setError('❌ Failed to update profile. Please try again.');
         } finally {
             setLoading(false);
@@ -87,15 +104,22 @@ const Settings = () => {
 
     const handleSaveHours = async (e) => {
         e.preventDefault();
+        
+        if (!businessId) {
+            setError('No business found. Please complete business setup first.');
+            return;
+        }
+        
         setLoading(true);
         setError('');
         setMessage('');
 
         try {
-            await api.put(`/businesses/${user.businessId}/hours`, { hours: hoursData });
+            await api.put(`/businesses/${businessId}/hours`, { hours: hoursData });
             setMessage('✅ Business hours updated successfully!');
             setTimeout(() => setMessage(''), 3000);
         } catch (err) {
+            console.error('Error updating hours:', err);
             setError('❌ Failed to update hours. Please try again.');
         } finally {
             setLoading(false);
@@ -107,7 +131,7 @@ const Settings = () => {
             <div className="max-w-6xl mx-auto p-8">
                 <h1 className="text-3xl font-bold mb-8">Business Settings</h1>
 
-                {/* Tabs - ONLY 2 NOW */}
+                {/* Tabs */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                     <div className="flex border-b">
                         <button
@@ -282,7 +306,7 @@ const Settings = () => {
 
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || !businessId}
                                     className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400"
                                 >
                                     {loading ? 'Saving...' : 'Save Business Profile'}
@@ -340,7 +364,7 @@ const Settings = () => {
 
                                 <button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || !businessId}
                                     className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400"
                                 >
                                     {loading ? 'Saving...' : 'Save Business Hours'}

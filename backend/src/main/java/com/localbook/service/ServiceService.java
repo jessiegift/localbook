@@ -8,8 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.Optional;
 
-@org.springframework.stereotype.Service  // use fully-qualified name to avoid import collision
+@org.springframework.stereotype.Service
 public class ServiceService {
+    
     @Autowired
     private ServiceRepository serviceRepository;
     
@@ -26,7 +27,7 @@ public class ServiceService {
         }
         
         // Check if service name already exists for this business
-        if (serviceRepository.existsByServiceNameAndBusinessId(
+        if (serviceRepository.existsByServiceNameAndBusiness_Id(
                 service.getServiceName(), businessId)) {
             throw new IllegalArgumentException(
                 "Service with this name already exists for this business.");
@@ -50,7 +51,7 @@ public class ServiceService {
     
     // Get all services offered by a specific business
     public List<Service> getServicesByBusiness(Long businessId) {
-        return serviceRepository.findByBusinessId(businessId);
+        return serviceRepository.findByBusiness_Id(businessId);
     }
     
     // Search services by name
@@ -110,4 +111,3 @@ public class ServiceService {
         serviceRepository.deleteById(id);
     }
 }
-

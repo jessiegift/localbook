@@ -48,7 +48,7 @@ public class Appointment {
     public Appointment() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        this.status = AppointmentStatus.PENDING;
+        
     }
     
     // Constructor with parameters
@@ -58,7 +58,6 @@ public class Appointment {
         this.business = business;
         this.service = service;
         this.appointmentDateTime = appointmentDateTime;
-        this.status = AppointmentStatus.PENDING;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }

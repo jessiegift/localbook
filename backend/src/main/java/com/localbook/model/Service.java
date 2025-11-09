@@ -1,5 +1,6 @@
 package com.localbook.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
@@ -16,20 +17,24 @@ public class Service {
     private Long id;
     
     @Column(nullable = false)
-    private String serviceName;  // "Men's Haircut", "Deep Tissue Massage"
+    private String serviceName;
     
     @Column(nullable = false)
-    private Integer durationMinutes;  // 30, 60, 90 minutes
+    private Integer durationMinutes;
     
     @Column(nullable = false)
-    private Double price;  // 25.00, 50.00
+    private Double price;
     
     @ManyToOne
     @JoinColumn(name = "business_id", nullable = false)
-    private Business business;  // Which business offers this service
+    @JsonIgnore
+    private Business business;
+    
+    @Transient
+    private Long businessId;
     
     @Column(length = 500)
-    private String description;  // Optional description of the service
+    private String description;
     
     @CreatedDate
     @Column(nullable = false, updatable = false)
@@ -38,13 +43,12 @@ public class Service {
     @LastModifiedDate
     private LocalDateTime updatedAt;
     
-    // Default Constructor
+    // Constructors
     public Service() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
     
-    // Constructor with parameters
     public Service(String serviceName, Integer durationMinutes, Double price, Business business) {
         this.serviceName = serviceName;
         this.durationMinutes = durationMinutes;
@@ -93,6 +97,14 @@ public class Service {
     
     public void setBusiness(Business business) {
         this.business = business;
+    }
+    
+    public Long getBusinessId() {
+        return business != null ? business.getId() : businessId;
+    }
+    
+    public void setBusinessId(Long businessId) {
+        this.businessId = businessId;
     }
     
     public String getDescription() {

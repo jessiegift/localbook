@@ -9,7 +9,7 @@ import java.util.List;
 public interface ServiceRepository extends JpaRepository<Service, Long> {
     
     // Find all services offered by a specific business
-    List<Service> findByBusinessId(Long businessId);
+    List<Service> findByBusiness_Id(Long businessId);
     
     // Find services by name (search)
     List<Service> findByServiceNameContainingIgnoreCase(String keyword);
@@ -24,8 +24,8 @@ public interface ServiceRepository extends JpaRepository<Service, Long> {
     List<Service> findByDurationMinutes(Integer duration);
     
     // Find services by business and price range
-    List<Service> findByBusinessIdAndPriceBetween(Long businessId, Double minPrice, Double maxPrice);
+    List<Service> findByBusiness_IdAndPriceBetween(Long businessId, Double minPrice, Double maxPrice);
     
     // Check if a service name exists for a specific business
-    boolean existsByServiceNameAndBusinessId(String serviceName, Long businessId);
+    boolean existsByServiceNameAndBusiness_Id(String serviceName, Long businessId);
 }

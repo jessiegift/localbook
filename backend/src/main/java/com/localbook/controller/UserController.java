@@ -15,7 +15,13 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(
+    origins = {
+        "http://localhost:5173",      // for your web frontend
+        "http://192.168.1.15:8081"    // for React Native (Metro or emulator)
+    },
+    allowedHeaders = "*"
+)
 public class UserController {
     
     @Autowired

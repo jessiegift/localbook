@@ -1,5 +1,4 @@
 package com.localbook.service;
-import com.localbook.model.AppointmentStatus;
 import com.localbook.model.*;
 import com.localbook.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,49 +23,50 @@ public class AppointmentService {
     private ServiceRepository serviceRepository;
     
     // Create a new appointment (Client books)
-    public Appointment createAppointment(Long clientId, Long businessId, 
-                                        Long serviceId, LocalDateTime dateTime, String notes) {
-        // Verify client exists
-        Optional<User> client = userRepository.findById(clientId);
-        if (client.isEmpty() || client.get().getRole() != UserRole.CLIENT) {
-            throw new IllegalArgumentException("Invalid client ID");
-        }
-        
-        // Verify business exists and is approved
-        Optional<Business> business = businessRepository.findById(businessId);
-        if (business.isEmpty() || !business.get().isApproved()) {
-            throw new IllegalArgumentException("Business not found or not approved");
-        }
-        
-        // Verify service exists and belongs to this business
-        Optional<com.localbook.model.Service> service = serviceRepository.findById(serviceId);
-        if (service.isEmpty() || !service.get().getBusiness().getId().equals(businessId)) {
-            throw new IllegalArgumentException("Service not found or doesn't belong to this business");
-        }
-        
-        // Check if appointment time is in the future
-        if (dateTime.isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Cannot book appointments in the past");
-        }
-        
-        // Check if time slot is already taken
-        if (appointmentRepository.existsByBusinessIdAndAppointmentDateTime(businessId, dateTime)) {
-            throw new IllegalArgumentException("This time slot is already booked");
-        }
-        
-        // Check if client already has an appointment at this time
-        if (appointmentRepository.existsByClientIdAndAppointmentDateTime(clientId, dateTime)) {
-            throw new IllegalArgumentException("You already have an appointment at this time");
-        }
+    // Create a new appointment (Client books)
+public Appointment createAppointment(Long clientId, Long businessId, 
+                                    Long serviceId, LocalDateTime dateTime, String notes) {
+    // Verify client exists
+    Optional<User> client = userRepository.findById(clientId);
+    if (client.isEmpty() || client.get().getRole() != UserRole.CLIENT) {
+        throw new IllegalArgumentException("Invalid client ID");
+    }
+    
+    // Verify business exists and is approved
+    Optional<Business> business = businessRepository.findById(businessId);
+    if (business.isEmpty() || !business.get().isApproved()) {
+        throw new IllegalArgumentException("Business not found or not approved");
+    }
+    
+    // Verify service exists and belongs to this business
+    Optional<com.localbook.model.Service> service = serviceRepository.findById(serviceId);
+    if (service.isEmpty() || !service.get().getBusiness().getId().equals(businessId)) {
+        throw new IllegalArgumentException("Service not found or doesn't belong to this business");
+    }
+    
+    // Check if appointment time is in the future
+    if (dateTime.isBefore(LocalDateTime.now())) {
+        throw new IllegalArgumentException("Cannot book appointments in the past");
+    }
+    
+    // Check if time slot is already taken
+    if (appointmentRepository.existsByBusinessIdAndAppointmentDateTime(businessId, dateTime)) {
+        throw new IllegalArgumentException("This time slot is already booked");
+    }
+    
+    // Check if client already has an appointment at this time
+    if (appointmentRepository.existsByClientIdAndAppointmentDateTime(clientId, dateTime)) {
+        throw new IllegalArgumentException("You already have an appointment at this time");
+    }
         
         // Create appointment
         Appointment appointment = new Appointment();
         appointment.setClient(client.get());
         appointment.setBusiness(business.get());
+        appointment.setStatus(AppointmentStatus.CONFIRMED);// Auto-confirmed upon booking
         appointment.setService(service.get());
         appointment.setAppointmentDateTime(dateTime);
         appointment.setNotes(notes);
-        appointment.setStatus(AppointmentStatus.PENDING);
         
         return appointmentRepository.save(appointment);
     }
@@ -200,7 +200,6 @@ public class AppointmentService {
         }
         
         appt.setAppointmentDateTime(newDateTime);
-        appt.setStatus(AppointmentStatus.PENDING);  // Reset to pending
         
         return appointmentRepository.save(appt);
     }

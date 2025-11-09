@@ -22,10 +22,16 @@ public class Business {
     private String ownerName;  // Owner's full name
     
     @Column(nullable = false)
-    private String address;  // "123 Main Street, Waterford"
+    private String address;  // "123 Tullow Street"
     
     @Column(nullable = false)
-    private String location;  // "Waterford", "Carlow", "Dublin"
+    private String town;     // Default: "Carlow"
+
+    @Column(nullable = false)
+    private String county;   // Default: "Carlow"
+
+    @Column(nullable = false)
+     private String eircode;  // "R93 F7W3"
     
     @Column(nullable = false)
     private String category;  // "Beauty Salon", "Barber Shop", "Pet Grooming"
@@ -41,6 +47,15 @@ public class Business {
     
     @Column(length = 1000)
     private String description;  // About the business
+
+    @Column(name = "latitude")
+    private Double lat;  // For map display
+    
+    @Column(name = "longitude")
+    private Double lng;  // For map display
+
+    @Column(nullable = true)
+    private String location; // Optional location descriptor, used by getLocation()/setLocation()
     
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
@@ -58,15 +73,18 @@ public class Business {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
-    
     // Constructor with parameters
     public Business(String businessName, String ownerName, String address, 
-                    String location, String category, String phoneNumber, 
+                    String location, String town, String county, String eircode,
+                    String category, String phoneNumber, 
                     String email, User owner) {
         this.businessName = businessName;
         this.ownerName = ownerName;
         this.address = address;
         this.location = location;
+        this.town = town;
+        this.county = county;
+        this.eircode = eircode;
         this.category = category;
         this.phoneNumber = phoneNumber;
         this.email = email;

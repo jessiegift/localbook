@@ -1,114 +1,205 @@
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from "react";
+import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import AdminDashboard from "./AdminDashboard";
+import AllBusinesses from "./AllBusinesses";
+import BusinessDetails from "./BusinessDetails";
+import AllUsers from "./AllUsers";
+import Reports from "./Reports";
+import Disputes from "./Disputes";
+import Categories from "./Categories";
+import PlatformSettings from "./PlatformSettings";
+import Pending from "./Pending"; // ✅ updated import name and file path
+
 function AdminApp() {
-    const { user, logout } = useAuth();
-    const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [showDropdown, setShowDropdown] = useState(false);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/login');
-    };
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
-    return (
-        <div className="flex min-h-screen bg-gray-100">
-            {/* Sidebar */}
-            <aside className="w-64 bg-white shadow-lg">
-                <div className="p-6">
-                    <h2 className="text-2xl font-bold text-gray-800">LocalBook</h2>
-                    <p className="text-sm text-gray-600 mt-2">Admin Panel</p>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Navigation Bar */}
+      <header className="bg-white border-b-2 border-gray-200 shadow-sm sticky top-0 z-50">
+        <div className="px-8 py-4">
+          <div className="flex items-center justify-between">
+            {/* Left: Logo */}
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-gray-900">📚 LocalBook Carlow</h1>
+              <span className="px-3 py-1 bg-red-500 text-white text-xs font-semibold rounded-full">
+                ADMIN
+              </span>
+            </div>
+
+            {/* Center: Nav Links */}
+            <nav className="flex gap-2">
+              <NavLink
+                to="/admin"
+                end
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                📊 Dashboard
+              </NavLink>
+
+              <NavLink
+                to="/admin/businesses"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                🏢 Businesses
+              </NavLink>
+
+              <NavLink
+                to="/admin/pending"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                ⏳ Pending
+              </NavLink>
+
+              <NavLink
+                to="/admin/users"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                👥 Users
+              </NavLink>
+
+              <NavLink
+                to="/admin/disputes"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                ⚖️ Disputes
+              </NavLink>
+
+              <NavLink
+                to="/admin/categories"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                🏷️ Categories
+              </NavLink>
+
+              <NavLink
+                to="/admin/reports"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                📈 Analytics
+              </NavLink>
+
+              <NavLink
+                to="/admin/settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
+                    isActive
+                      ? "bg-red-100 text-red-600"
+                      : "text-gray-700 hover:bg-gray-100"
+                  }`
+                }
+              >
+                ⚙️ Settings
+              </NavLink>
+            </nav>
+
+            {/* Right: User Menu */}
+            <div className="relative">
+              <button
+                onClick={() => setShowDropdown(!showDropdown)}
+                className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 transition"
+              >
+                <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
+                  {user?.name?.charAt(0) || "A"}
                 </div>
-                
-                <nav className="mt-6">
-                    <Link 
-                        to="/admin" 
-                        className="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                    >
-                        📊 Dashboard
-                    </Link>
-                    
-                    <Link 
-                        to="/admin/businesses" 
-                        className="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                    >
-                        🏢 Manage Businesses
-                    </Link>
-                    
-                    <Link 
-                        to="/admin/users" 
-                        className="flex items-center px-6 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600"
-                    >
-                        👥 Manage Users
-                    </Link>
-                </nav>
-                
-                <div className="absolute bottom-0 w-64 p-6 border-t">
-                    <div className="flex items-center mb-4">
-                        <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {user?.name?.charAt(0)}
-                        </div>
-                        <div className="ml-3">
-                            <p className="text-sm font-medium">{user?.name}</p>
-                            <p className="text-xs text-gray-500">Admin</p>
-                        </div>
-                    </div>
-                    <button 
-                        onClick={handleLogout}
-                        className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600"
-                    >
-                        Logout
-                    </button>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {user?.name || "Admin User"}
+                  </p>
+                  <p className="text-xs text-red-600">Administrator</p>
                 </div>
-            </aside>
+                <span className="text-gray-400 text-sm">▼</span>
+              </button>
 
-            {/* Main Content */}
-            <main className="flex-1 p-8">
-                <Routes>
-                    <Route path="/" element={<AdminDashboard />} />
-                    <Route path="/businesses" element={<ManageBusinesses />} />
-                    <Route path="/users" element={<ManageUsers />} />
-                </Routes>
-            </main>
+              {showDropdown && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition font-medium flex items-center gap-2"
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-    );
+      </header>
+
+      {/* Main Content */}
+      <main className="w-full">
+        <Routes>
+          <Route path="/" element={<AdminDashboard />} />
+          <Route path="/businesses" element={<AllBusinesses />} />
+          <Route path="/businesses/:id" element={<BusinessDetails />} />
+          <Route path="/pending" element={<Pending />} /> {/* ✅ updated route */}
+          <Route path="/users" element={<AllUsers />} />
+          <Route path="/disputes" element={<Disputes />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/reports" element={<Reports />} />
+          <Route path="/settings" element={<PlatformSettings />} />
+        </Routes>
+      </main>
+
+      {/* Overlay to close dropdown */}
+      {showDropdown && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setShowDropdown(false)}
+        ></div>
+      )}
+    </div>
+  );
 }
-
-// Placeholder components
-const AdminDashboard = () => (
-    <div>
-        <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
-        <div className="grid grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold">Total Users</h3>
-                <p className="text-3xl font-bold text-blue-600 mt-2">150</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold">Total Businesses</h3>
-                <p className="text-3xl font-bold text-green-600 mt-2">45</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-                <h3 className="text-lg font-semibold">Pending Approvals</h3>
-                <p className="text-3xl font-bold text-orange-600 mt-2">8</p>
-            </div>
-        </div>
-    </div>
-);
-
-const ManageBusinesses = () => (
-    <div>
-        <h1 className="text-3xl font-bold mb-6">Manage Businesses</h1>
-        <div className="bg-white rounded-lg shadow p-6">
-            <p>Business management coming soon...</p>
-        </div>
-    </div>
-);
-
-const ManageUsers = () => (
-    <div>
-        <h1 className="text-3xl font-bold mb-6">Manage Users</h1>
-        <div className="bg-white rounded-lg shadow p-6">
-            <p>User management coming soon...</p>
-        </div>
-    </div>
-);
 
 export default AdminApp;
