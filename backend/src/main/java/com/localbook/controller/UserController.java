@@ -1,8 +1,10 @@
 package com.localbook.controller;
 import com.localbook.dto.LoginRequest;
+import com.localbook.dto.UserResponseDTO;
 import com.localbook.model.User;
 import com.localbook.model.UserRole;
 import com.localbook.service.UserService;
+import com.localbook.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,9 @@ public class UserController {
     @Autowired
     private UserService userService;
     
+    @Autowired
+    private JwtUtil jwtUtil;
+    
     // Register a new client
     @PostMapping("/register/client")
     public ResponseEntity<User> registerClient(@RequestBody User user) {
@@ -49,41 +54,37 @@ public class UserController {
         }
     }
     
-    // Login (basic - improve with JWT later)
-    /* 
+    // Login with JWT token generation
     @PostMapping("/login")
-    public ResponseEntity<User> login(@RequestParam String email, @RequestParam String password) {
-        Optional<User> user = userService.login(email, password);
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        Optional<User> userOptional = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
         
-        if (user.isPresent()) {
-            return new ResponseEntity<>(user.get(), HttpStatus.OK);
+        if (userOptional.isPresent()) {
+            User foundUser = userOptional.get();
+            
+            // Generate JWT token
+            String token = jwtUtil.generateToken(
+                foundUser.getId(), 
+                foundUser.getEmail(), 
+                foundUser.getRole().toString()
+            );
+            
+            // Create response without password
+            UserResponseDTO userResponse = new UserResponseDTO(foundUser);
+            
+            // Create response object
+            Map<String, Object> response = new HashMap<>();
+            response.put("user", userResponse);
+            response.put("token", token);
+            
+            return new ResponseEntity<>(response, HttpStatus.OK);
         } else {
-            return new ResponseEntity<>(null, HttpStatus.UNAUTHORIZED);
+            return new ResponseEntity<>(
+                Map.of("message", "Invalid email or password"), 
+                HttpStatus.UNAUTHORIZED
+            );
         }
     }
-    */
-    @PostMapping("/login")
-public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-    Optional<User> user = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
-    
-    if (user.isPresent()) {
-        User foundUser = user.get();
-        
-        // Create response object
-        Map<String, Object> response = new HashMap<>();
-        response.put("user", foundUser);
-        // response.put("token", jwtToken); // Add token if you're using JWT
-        
-        return new ResponseEntity<>(response, HttpStatus.OK);
-    } else {
-        return new ResponseEntity<>(
-            Map.of("message", "Invalid email or password"), 
-            HttpStatus.UNAUTHORIZED
-        );
-    }
-
-    
-}
 
 
 
