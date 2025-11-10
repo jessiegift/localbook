@@ -92,23 +92,54 @@ const BookAppointment = ({ route, navigation }) => {
   };
 
   const handleBooking = async () => {
-    if (!selectedTime) {
-      Alert.alert('Missing Information', 'Please select a time slot');
-      return;
-    }
+  console.log('🎯 === BOOKING PROCESS STARTED ===');
+  
+  // Check if user is logged in
+  if (!user) {
+    console.log('❌ User is not logged in');
+    Alert.alert(
+      'Login Required',
+      'Please login to book an appointment',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Login',
+          onPress: () => navigation.navigate('Login')
+        }
+      ]
+    );
+    return;
+  }
 
-    // Check if we have necessary data
-    if (!user || !user.id) {
-      Alert.alert('Error', 'User information not found. Please restart the app.');
-      console.error('❌ User is undefined:', user);
-      return;
-    }
+  // Check if token exists
+  if (!token) {
+    console.log('❌ Token is undefined');
+    console.log('Error Stack:', new Error().stack);
+    Alert.alert(
+      'Session Expired',
+      'Please login again to continue',
+      [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Login')
+        }
+      ]
+    );
+    return;
+  }
 
-    if (!token) {
-      Alert.alert('Error', 'Authentication token missing. Please log in again.');
-      console.error('❌ Token is undefined');
-      return;
-    }
+  console.log('✅ User ID:', user.id);
+  console.log('✅ Token exists:', token ? 'Yes' : 'No');
+  console.log('📋 User data:', user);
+
+  // Rest of your booking code...
+  if (!selectedDate || !selectedTime) {
+    Alert.alert('Error', 'Please select date and time');
+    return;
+  }
 
     console.log('🔍 DEBUG - User info:', {
       userId: user.id,
