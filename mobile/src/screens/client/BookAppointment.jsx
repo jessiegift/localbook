@@ -13,237 +13,414 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 
-const BookAppointment = ({ route, navigation }) => {
-  const { business, service } = route.params;
-  const { user, token } = useAuth();
+const BookAppointment = function(props) {
+  const route = props.route;
+  const navigation = props.navigation;
+  const business = route.params.business;
+  const service = route.params.service;
+  const authContext = useAuth();
+  const user = authContext.user;
+  const token = authContext.token;
 
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [tempDate, setTempDate] = useState(new Date()); // Temporary date for modal
-  const [selectedTime, setSelectedTime] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [notes, setNotes] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const selectedDateState = useState(new Date());
+  const selectedDate = selectedDateState[0];
+  const setSelectedDate = selectedDateState[1];
 
-  useEffect(() => {
+  const tempDateState = useState(new Date());
+  const tempDate = tempDateState[0];
+  const setTempDate = tempDateState[1];
+
+  const selectedTimeState = useState(null);
+  const selectedTime = selectedTimeState[0];
+  const setSelectedTime = selectedTimeState[1];
+
+  const showDatePickerState = useState(false);
+  const showDatePicker = showDatePickerState[0];
+  const setShowDatePicker = showDatePickerState[1];
+
+  const availableSlotsState = useState([]);
+  const availableSlots = availableSlotsState[0];
+  const setAvailableSlots = availableSlotsState[1];
+
+  const notesState = useState('');
+  const notes = notesState[0];
+  const setNotes = notesState[1];
+
+  const loadingState = useState(false);
+  const loading = loadingState[0];
+  const setLoading = loadingState[1];
+
+  const submittingState = useState(false);
+  const submitting = submittingState[0];
+  const setSubmitting = submittingState[1];
+
+  useEffect(function() {
     generateTimeSlots();
   }, [selectedDate]);
 
-  const generateTimeSlots = () => {
+  const generateTimeSlots = function() {
     const slots = [];
     const startHour = 9;
     const endHour = 18;
 
-    for (let hour = startHour; hour < endHour; hour++) {
-      slots.push(hour.toString().padStart(2, '0') + ':00');
-      slots.push(hour.toString().padStart(2, '0') + ':30');
+    let hour = startHour;
+    while (hour < endHour) {
+      const hourString = hour.toString();
+      const paddedHourString = hourString.padStart(2, '0');
+      const slot1 = paddedHourString + ':00';
+      const slot2 = paddedHourString + ':30';
+      slots.push(slot1);
+      slots.push(slot2);
+      hour = hour + 1;
     }
     
     setAvailableSlots(slots);
   };
 
-  const handleOpenDatePicker = () => {
+  const handleOpenDatePicker = function() {
     setTempDate(selectedDate);
     setShowDatePicker(true);
   };
 
-  const handleDateChange = (event, date) => {
-    if (Platform.OS === 'android') {
+  const handleDateChange = function(event, date) {
+    const platformOS = Platform.OS;
+    const isAndroid = platformOS === 'android';
+    
+    if (isAndroid === true) {
       setShowDatePicker(false);
       
-      if (event.type === 'set' && date) {
+      const eventType = event.type;
+      const isSetEvent = eventType === 'set';
+      const hasDate = date !== null && date !== undefined;
+      
+      if (isSetEvent === true && hasDate === true) {
         setSelectedDate(date);
         setSelectedTime(null);
       }
     } else {
-      // iOS - update temp date as user scrolls
-      if (date) {
+      const hasDate = date !== null && date !== undefined;
+      if (hasDate === true) {
         setTempDate(date);
       }
     }
   };
 
-  const handleConfirmDate = () => {
+  const handleConfirmDate = function() {
     setSelectedDate(tempDate);
     setSelectedTime(null);
     setShowDatePicker(false);
   };
 
-  const handleCancelDate = () => {
+  const handleCancelDate = function() {
     setShowDatePicker(false);
   };
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-US', {
+  const formatDate = function(date) {
+    const formattedDate = date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+    return formattedDate;
   };
 
-  const formatTime12Hour = (time24) => {
-    const [hours, minutes] = time24.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+  const formatTime12Hour = function(time24) {
+    const parts = time24.split(':');
+    const hours = parts[0];
+    const minutes = parts[1];
+    const hourNumber = parseInt(hours);
+    
+    let ampm = 'AM';
+    const isAfternoon = hourNumber >= 12;
+    if (isAfternoon === true) {
+      ampm = 'PM';
+    }
+    
+    let hour12 = hourNumber % 12;
+    const isMidnight = hour12 === 0;
+    if (isMidnight === true) {
+      hour12 = 12;
+    }
+    
+    const formattedTime = hour12.toString() + ':' + minutes + ' ' + ampm;
+    return formattedTime;
   };
 
-  const handleBooking = async () => {
-  console.log('🎯 === BOOKING PROCESS STARTED ===');
-  
-  // Check if user is logged in
-  if (!user) {
-    console.log('❌ User is not logged in');
-    Alert.alert(
-      'Login Required',
-      'Please login to book an appointment',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Login',
-          onPress: () => navigation.navigate('Login')
-        }
-      ]
-    );
-    return;
-  }
+  const handleBooking = async function() {
+    console.log('🎯 === BOOKING PROCESS STARTED ===');
+    
+    const hasUser = user !== null && user !== undefined;
+    if (hasUser === false) {
+      console.log('❌ User is not logged in');
+      Alert.alert(
+        'Login Required',
+        'Please login to book an appointment',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          },
+          {
+            text: 'Login',
+            onPress: function() {
+              navigation.navigate('Login');
+            }
+          }
+        ]
+      );
+      return;
+    }
 
-  // Check if token exists
-  if (!token) {
-    console.log('❌ Token is undefined');
-    console.log('Error Stack:', new Error().stack);
-    Alert.alert(
-      'Session Expired',
-      'Please login again to continue',
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('Login')
-        }
-      ]
-    );
-    return;
-  }
+    const hasToken = token !== null && token !== undefined;
+    if (hasToken === false) {
+      console.log('❌ Token is undefined');
+      const error = new Error();
+      const errorStack = error.stack;
+      console.log('Error Stack:', errorStack);
+      Alert.alert(
+        'Session Expired',
+        'Please login again to continue',
+        [
+          {
+            text: 'OK',
+            onPress: function() {
+              navigation.navigate('Login');
+            }
+          }
+        ]
+      );
+      return;
+    }
 
-  console.log('✅ User ID:', user.id);
-  console.log('✅ Token exists:', token ? 'Yes' : 'No');
-  console.log('📋 User data:', user);
+    const userId = user.id;
+    console.log('✅ User ID:', userId);
+    
+    let tokenExists = 'No';
+    if (hasToken === true) {
+      tokenExists = 'Yes';
+    }
+    console.log('✅ Token exists:', tokenExists);
+    console.log('📋 User data:', user);
 
-  // Rest of your booking code...
-  if (!selectedDate || !selectedTime) {
-    Alert.alert('Error', 'Please select date and time');
-    return;
-  }
+    const hasSelectedDate = selectedDate !== null && selectedDate !== undefined;
+    const hasSelectedTime = selectedTime !== null && selectedTime !== undefined;
+    
+    const hasBothDateAndTime = hasSelectedDate === true && hasSelectedTime === true;
+    if (hasBothDateAndTime === false) {
+      Alert.alert('Error', 'Please select date and time');
+      return;
+    }
 
-    console.log('🔍 DEBUG - User info:', {
-      userId: user.id,
-      userName: user.name,
-      userEmail: user.email,
-      hasToken: !!token
-    });
+    const userName = user.name;
+    const userEmail = user.email;
+    const hasTokenBool = token !== null && token !== undefined;
+    
+    const userInfo = {
+      userId: userId,
+      userName: userName,
+      userEmail: userEmail,
+      hasToken: hasTokenBool
+    };
+    console.log('🔍 DEBUG - User info:', userInfo);
 
-    console.log('🔍 DEBUG - Business info:', {
-      businessId: business.id,
-      businessName: business.businessName || business.name
-    });
+    let businessName = business.name;
+    const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
+    if (hasBusinessName === true) {
+      businessName = business.businessName;
+    }
 
-    console.log('🔍 DEBUG - Service info:', {
-      serviceId: service.id,
-      serviceName: service.serviceName || service.name,
-      servicePrice: service.price
-    });
+    const businessId = business.id;
+    const businessInfo = {
+      businessId: businessId,
+      businessName: businessName
+    };
+    console.log('🔍 DEBUG - Business info:', businessInfo);
+
+    let serviceName = service.name;
+    const hasServiceName = service.serviceName !== null && service.serviceName !== undefined;
+    if (hasServiceName === true) {
+      serviceName = service.serviceName;
+    }
+
+    const serviceId = service.id;
+    const servicePrice = service.price;
+    const serviceInfo = {
+      serviceId: serviceId,
+      serviceName: serviceName,
+      servicePrice: servicePrice
+    };
+    console.log('🔍 DEBUG - Service info:', serviceInfo);
 
     setSubmitting(true);
 
     try {
-      // Format date and time
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const appointmentDateTime = `${dateStr}T${selectedTime}:00`;
+      const dateISOString = selectedDate.toISOString();
+      const dateParts = dateISOString.split('T');
+      const dateStr = dateParts[0];
+      const appointmentDateTime = dateStr + 'T' + selectedTime + ':00';
 
       console.log('🔍 DEBUG - DateTime:', appointmentDateTime);
+      console.log('🔍 DEBUG - Selected Date Object:', selectedDate);
+      console.log('🔍 DEBUG - Selected Time String:', selectedTime);
 
-      // Build the full URL with query parameters
       const baseUrl = 'http://192.168.1.15:8080/api/appointments';
-      const params = [
-        `clientId=${user.id}`,
-        `businessId=${business.id}`,
-        `serviceId=${service.id}`,
-        `dateTime=${encodeURIComponent(appointmentDateTime)}`,
-      ];
+      
+      const userIdParam = 'userId=' + userId.toString();
+      const businessIdParam = 'businessId=' + businessId.toString();
+      const serviceIdParam = 'serviceId=' + serviceId.toString();
+      const encodedDateTime = encodeURIComponent(appointmentDateTime);
+      const dateTimeParam = 'dateTime=' + encodedDateTime;
+      
+      const params = [];
+      params.push(userIdParam);
+      params.push(businessIdParam);
+      params.push(serviceIdParam);
+      params.push(dateTimeParam);
 
-      // Add notes only if not empty
-      if (notes.trim()) {
-        params.push(`notes=${encodeURIComponent(notes.trim())}`);
+      const trimmedNotes = notes.trim();
+      const trimmedNotesLength = trimmedNotes.length;
+      const hasNotes = trimmedNotesLength > 0;
+      
+      if (hasNotes === true) {
+        const encodedNotes = encodeURIComponent(trimmedNotes);
+        const notesParam = 'notes=' + encodedNotes;
+        params.push(notesParam);
       }
 
-      const url = `${baseUrl}?${params.join('&')}`;
+      const paramsString = params.join('&');
+      const url = baseUrl + '?' + paramsString;
       
       console.log('📤 FULL URL:', url);
       console.log('📤 Individual params:');
-      params.forEach(param => console.log('   -', param));
+      
+      let paramIndex = 0;
+      while (paramIndex < params.length) {
+        const param = params[paramIndex];
+        console.log('   -', param);
+        paramIndex = paramIndex + 1;
+      }
 
-      // Send POST request with NO BODY
-      const response = await fetch(url, {
+      const authHeader = 'Bearer ' + token;
+      const requestHeaders = {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      };
+      console.log('📤 Sending request with headers:', requestHeaders);
+
+      const requestOptions = {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+        headers: requestHeaders,
+      };
+      
+      const response = await fetch(url, requestOptions);
 
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response ok:', response.ok);
+      const responseStatus = response.status;
+      const responseStatusText = response.statusText;
+      const isResponseOk = response.ok;
+      
+      console.log('📥 Response status:', responseStatus);
+      console.log('📥 Response statusText:', responseStatusText);
+      console.log('📥 Response ok:', isResponseOk);
 
       const responseText = await response.text();
+      const responseTextLength = responseText.length;
+      
       console.log('📥 Response text:', responseText);
+      console.log('📥 Response text length:', responseTextLength);
 
-      if (response.ok) {
+      if (isResponseOk === true) {
         let data;
         try {
           data = JSON.parse(responseText);
           console.log('✅ Booking successful! Data:', data);
-        } catch (e) {
+        } catch (parseError) {
+          const parseErrorMessage = parseError.message;
           console.log('✅ Booking successful! (no JSON response)');
+          console.log('Parse error:', parseErrorMessage);
         }
         
-        Alert.alert(
-          'Success! ✅',
-          `Your appointment is confirmed for ${formatDate(selectedDate)} at ${formatTime12Hour(selectedTime)}`,
-          [
-            {
-              text: 'View Bookings',
-              onPress: () => navigation.navigate('MyBookings'),
+        const formattedDate = formatDate(selectedDate);
+        const formattedTime = formatTime12Hour(selectedTime);
+        const successMessage = 'Your appointment is confirmed for ' + formattedDate + ' at ' + formattedTime;
+        
+        const newDate = new Date();
+        setSelectedDate(newDate);
+        setSelectedTime(null);
+        setNotes('');
+        
+        const alertButtons = [
+          {
+            text: 'OK',
+            onPress: function() {
+              navigation.goBack();
             },
-            {
-              text: 'Done',
-              onPress: () => navigation.navigate('ClientHome'),
-            },
-          ]
-        );
+          },
+        ];
+        
+        Alert.alert('Success! ✅', successMessage, alertButtons);
       } else {
-        console.error('❌ Booking failed with status:', response.status);
+        console.error('❌ Booking failed with status:', responseStatus);
         console.error('❌ Response text:', responseText);
         
+        const responseHeaders = response.headers;
+        console.error('❌ Response headers:', responseHeaders);
+        
         let errorMessage = 'Failed to book appointment';
-        try {
-          const data = JSON.parse(responseText);
-          errorMessage = data.message || data.error || errorMessage;
-        } catch (e) {
-          // Use response text as error
-          errorMessage = responseText || errorMessage;
+        
+        const isEmpty = responseTextLength === 0;
+        if (isEmpty === true) {
+          errorMessage = 'Server error (' + responseStatus.toString() + '): Empty response. Please check server logs.';
+          console.error('❌ Empty response body from server');
+        } else {
+          try {
+            const errorData = JSON.parse(responseText);
+            console.log('❌ Parsed error data:', errorData);
+            
+            const message = errorData.message;
+            const error = errorData.error;
+            const timestamp = errorData.timestamp;
+            const path = errorData.path;
+            
+            console.log('❌ Error message:', message);
+            console.log('❌ Error type:', error);
+            console.log('❌ Error timestamp:', timestamp);
+            console.log('❌ Error path:', path);
+            
+            const hasMessage = message !== null && message !== undefined;
+            const hasError = error !== null && error !== undefined;
+            
+            if (hasMessage === true) {
+              errorMessage = message;
+            } else if (hasError === true) {
+              errorMessage = error;
+            }
+          } catch (parseError) {
+            const parseErrorMessage = parseError.message;
+            console.error('❌ Failed to parse error response:', parseErrorMessage);
+            
+            const hasResponseText = responseText !== null && responseText !== undefined;
+            const responseTextNotEmpty = responseText.length > 0;
+            const hasValidResponseText = hasResponseText === true && responseTextNotEmpty === true;
+            
+            if (hasValidResponseText === true) {
+              errorMessage = responseText;
+            }
+          }
         }
         
         Alert.alert('Booking Failed', errorMessage);
       }
     } catch (error) {
+      const errorMessage = error.message;
+      const errorStack = error.stack;
+      
       console.error('❌ Network Error:', error);
-      console.error('❌ Error details:', error.message);
-      Alert.alert('Error', `Network error: ${error.message}`);
+      console.error('❌ Error details:', errorMessage);
+      console.error('❌ Error stack:', errorStack);
+      
+      const alertMessage = 'Network error: ' + errorMessage;
+      Alert.alert('Error', alertMessage);
     } finally {
       setSubmitting(false);
     }
@@ -251,39 +428,65 @@ const BookAppointment = ({ route, navigation }) => {
 
   const minDate = new Date();
   const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 60);
+  const maxDateDays = maxDate.getDate();
+  const newMaxDateDays = maxDateDays + 60;
+  maxDate.setDate(newMaxDateDays);
+
+  let serviceDisplayName = service.name;
+  const hasServiceName = service.serviceName !== null && service.serviceName !== undefined;
+  if (hasServiceName === true) {
+    serviceDisplayName = service.serviceName;
+  }
+
+  let businessDisplayName = business.name;
+  const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
+  if (hasBusinessName === true) {
+    businessDisplayName = business.businessName;
+  }
+
+  let serviceDuration = service.duration;
+  const hasDurationMinutes = service.durationMinutes !== null && service.durationMinutes !== undefined;
+  if (hasDurationMinutes === true) {
+    serviceDuration = service.durationMinutes;
+  }
+
+  const servicePrice = service.price;
+  const formattedPrice = servicePrice.toFixed(2);
+
+  const hasSelectedTime = selectedTime !== null && selectedTime !== undefined;
+
+  const platformOS = Platform.OS;
+  const isIOS = platformOS === 'ios';
 
   return (
     <View className="flex-1 bg-gray-50">
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header - Service Summary */}
         <View className="bg-blue-500 pt-4 pb-6 px-5">
           <Text className="text-white text-2xl font-bold mb-3">
             Book Appointment
           </Text>
           <View className="bg-white/20 rounded-xl p-4">
             <Text className="text-white text-lg font-bold mb-2">
-              {service.serviceName || service.name}
+              {serviceDisplayName}
             </Text>
             <Text className="text-white/90 text-sm mb-3">
-              at {business.businessName || business.name}
+              at {businessDisplayName}
             </Text>
             <View className="flex-row items-center">
               <View className="bg-white/30 px-3 py-1 rounded-full mr-2">
                 <Text className="text-white font-bold">
-                  €{service.price.toFixed(2)}
+                  €{formattedPrice}
                 </Text>
               </View>
               <View className="bg-white/30 px-3 py-1 rounded-full">
                 <Text className="text-white font-semibold">
-                  {service.durationMinutes || service.duration} min
+                  {serviceDuration} min
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Step 1: Select Date */}
         <View className="px-5 py-5">
           <View className="flex-row items-center mb-4">
             <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
@@ -297,6 +500,7 @@ const BookAppointment = ({ route, navigation }) => {
           <TouchableOpacity
             className="bg-white border-2 border-blue-500 rounded-xl p-4 mb-6 active:bg-blue-50"
             onPress={handleOpenDatePicker}
+            activeOpacity={0.7}
           >
             <Text className="text-center text-base font-semibold text-gray-900">
               📅 {formatDate(selectedDate)}
@@ -306,7 +510,6 @@ const BookAppointment = ({ route, navigation }) => {
             </Text>
           </TouchableOpacity>
 
-          {/* Step 2: Select Time */}
           <View className="flex-row items-center mb-4">
             <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
               <Text className="text-white font-bold">2</Text>
@@ -316,33 +519,49 @@ const BookAppointment = ({ route, navigation }) => {
             </Text>
           </View>
 
-          {loading ? (
+          {loading === true ? (
             <View className="py-8 items-center">
               <ActivityIndicator size="large" color="#3b82f6" />
             </View>
           ) : (
             <View className="bg-white rounded-xl p-4 shadow-sm mb-6">
               <View className="flex-row flex-wrap">
-                {availableSlots.map((time, index) => {
+                {availableSlots.map(function(time, index) {
                   const isSelected = selectedTime === time;
-                  const isLastInRow = (index + 1) % 3 === 0;
+                  const indexPlusOne = index + 1;
+                  const remainder = indexPlusOne % 3;
+                  const isLastInRow = remainder === 0;
+
+                  let buttonBgColor = 'bg-white';
+                  let buttonBorderColor = 'border-gray-300';
+                  let textColor = 'text-gray-700';
+
+                  if (isSelected === true) {
+                    buttonBgColor = 'bg-blue-500';
+                    buttonBorderColor = 'border-blue-500';
+                    textColor = 'text-white';
+                  }
+
+                  let marginRight = '3.5%';
+                  if (isLastInRow === true) {
+                    marginRight = 0;
+                  }
+
+                  const buttonClassName = 'w-[31%] py-3 rounded-lg border-2 mb-3 ' + buttonBgColor + ' ' + buttonBorderColor;
+                  const textClassName = 'text-center font-semibold ' + textColor;
+                  const styleObject = { marginRight: marginRight };
 
                   return (
                     <TouchableOpacity
                       key={index}
-                      className={`w-[31%] py-3 rounded-lg border-2 mb-3 ${
-                        isSelected
-                          ? 'bg-blue-500 border-blue-500'
-                          : 'bg-white border-gray-300'
-                      }`}
-                      style={{ marginRight: isLastInRow ? 0 : '3.5%' }}
-                      onPress={() => setSelectedTime(time)}
+                      className={buttonClassName}
+                      style={styleObject}
+                      onPress={function() {
+                        setSelectedTime(time);
+                      }}
+                      activeOpacity={0.7}
                     >
-                      <Text
-                        className={`text-center font-semibold ${
-                          isSelected ? 'text-white' : 'text-gray-700'
-                        }`}
-                      >
+                      <Text className={textClassName}>
                         {formatTime12Hour(time)}
                       </Text>
                     </TouchableOpacity>
@@ -352,7 +571,7 @@ const BookAppointment = ({ route, navigation }) => {
             </View>
           )}
 
-          {selectedTime && (
+          {hasSelectedTime === true && (
             <View className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl mb-6">
               <Text className="text-blue-800 font-bold text-center text-base">
                 ⏰ Selected: {formatTime12Hour(selectedTime)}
@@ -360,8 +579,7 @@ const BookAppointment = ({ route, navigation }) => {
             </View>
           )}
 
-          {/* Step 3: Add Notes (Optional) */}
-          {selectedTime && (
+          {hasSelectedTime === true && (
             <>
               <View className="flex-row items-center mb-4">
                 <View className="bg-gray-400 w-8 h-8 rounded-full items-center justify-center mr-3">
@@ -386,8 +604,7 @@ const BookAppointment = ({ route, navigation }) => {
             </>
           )}
 
-          {/* Booking Summary */}
-          {selectedTime && (
+          {hasSelectedTime === true && (
             <View className="bg-white rounded-xl p-5 shadow-lg border-2 border-blue-200">
               <Text className="text-xl font-bold text-gray-900 mb-4">
                 📋 Booking Summary
@@ -397,7 +614,7 @@ const BookAppointment = ({ route, navigation }) => {
                 <View className="flex-row justify-between py-2 border-b border-gray-100">
                   <Text className="text-sm text-gray-600">Service</Text>
                   <Text className="text-sm font-semibold text-gray-900">
-                    {service.serviceName || service.name}
+                    {serviceDisplayName}
                   </Text>
                 </View>
 
@@ -418,14 +635,14 @@ const BookAppointment = ({ route, navigation }) => {
                 <View className="flex-row justify-between py-2 border-b border-gray-100">
                   <Text className="text-sm text-gray-600">Duration</Text>
                   <Text className="text-sm font-semibold text-gray-900">
-                    {service.durationMinutes || service.duration} min
+                    {serviceDuration} min
                   </Text>
                 </View>
 
                 <View className="flex-row justify-between py-3 pt-4">
                   <Text className="text-lg font-bold text-gray-900">Total</Text>
                   <Text className="text-2xl font-bold text-blue-600">
-                    €{service.price.toFixed(2)}
+                    €{formattedPrice}
                   </Text>
                 </View>
               </View>
@@ -433,21 +650,18 @@ const BookAppointment = ({ route, navigation }) => {
           )}
         </View>
 
-        {/* Extra space for fixed button */}
         <View className="h-24" />
       </ScrollView>
 
-      {/* Fixed Bottom Button */}
-      {selectedTime && (
+      {hasSelectedTime === true && (
         <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-4">
           <TouchableOpacity
-            className={`py-4 rounded-xl ${
-              submitting ? 'bg-blue-400' : 'bg-blue-600'
-            }`}
+            className={submitting === true ? 'py-4 rounded-xl bg-blue-400' : 'py-4 rounded-xl bg-blue-600'}
             onPress={handleBooking}
             disabled={submitting}
+            activeOpacity={0.7}
           >
-            {submitting ? (
+            {submitting === true ? (
               <View className="flex-row justify-center items-center">
                 <ActivityIndicator size="small" color="#ffffff" />
                 <Text className="text-white text-base font-bold ml-2">
@@ -463,8 +677,7 @@ const BookAppointment = ({ route, navigation }) => {
         </View>
       )}
 
-      {/* Date Picker Modal - Calendar View for Both iOS & Android */}
-      {Platform.OS === 'ios' ? (
+      {isIOS === true ? (
         <Modal
           visible={showDatePicker}
           transparent={true}
@@ -495,7 +708,7 @@ const BookAppointment = ({ route, navigation }) => {
           </View>
         </Modal>
       ) : (
-        showDatePicker && (
+        showDatePicker === true && (
           <DateTimePicker
             value={selectedDate}
             mode="date"

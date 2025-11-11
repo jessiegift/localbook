@@ -1,13 +1,22 @@
 package com.localbook.service;
-import com.localbook.model.*;
-import com.localbook.repository.*;
+
+import com.localbook.model.Appointment;
+import com.localbook.model.AppointmentStatus;
+import com.localbook.model.Business;
+import com.localbook.model.User;
+import com.localbook.model.Service;
+import com.localbook.repository.AppointmentRepository;
+import com.localbook.repository.BusinessRepository;
+import com.localbook.repository.UserRepository;
+import com.localbook.repository.ServiceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-@Service
+@org.springframework.stereotype.Service
 public class AppointmentService {
     
     @Autowired
@@ -22,208 +31,165 @@ public class AppointmentService {
     @Autowired
     private ServiceRepository serviceRepository;
     
-    // Create a new appointment (Client books)
-    // Create a new appointment (Client books)
-public Appointment createAppointment(Long clientId, Long businessId, 
-                                    Long serviceId, LocalDateTime dateTime, String notes) {
-    // Verify client exists
-    Optional<User> client = userRepository.findById(clientId);
-    if (client.isEmpty() || client.get().getRole() != UserRole.CLIENT) {
-        throw new IllegalArgumentException("Invalid client ID");
-    }
-    
-    // Verify business exists and is approved
-    Optional<Business> business = businessRepository.findById(businessId);
-    if (business.isEmpty() || !business.get().isApproved()) {
-        throw new IllegalArgumentException("Business not found or not approved");
-    }
-    
-    // Verify service exists and belongs to this business
-    Optional<com.localbook.model.Service> service = serviceRepository.findById(serviceId);
-    if (service.isEmpty() || !service.get().getBusiness().getId().equals(businessId)) {
-        throw new IllegalArgumentException("Service not found or doesn't belong to this business");
-    }
-    
-    // Check if appointment time is in the future
-    if (dateTime.isBefore(LocalDateTime.now())) {
-        throw new IllegalArgumentException("Cannot book appointments in the past");
-    }
-    
-    // Check if time slot is already taken
-    if (appointmentRepository.existsByBusinessIdAndAppointmentDateTime(businessId, dateTime)) {
-        throw new IllegalArgumentException("This time slot is already booked");
-    }
-    
-    // Check if client already has an appointment at this time
-    if (appointmentRepository.existsByClientIdAndAppointmentDateTime(clientId, dateTime)) {
-        throw new IllegalArgumentException("You already have an appointment at this time");
-    }
+    @Transactional
+    public Appointment createAppointment(Long userId, Long businessId, Long serviceId, 
+                                        LocalDateTime appointmentDateTime, String notes) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
         
-        // Create appointment
+        Business business = businessRepository.findById(businessId)
+            .orElseThrow(() -> new IllegalArgumentException("Business not found with ID: " + businessId));
+        
+        Service service = serviceRepository.findById(serviceId)
+            .orElseThrow(() -> new IllegalArgumentException("Service not found with ID: " + serviceId));
+        
+        if (appointmentDateTime.isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Cannot book appointment in the past");
+        }
+        
         Appointment appointment = new Appointment();
-        appointment.setClient(client.get());
-        appointment.setBusiness(business.get());
-        appointment.setStatus(AppointmentStatus.CONFIRMED);// Auto-confirmed upon booking
-        appointment.setService(service.get());
-        appointment.setAppointmentDateTime(dateTime);
+        appointment.setUser(user);
+        appointment.setBusiness(business);
+        appointment.setService(service);
+        appointment.setAppointmentDateTime(appointmentDateTime);
         appointment.setNotes(notes);
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setCreatedAt(LocalDateTime.now());
+        appointment.setUpdatedAt(LocalDateTime.now());
         
         return appointmentRepository.save(appointment);
     }
     
-    // Get all appointments
     public List<Appointment> getAllAppointments() {
         return appointmentRepository.findAll();
     }
     
-    // Get appointment by ID
     public Optional<Appointment> getAppointmentById(Long id) {
         return appointmentRepository.findById(id);
     }
     
-    // Get all appointments for a client
-    public List<Appointment> getClientAppointments(Long clientId) {
-        return appointmentRepository.findByClientId(clientId);
+    public List<Appointment> getUserAppointments(Long userId) {
+        return appointmentRepository.findByUserId(userId);
     }
     
-    // Get upcoming appointments for a client
-    public List<Appointment> getUpcomingClientAppointments(Long clientId) {
-        return appointmentRepository.findByClientIdAndAppointmentDateTimeAfter(
-            clientId, LocalDateTime.now());
+    public List<Appointment> getUpcomingUserAppointments(Long userId) {
+        LocalDateTime now = LocalDateTime.now();
+        return appointmentRepository.findByUserIdAndAppointmentDateTimeAfterOrderByAppointmentDateTimeAsc(userId, now);
     }
     
-    // Get past appointments for a client
-    public List<Appointment> getPastClientAppointments(Long clientId) {
-        return appointmentRepository.findByClientIdAndAppointmentDateTimeBefore(
-            clientId, LocalDateTime.now());
+    public List<Appointment> getPastUserAppointments(Long userId) {
+        LocalDateTime now = LocalDateTime.now();
+        return appointmentRepository.findByUserIdAndAppointmentDateTimeBeforeOrderByAppointmentDateTimeDesc(userId, now);
     }
     
-    // Get all appointments for a business
     public List<Appointment> getBusinessAppointments(Long businessId) {
         return appointmentRepository.findByBusinessId(businessId);
     }
     
-    // Get upcoming appointments for a business
     public List<Appointment> getUpcomingBusinessAppointments(Long businessId) {
-        return appointmentRepository.findByBusinessIdAndAppointmentDateTimeAfter(
-            businessId, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        return appointmentRepository.findByBusinessIdAndAppointmentDateTimeAfterOrderByAppointmentDateTimeAsc(businessId, now);
     }
     
-    // Get appointments by status
     public List<Appointment> getAppointmentsByStatus(AppointmentStatus status) {
         return appointmentRepository.findByStatus(status);
     }
     
-    // Confirm appointment (Business owner)
+    @Transactional
     public Appointment confirmAppointment(Long appointmentId, Long businessId) {
-        Optional<Appointment> appointment = appointmentRepository.findById(appointmentId);
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (appointment.isEmpty()) {
-            throw new IllegalArgumentException("Appointment not found");
+        if (!appointment.getBusiness().getId().equals(businessId)) {
+            throw new IllegalArgumentException("Unauthorized: You can only confirm appointments for your business");
         }
         
-        Appointment appt = appointment.get();
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setUpdatedAt(LocalDateTime.now());
         
-        // Verify the appointment belongs to this business
-        if (!appt.getBusiness().getId().equals(businessId)) {
-            throw new IllegalArgumentException("You can only confirm your own appointments");
-        }
-        
-        appt.setStatus(AppointmentStatus.CONFIRMED);
-        return appointmentRepository.save(appt);
+        return appointmentRepository.save(appointment);
     }
     
-    // Cancel appointment (Client or Business)
+    @Transactional
     public Appointment cancelAppointment(Long appointmentId, Long userId) {
-        Optional<Appointment> appointment = appointmentRepository.findById(appointmentId);
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (appointment.isEmpty()) {
-            throw new IllegalArgumentException("Appointment not found");
+        boolean isUser = appointment.getUser().getId().equals(userId);
+        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
+        
+        if (!isUser && !isBusiness) {
+            throw new IllegalArgumentException("Unauthorized: You can only cancel your own appointments");
         }
         
-        Appointment appt = appointment.get();
+        appointment.setStatus(AppointmentStatus.CANCELED);
+        appointment.setUpdatedAt(LocalDateTime.now());
         
-        // Verify user is either the client or the business owner
-        boolean isClient = appt.getClient().getId().equals(userId);
-        boolean isBusinessOwner = appt.getBusiness().getOwner().getId().equals(userId);
-        
-        if (!isClient && !isBusinessOwner) {
-            throw new IllegalArgumentException("You don't have permission to cancel this appointment");
-        }
-        
-        appt.setStatus(AppointmentStatus.CANCELED);
-        return appointmentRepository.save(appt);
+        return appointmentRepository.save(appointment);
     }
     
-    // Mark appointment as completed (Business owner)
+    @Transactional
     public Appointment completeAppointment(Long appointmentId, Long businessId) {
-        Optional<Appointment> appointment = appointmentRepository.findById(appointmentId);
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (appointment.isEmpty()) {
-            throw new IllegalArgumentException("Appointment not found");
+        if (!appointment.getBusiness().getId().equals(businessId)) {
+            throw new IllegalArgumentException("Unauthorized: You can only complete appointments for your business");
         }
         
-        Appointment appt = appointment.get();
-        
-        if (!appt.getBusiness().getId().equals(businessId)) {
-            throw new IllegalArgumentException("You can only complete your own appointments");
+        if (appointment.getAppointmentDateTime().isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Cannot complete a future appointment");
         }
         
-        appt.setStatus(AppointmentStatus.COMPLETED);
-        return appointmentRepository.save(appt);
+        appointment.setStatus(AppointmentStatus.COMPLETED);
+        appointment.setUpdatedAt(LocalDateTime.now());
+        
+        return appointmentRepository.save(appointment);
     }
     
-    // Reschedule appointment
+    @Transactional
     public Appointment rescheduleAppointment(Long appointmentId, LocalDateTime newDateTime, Long userId) {
-        Optional<Appointment> appointment = appointmentRepository.findById(appointmentId);
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (appointment.isEmpty()) {
-            throw new IllegalArgumentException("Appointment not found");
+        boolean isUser = appointment.getUser().getId().equals(userId);
+        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
+        
+        if (!isUser && !isBusiness) {
+            throw new IllegalArgumentException("Unauthorized: You can only reschedule your own appointments");
         }
         
-        Appointment appt = appointment.get();
-        
-        // Verify user is the client
-        if (!appt.getClient().getId().equals(userId)) {
-            throw new IllegalArgumentException("Only the client can reschedule");
-        }
-        
-        // Check if new time is in the future
         if (newDateTime.isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Cannot reschedule to past time");
+            throw new IllegalArgumentException("Cannot reschedule appointment to a past date/time");
         }
         
-        // Check if new time slot is available
-        if (appointmentRepository.existsByBusinessIdAndAppointmentDateTime(
-                appt.getBusiness().getId(), newDateTime)) {
-            throw new IllegalArgumentException("This time slot is already booked");
+        if (appointment.getStatus() == AppointmentStatus.CANCELED) {
+            throw new IllegalArgumentException("Cannot reschedule a cancelled appointment");
         }
         
-        appt.setAppointmentDateTime(newDateTime);
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED) {
+            throw new IllegalArgumentException("Cannot reschedule a completed appointment");
+        }
         
-        return appointmentRepository.save(appt);
+        appointment.setAppointmentDateTime(newDateTime);
+        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        appointment.setUpdatedAt(LocalDateTime.now());
+        
+        return appointmentRepository.save(appointment);
     }
     
-    // Delete appointment
+    @Transactional
     public void deleteAppointment(Long appointmentId, Long userId) {
-        Optional<Appointment> appointment = appointmentRepository.findById(appointmentId);
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+            .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (appointment.isEmpty()) {
-            throw new IllegalArgumentException("Appointment not found");
+        boolean isUser = appointment.getUser().getId().equals(userId);
+        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
+        
+        if (!isUser && !isBusiness) {
+            throw new IllegalArgumentException("Unauthorized: You can only delete your own appointments");
         }
         
-        Appointment appt = appointment.get();
-        
-        // Only client or business owner can delete
-        boolean isClient = appt.getClient().getId().equals(userId);
-        boolean isBusinessOwner = appt.getBusiness().getOwner().getId().equals(userId);
-        
-        if (!isClient && !isBusinessOwner) {
-            throw new IllegalArgumentException("You don't have permission to delete this appointment");
-        }
-        
-        appointmentRepository.deleteById(appointmentId);
+        appointmentRepository.delete(appointment);
     }
-
-    
 }

@@ -1,13 +1,10 @@
 package com.localbook.model;
-import com.localbook.model.AppointmentStatus;
+
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.LocalDateTime;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
-@EntityListeners(AuditingEntityListener.class)
 @Table(name = "appointments")
 public class Appointment {
     
@@ -15,56 +12,53 @@ public class Appointment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @ManyToOne
-    @JoinColumn(name = "client_id", nullable = false)
-    private User client;  // The client who booked
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"appointments", "reviews", "favorites", "password"})
+    private User user;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "business_id", nullable = false)
-    private Business business;  // The business where appointment is
+    @JsonIgnoreProperties({"appointments", "services", "reviews", "favorites", "businessHours", "password"})
+    private Business business;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "service_id", nullable = false)
-    private Service service;  // The service being booked
+    @JsonIgnoreProperties({"appointments", "business"})
+    private Service service;
     
-    @Column(nullable = false)
-    private LocalDateTime appointmentDateTime;  // When the appointment is
+    @Column(name = "appointment_date_time", nullable = false)
+    private LocalDateTime appointmentDateTime;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AppointmentStatus status;  // PENDING, CONFIRMED, CANCELLED, COMPLETED
+    private AppointmentStatus status;
     
-    @Column(length = 500)
-    private String notes;  // Optional notes from client
+    @Column(columnDefinition = "TEXT")
+    private String notes;
     
-    @CreatedDate
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;  // When booking was made
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
     
-    @LastModifiedDate
-    private LocalDateTime updatedAt;  // Last modification
-
-    // Default Constructor
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+    
+    // Constructors
     public Appointment() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        
     }
     
-    // Constructor with parameters
-    public Appointment(User client, Business business, Service service, 
-                      LocalDateTime appointmentDateTime) {
-        this.client = client;
+    public Appointment(Long id, User user, Business business, Service service, 
+                      LocalDateTime appointmentDateTime, AppointmentStatus status, 
+                      String notes, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.user = user;
         this.business = business;
         this.service = service;
         this.appointmentDateTime = appointmentDateTime;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-    
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.status = status;
+        this.notes = notes;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
     
     // Getters and Setters
@@ -76,12 +70,12 @@ public class Appointment {
         this.id = id;
     }
     
-    public User getClient() {
-        return client;
+    public User getUser() {
+        return user;
     }
     
-    public void setClient(User client) {
-        this.client = client;
+    public void setUser(User user) {
+        this.user = user;
     }
     
     public Business getBusiness() {
@@ -139,6 +133,18 @@ public class Appointment {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
-
     
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (status == null) {
+            status = AppointmentStatus.CONFIRMED;
+        }
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

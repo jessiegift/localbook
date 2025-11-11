@@ -20,31 +20,28 @@ public class AppointmentController {
     @Autowired
     private AppointmentService appointmentService;
     
-    // Create a new appointment (Client books)
     @PostMapping
-    public ResponseEntity<Appointment> createAppointment(
-            @RequestParam Long clientId,
-            @RequestParam Long businessId,
-            @RequestParam Long serviceId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
-            @RequestParam(required = false) String notes) {
-        try {
-            Appointment appointment = appointmentService.createAppointment(
-                clientId, businessId, serviceId, dateTime, notes);
-            return new ResponseEntity<>(appointment, HttpStatus.CREATED);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        }
+public ResponseEntity<Appointment> createAppointment(
+        @RequestParam Long userId,
+        @RequestParam Long businessId,
+        @RequestParam Long serviceId,
+        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
+        @RequestParam(required = false) String notes) {
+    try {
+        Appointment appointment = appointmentService.createAppointment(
+            userId, businessId, serviceId, dateTime, notes);
+        return new ResponseEntity<>(appointment, HttpStatus.CREATED);
+    } catch (IllegalArgumentException e) {
+        return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
     }
+}
     
-    // Get all appointments
     @GetMapping
     public ResponseEntity<List<Appointment>> getAllAppointments() {
         List<Appointment> appointments = appointmentService.getAllAppointments();
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get appointment by ID
     @GetMapping("/{id}")
     public ResponseEntity<Appointment> getAppointmentById(@PathVariable Long id) {
         Optional<Appointment> appointment = appointmentService.getAppointmentById(id);
@@ -56,49 +53,42 @@ public class AppointmentController {
         }
     }
     
-    // Get all appointments for a client
-    @GetMapping("/client/{clientId}")
-    public ResponseEntity<List<Appointment>> getClientAppointments(@PathVariable Long clientId) {
-        List<Appointment> appointments = appointmentService.getClientAppointments(clientId);
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<Appointment>> getUserAppointments(@PathVariable Long userId) {
+        List<Appointment> appointments = appointmentService.getUserAppointments(userId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get upcoming appointments for a client
-    @GetMapping("/client/{clientId}/upcoming")
-    public ResponseEntity<List<Appointment>> getUpcomingClientAppointments(@PathVariable Long clientId) {
-        List<Appointment> appointments = appointmentService.getUpcomingClientAppointments(clientId);
+    @GetMapping("/user/{userId}/upcoming")
+    public ResponseEntity<List<Appointment>> getUpcomingUserAppointments(@PathVariable Long userId) {
+        List<Appointment> appointments = appointmentService.getUpcomingUserAppointments(userId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get past appointments for a client
-    @GetMapping("/client/{clientId}/past")
-    public ResponseEntity<List<Appointment>> getPastClientAppointments(@PathVariable Long clientId) {
-        List<Appointment> appointments = appointmentService.getPastClientAppointments(clientId);
+    @GetMapping("/user/{userId}/past")
+    public ResponseEntity<List<Appointment>> getPastUserAppointments(@PathVariable Long userId) {
+        List<Appointment> appointments = appointmentService.getPastUserAppointments(userId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get all appointments for a business
     @GetMapping("/business/{businessId}")
     public ResponseEntity<List<Appointment>> getBusinessAppointments(@PathVariable Long businessId) {
         List<Appointment> appointments = appointmentService.getBusinessAppointments(businessId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get upcoming appointments for a business
     @GetMapping("/business/{businessId}/upcoming")
     public ResponseEntity<List<Appointment>> getUpcomingBusinessAppointments(@PathVariable Long businessId) {
         List<Appointment> appointments = appointmentService.getUpcomingBusinessAppointments(businessId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Get appointments by status
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Appointment>> getAppointmentsByStatus(@PathVariable AppointmentStatus status) {
         List<Appointment> appointments = appointmentService.getAppointmentsByStatus(status);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
     
-    // Confirm appointment (Business owner)
     @PutMapping("/{id}/confirm")
     public ResponseEntity<Appointment> confirmAppointment(@PathVariable Long id, 
                                                           @RequestParam Long businessId) {
@@ -110,7 +100,6 @@ public class AppointmentController {
         }
     }
     
-    // Cancel appointment (Client or Business)
     @PutMapping("/{id}/cancel")
     public ResponseEntity<Appointment> cancelAppointment(@PathVariable Long id, 
                                                          @RequestParam Long userId) {
@@ -122,7 +111,6 @@ public class AppointmentController {
         }
     }
     
-    // Complete appointment (Business owner)
     @PutMapping("/{id}/complete")
     public ResponseEntity<Appointment> completeAppointment(@PathVariable Long id, 
                                                            @RequestParam Long businessId) {
@@ -134,7 +122,6 @@ public class AppointmentController {
         }
     }
     
-    // Reschedule appointment
     @PutMapping("/{id}/reschedule")
     public ResponseEntity<Appointment> rescheduleAppointment(
             @PathVariable Long id,
@@ -148,7 +135,6 @@ public class AppointmentController {
         }
     }
     
-    // Delete appointment
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteAppointment(@PathVariable Long id, @RequestParam Long userId) {
         try {

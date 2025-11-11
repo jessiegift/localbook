@@ -2,230 +2,449 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ActivityIndicator,
   FlatList,
   TouchableOpacity,
   Alert,
+  ScrollView,
+  Image,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
-/**
- * Beginner-friendly ClientProfile screen for LocalBook.
- *
- * What this file does (simple, step-by-step):
- * - Reads the current user from AuthContext (useAuth).
- * - Shows basic user info: name and email.
- * - Loads the user's bookings from the backend when the screen mounts.
- * - Shows a loading spinner while bookings load.
- * - Shows a simple list of bookings (business name + date).
- * - Has a Logout button that calls logout() from AuthContext.
- *
- * How to use:
- * - Save this file to: mobile/src/screens/client/ClientProfile.jsx
- * - Make sure AuthProvider wraps your app (in App.js).
- * - Add a route to your navigator that points to "ClientProfile" and uses this component.
- *
- * Notes for beginners:
- * - This code keeps things explicit and small. It avoids advanced hooks and helpers.
- * - Adjust API paths to match your backend. If your backend is not running, the bookings fetch will show an error message.
- */
+const ClientProfileScreen = function(props) {
+  const navigation = props.navigation;
+  const authContext = useAuth();
+  const user = authContext.user;
+  const token = authContext.token;
+  const authLoading = authContext.loading;
+  const logout = authContext.logout;
+  const API_BASE_URL = authContext.API_BASE_URL;
 
-export default function ClientProfileScreen() {
-  const { user, token, loading: authLoading, logout, API_BASE_URL } = useAuth();
-  const [bookings, setBookings] = useState([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
-  const [error, setError] = useState(null);
+  const bookingsState = useState([]);
+  const bookings = bookingsState[0];
+  const setBookings = bookingsState[1];
 
-  // Load bookings when component mounts
-  useEffect(() => {
-    if (user) {
+  const loadingBookingsState = useState(false);
+  const loadingBookings = loadingBookingsState[0];
+  const setLoadingBookings = loadingBookingsState[1];
+
+  const errorState = useState(null);
+  const error = errorState[0];
+  const setError = errorState[1];
+
+  useEffect(function() {
+    const hasUser = user !== null && user !== undefined;
+    if (hasUser === true) {
       loadBookings();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Simple fetch function. Beginners: keep it explicit so you can read each step.
-  const loadBookings = async () => {
-    if (!user) return;
+  const loadBookings = async function() {
+    const hasUser = user !== null && user !== undefined;
+    if (hasUser === false) {
+      return;
+    }
+
     setLoadingBookings(true);
     setError(null);
 
     try {
-      // Build the URL. Many backends expect a path like /api/bookings?userId=...
-      // If your AuthContext exports API_BASE_URL, use it. Otherwise replace with your URL.
-      const base = API_BASE_URL || 'http://192.168.1.15:8080/api';
-      const url = `${base}/bookings?userId=${user.id}`;
+      let baseUrl = 'http://192.168.1.15:8080/api';
+      const hasAPIBaseURL = API_BASE_URL !== null && API_BASE_URL !== undefined;
+      if (hasAPIBaseURL === true) {
+        baseUrl = API_BASE_URL;
+      }
+
+      const userId = user.id;
+      const userIdString = userId.toString();
+      const url = baseUrl + '/appointments/user/' + userIdString;
 
       const headers = {
         'Content-Type': 'application/json',
       };
-      if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(url, { method: 'GET', headers });
-      if (!res.ok) {
-        // simple error path
-        const text = await res.text();
-        throw new Error(text || `Status ${res.status}`);
+      const hasToken = token !== null && token !== undefined;
+      if (hasToken === true) {
+        const authHeader = 'Bearer ' + token;
+        headers.Authorization = authHeader;
       }
 
-      // Parse JSON response (assumes array or { bookings: [] })
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : data.bookings || [];
-      setBookings(list);
-    } catch (e) {
-      console.warn('Load bookings error:', e);
-      setError('Could not load bookings. Check your backend or network.');
-      setBookings([]);
+      const requestOptions = {
+        method: 'GET',
+        headers: headers,
+      };
+
+      const response = await fetch(url, requestOptions);
+      const isResponseOk = response.ok;
+
+      if (isResponseOk === false) {
+        const errorText = await response.text();
+        let errorMessage = 'Failed to load bookings';
+        const hasErrorText = errorText !== null && errorText !== undefined && errorText.length > 0;
+        if (hasErrorText === true) {
+          errorMessage = errorText;
+        } else {
+          const statusCode = response.status;
+          const statusString = statusCode.toString();
+          errorMessage = 'Status ' + statusString;
+        }
+        const error = new Error(errorMessage);
+        throw error;
+      }
+
+      const data = await response.json();
+      const isArray = Array.isArray(data);
+      
+      let bookingsList = [];
+      if (isArray === true) {
+        bookingsList = data;
+      } else {
+        const hasBookingsProperty = data.bookings !== null && data.bookings !== undefined;
+        if (hasBookingsProperty === true) {
+          bookingsList = data.bookings;
+        } else {
+          bookingsList = [];
+        }
+      }
+
+      setBookings(bookingsList);
+    } catch (errorObject) {
+      console.warn('Load bookings error:', errorObject);
+      setError('Could not load bookings. Please check your connection.');
+      const emptyArray = [];
+      setBookings(emptyArray);
     } finally {
       setLoadingBookings(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Confirm logout', 'Do you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
+  const handleLogout = function() {
+    const alertButtons = [
+      { 
+        text: 'Cancel', 
+        style: 'cancel' 
+      },
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: async () => {
+        onPress: async function() {
           try {
             await logout();
-          } catch (e) {
-            console.warn('Logout error', e);
+          } catch (errorObject) {
+            console.warn('Logout error', errorObject);
           }
         },
       },
-    ]);
+    ];
+
+    Alert.alert('Confirm Logout', 'Are you sure you want to log out?', alertButtons);
   };
 
-  const renderBooking = ({ item }) => {
-    // Display simple booking info. Adjust fields to match your API.
-    const business = item.businessName || item.business || 'Business';
-    const datetime = item.datetime || item.date || item.createdAt || 'No date';
+  const handleEditProfile = function() {
+    Alert.alert('Edit Profile', 'Profile editing feature coming soon!');
+  };
+
+  const handleViewBooking = function(booking) {
+    const bookingId = booking.id;
+    let bookingIdString = 'N/A';
+    const hasBookingId = bookingId !== null && bookingId !== undefined;
+    if (hasBookingId === true) {
+      bookingIdString = bookingId.toString();
+    }
+    
+    const alertMessage = 'Booking ID: ' + bookingIdString;
+    Alert.alert('Booking Details', alertMessage);
+  };
+
+  const renderBooking = function(renderProps) {
+    const item = renderProps.item;
+
+    let businessName = 'Business';
+    const hasBusiness = item.business !== null && item.business !== undefined;
+    if (hasBusiness === true) {
+      const hasBusinessName = item.business.businessName !== null && item.business.businessName !== undefined;
+      if (hasBusinessName === true) {
+        businessName = item.business.businessName;
+      }
+    }
+
+    let serviceName = 'Service';
+    const hasService = item.service !== null && item.service !== undefined;
+    if (hasService === true) {
+      const hasServiceName = item.service.serviceName !== null && item.service.serviceName !== undefined;
+      if (hasServiceName === true) {
+        serviceName = item.service.serviceName;
+      }
+    }
+
+    const appointmentDateTimeString = item.appointmentDateTime;
+    const appointmentDate = new Date(appointmentDateTimeString);
+    const formattedDate = appointmentDate.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    const formattedTime = appointmentDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const status = item.status;
+    let statusBgColor = 'bg-blue-100';
+    let statusTextColor = 'text-blue-800';
+
+    const isConfirmed = status === 'CONFIRMED';
+    const isCancelled = status === 'CANCELLED';
+    const isCompleted = status === 'COMPLETED';
+
+    if (isConfirmed === true) {
+      statusBgColor = 'bg-green-100';
+      statusTextColor = 'text-green-800';
+    } else if (isCancelled === true) {
+      statusBgColor = 'bg-red-100';
+      statusTextColor = 'text-red-800';
+    } else if (isCompleted === true) {
+      statusBgColor = 'bg-blue-100';
+      statusTextColor = 'text-blue-800';
+    }
+
+    const statusBadgeClassName = statusBgColor + ' px-2 py-1 rounded-full';
+    const statusTextClassName = statusTextColor + ' text-xs font-bold uppercase';
+
     return (
-      <View style={styles.bookingCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.bookingBusiness}>{business}</Text>
-          <Text style={styles.bookingDate}>{String(datetime)}</Text>
+      <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-200">
+        <View className="flex-row justify-between items-start mb-2">
+          <View className="flex-1">
+            <Text className="text-lg font-bold text-gray-900 mb-1">
+              {businessName}
+            </Text>
+            <Text className="text-sm text-gray-600">
+              {serviceName}
+            </Text>
+          </View>
+          <View className={statusBadgeClassName}>
+            <Text className={statusTextClassName}>
+              {status}
+            </Text>
+          </View>
         </View>
+
+        <View className="flex-row items-center mt-2">
+          <Text className="text-sm text-gray-700 mr-4">
+            📅 {formattedDate}
+          </Text>
+          <Text className="text-sm text-gray-700">
+            🕐 {formattedTime}
+          </Text>
+        </View>
+
         <TouchableOpacity
-          style={styles.viewBtn}
-          onPress={() => {
-            // Beginner: navigate to details if you have a route named "BusinessDetails"
-            // Replace this with navigation.navigate('BusinessDetails', { businessId: item.businessId })
-            Alert.alert('Booking', `Open details for booking id: ${item.id || 'N/A'}`);
+          className="mt-3 bg-blue-500 py-2 rounded-lg active:bg-blue-600"
+          onPress={function() {
+            handleViewBooking(item);
           }}
+          activeOpacity={0.7}
         >
-          <Text style={styles.viewBtnText}>View</Text>
+          <Text className="text-white text-center font-semibold">
+            View Details
+          </Text>
         </TouchableOpacity>
       </View>
     );
   };
 
-  // Show spinner while AuthContext is still restoring user
-  if (authLoading) {
+  const renderEmptyBookings = function() {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 8 }}>Checking authentication...</Text>
+      <View className="items-center justify-center py-12">
+        <Text className="text-6xl mb-4">📅</Text>
+        <Text className="text-xl font-bold text-gray-700 mb-2">
+          No bookings yet
+        </Text>
+        <Text className="text-sm text-gray-500 text-center px-8">
+          Your appointment bookings will appear here
+        </Text>
+      </View>
+    );
+  };
+
+  if (authLoading === true) {
+    return (
+      <View className="flex-1 justify-center items-center bg-gray-50">
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text className="mt-4 text-gray-600">Loading profile...</Text>
       </View>
     );
   }
 
-  // If no user, ask them to log in
-  if (!user) {
+  const hasUser = user !== null && user !== undefined;
+  if (hasUser === false) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyTitle}>You are not signed in</Text>
-        <Text style={styles.emptyText}>Please log in to see your profile and bookings.</Text>
+      <View className="flex-1 justify-center items-center bg-gray-50 px-8">
+        <Text className="text-6xl mb-4">👤</Text>
+        <Text className="text-2xl font-bold text-gray-900 mb-2">
+          Not Signed In
+        </Text>
+        <Text className="text-base text-gray-600 text-center">
+          Please log in to see your profile and bookings
+        </Text>
       </View>
     );
   }
+
+  const userName = user.name;
+  const userEmail = user.email;
+  
+  let displayName = 'No name';
+  const hasUserName = userName !== null && userName !== undefined;
+  if (hasUserName === true) {
+    displayName = userName;
+  }
+
+  let displayEmail = 'No email';
+  const hasUserEmail = userEmail !== null && userEmail !== undefined;
+  if (hasUserEmail === true) {
+    displayEmail = userEmail;
+  }
+
+  const userInitials = (function() {
+    const hasName = userName !== null && userName !== undefined && userName.length > 0;
+    if (hasName === true) {
+      const nameParts = userName.split(' ');
+      const firstPart = nameParts[0];
+      const firstLetter = firstPart.charAt(0);
+      const upperFirstLetter = firstLetter.toUpperCase();
+      
+      const hasMultipleParts = nameParts.length > 1;
+      if (hasMultipleParts === true) {
+        const lastPart = nameParts[nameParts.length - 1];
+        const lastLetter = lastPart.charAt(0);
+        const upperLastLetter = lastLetter.toUpperCase();
+        return upperFirstLetter + upperLastLetter;
+      }
+      
+      return upperFirstLetter;
+    }
+    return '?';
+  })();
+
+  const bookingsCount = bookings.length;
+  const bookingsCountString = bookingsCount.toString();
+
+  const hasError = error !== null && error !== undefined;
 
   return (
-    <View style={styles.container}>
-      {/* Profile header */}
-      <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{user.name || 'No name'}</Text>
-          <Text style={styles.email}>{user.email || 'No email'}</Text>
+    <View className="flex-1 bg-gray-50">
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View className="bg-blue-500 pt-12 pb-8 px-5">
+          <View className="flex-row justify-between items-start mb-6">
+            <Text className="text-white text-2xl font-bold">
+              My Profile
+            </Text>
+            <TouchableOpacity
+              className="bg-white/20 px-4 py-2 rounded-lg active:bg-white/30"
+              onPress={handleLogout}
+              activeOpacity={0.7}
+            >
+              <Text className="text-white font-semibold">
+                Logout
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="bg-white/10 rounded-2xl p-6">
+            <View className="items-center mb-4">
+              <View className="bg-white w-24 h-24 rounded-full items-center justify-center mb-3">
+                <Text className="text-blue-500 text-3xl font-bold">
+                  {userInitials}
+                </Text>
+              </View>
+              <Text className="text-white text-xl font-bold mb-1">
+                {displayName}
+              </Text>
+              <Text className="text-white/80 text-sm">
+                {displayEmail}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              className="bg-white/20 py-3 rounded-lg active:bg-white/30 mt-2"
+              onPress={handleEditProfile}
+              activeOpacity={0.7}
+            >
+              <Text className="text-white text-center font-semibold">
+                Edit Profile
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+        <View className="px-5 py-6">
+          <View className="flex-row justify-between items-center mb-4">
+            <View>
+              <Text className="text-2xl font-bold text-gray-900">
+                My Bookings
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                {bookingsCountString} total bookings
+              </Text>
+            </View>
+            <TouchableOpacity
+              className="bg-blue-500 px-4 py-2 rounded-lg active:bg-blue-600"
+              onPress={loadBookings}
+              activeOpacity={0.7}
+            >
+              <Text className="text-white font-semibold">
+                Refresh
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Bookings area */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Your Bookings</Text>
-        <TouchableOpacity onPress={loadBookings}>
-          <Text style={styles.refreshText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
+          {loadingBookings === true ? (
+            <View className="py-12 items-center">
+              <ActivityIndicator size="large" color="#3b82f6" />
+              <Text className="mt-4 text-gray-600">Loading bookings...</Text>
+            </View>
+          ) : hasError === true ? (
+            <View className="bg-red-50 border border-red-200 rounded-xl p-6 items-center">
+              <Text className="text-red-800 text-center mb-3">
+                {error}
+              </Text>
+              <TouchableOpacity
+                className="bg-red-500 px-6 py-2 rounded-lg active:bg-red-600"
+                onPress={loadBookings}
+                activeOpacity={0.7}
+              >
+                <Text className="text-white font-semibold">
+                  Try Again
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : bookingsCount === 0 ? (
+            renderEmptyBookings()
+          ) : (
+            <FlatList
+              data={bookings}
+              keyExtractor={function(item) {
+                const itemId = item.id;
+                const hasItemId = itemId !== null && itemId !== undefined;
+                if (hasItemId === true) {
+                  const itemIdString = itemId.toString();
+                  return itemIdString;
+                }
+                return '';
+              }}
+              renderItem={renderBooking}
+              scrollEnabled={false}
+            />
+          )}
+        </View>
 
-      {loadingBookings ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={{ marginTop: 8 }}>Loading bookings...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadBookings}>
-            <Text style={styles.retryText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
-      ) : bookings.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyTitle}>No bookings yet</Text>
-          <Text style={styles.emptyText}>Make a booking from the business list.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={bookings}
-          keyExtractor={(b) => String(b.id)}
-          renderItem={renderBooking}
-          contentContainerStyle={{ paddingBottom: 24 }}
-        />
-      )}
+        <View className="h-8" />
+      </ScrollView>
     </View>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  name: { fontSize: 20, fontWeight: '700', color: '#222' },
-  email: { fontSize: 14, color: '#666', marginTop: 4 },
-
-  logoutBtn: { backgroundColor: '#e74c3c', padding: 10, borderRadius: 8 },
-  logoutText: { color: '#fff', fontWeight: '600' },
-
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '700' },
-  refreshText: { color: '#007AFF', fontWeight: '600' },
-
-  bookingCard: {
-    flexDirection: 'row',
-    backgroundColor: '#f7f7fb',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  bookingBusiness: { fontSize: 16, fontWeight: '700' },
-  bookingDate: { fontSize: 13, color: '#555', marginTop: 4 },
-
-  viewBtn: { backgroundColor: '#007AFF', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 },
-  viewBtnText: { color: '#fff', fontWeight: '600' },
-
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#333' },
-  emptyText: { fontSize: 14, color: '#666', marginTop: 6, textAlign: 'center' },
-
-  errorText: { color: '#dc3545', textAlign: 'center' },
-  retryBtn: { marginTop: 8, backgroundColor: '#007AFF', padding: 8, borderRadius: 6 },
-  retryText: { color: '#fff' },
-});
+export default ClientProfileScreen;
