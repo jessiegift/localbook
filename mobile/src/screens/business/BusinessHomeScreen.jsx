@@ -2,274 +2,356 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
+import Button from '../../common/Button';
 
+function BusinessHomeScreen(props) {
+  const navigation = props.navigation;
+  const authContext = useAuth();
+  const user = authContext.user;
+  const token = authContext.token;
 
-const BusinessHomeScreen = ({ navigation }) => {
- const { user, token } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState({
+  const loadingState = useState(true);
+  const loading = loadingState[0];
+  const setLoading = loadingState[1];
+
+  const refreshingState = useState(false);
+  const refreshing = refreshingState[0];
+  const setRefreshing = refreshingState[1];
+
+  const statsState = useState({
     todayAppointments: 0,
     weekAppointments: 0,
     monthRevenue: 0,
     totalCustomers: 0,
   });
-  const [todaySchedule, setTodaySchedule] = useState([]);
+  const stats = statsState[0];
+  const setStats = statsState[1];
 
-  useEffect(() => {
+  const scheduleState = useState([]);
+  const todaySchedule = scheduleState[0];
+  const setTodaySchedule = scheduleState[1];
+
+  useEffect(function() {
     fetchDashboardData();
   }, []);
 
-  const fetchDashboardData = async () => {
+  async function fetchDashboardData() {
     try {
-      const response = await fetch(
-        `http://192.168.1.15:8080/api/business/${user.businessId}/dashboard`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      if (!user || !user.businessId) {
+        console.error('Cannot fetch dashboard - missing user or businessId');
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
 
+      // IMPORTANT: Convert businessId to number
+      const businessId = Number(user.businessId);
+      
+      // Check if it's a valid number
+      if (isNaN(businessId) || businessId <= 0) {
+        console.error('Invalid businessId:', user.businessId);
+        Alert.alert('Error', 'Invalid business ID: ' + user.businessId);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const url = 'http://192.168.1.15:8080/api/businesses/' + businessId + '/dashboard';
+      console.log('=== FETCHING DASHBOARD ===');
+      console.log('Full URL:', url);
+      console.log('Business ID (type):', typeof businessId, businessId);
+      console.log('Original user.businessId (type):', typeof user.businessId, user.businessId);
+      console.log('Token:', token ? 'Present (length: ' + token.length + ')' : 'Missing');
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('=== RESPONSE RECEIVED ===');
+      console.log('Status:', response.status);
+      console.log('Status Text:', response.statusText);
+      console.log('OK:', response.ok);
+      
       if (response.ok) {
         const data = await response.json();
-        setStats(data.stats);
-        setTodaySchedule(data.todaySchedule || []);
+        console.log('=== DASHBOARD DATA RECEIVED ===');
+        console.log('Full response:', JSON.stringify(data, null, 2));
+        
+        if (data.stats) {
+          console.log('Stats:', data.stats);
+          setStats({
+            todayAppointments: data.stats.todayAppointments || 0,
+            weekAppointments: data.stats.weekAppointments || 0,
+            monthRevenue: data.stats.monthRevenue || 0,
+            totalCustomers: data.stats.totalCustomers || 0,
+          });
+        } else {
+          console.warn('No stats in response');
+        }
+        
+        const schedule = data.todaySchedule || [];
+        console.log('Today schedule count:', schedule.length);
+        setTodaySchedule(schedule);
+      } else {
+        console.error('=== ERROR RESPONSE ===');
+        const errorText = await response.text();
+        console.error('Status:', response.status);
+        console.error('Error body:', errorText);
+        
+        Alert.alert(
+          'Error Loading Dashboard', 
+          'Status: ' + response.status + '\n' +
+          'Please check backend logs for details.'
+        );
       }
     } catch (error) {
-      console.error('Error fetching dashboard:', error);
-      Alert.alert('Error', 'Failed to load dashboard data');
+      console.error('=== NETWORK ERROR ===');
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
+      
+      Alert.alert(
+        'Network Error', 
+        'Could not connect to server.\n\n' +
+        'Error: ' + error.message
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const onRefresh = () => {
+  }
+  function onRefresh() {
+    console.log('Refreshing dashboard...');
     setRefreshing(true);
     fetchDashboardData();
-  };
+  }
 
-  const handleComplete = async (appointmentId) => {
+  async function handleComplete(appointmentId) {
     try {
-      const response = await fetch(
-        `http://192.168.1.15:8080/api/appointments/${appointmentId}/complete?businessId=${user.businessId}`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const url = 'http://192.168.1.15:8080/api/appointments/' + appointmentId + '/complete?businessId=' + user.businessId;
+      console.log('Completing appointment:', appointmentId);
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          Authorization: 'Bearer ' + token,
+        },
+      });
 
       if (response.ok) {
         Alert.alert('Success', 'Appointment completed!');
         fetchDashboardData();
+      } else {
+        const errorText = await response.text();
+        console.error('Complete appointment failed:', errorText);
+        Alert.alert('Error', 'Failed to complete appointment');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to complete appointment');
+      console.error('Error completing appointment:', error);
+      Alert.alert('Error', 'Network error: ' + error.message);
     }
-  };
+  }
 
-  const formatTime = (dateTime) => {
+  function formatTime(dateTime) {
     const date = new Date(dateTime);
     return date.toLocaleTimeString('en-US', { 
       hour: '2-digit', 
       minute: '2-digit',
       hour12: true 
     });
-  };
+  }
+
+  function formatRevenue(amount) {
+    if (amount === 0) {
+      return '0.00';
+    }
+    return amount.toFixed(2);
+  }
 
   if (loading) {
-    return <LoadingSpinner fullScreen text="Loading dashboard..." />;
+    return <LoadingSpinner fullScreen={true} text="Loading dashboard..." />;
   }
 
   return (
     <ScrollView 
-      className="flex-1 bg-gray-50"
+      style={{ flex: 1, backgroundColor: '#f9fafb' }}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Header */}
-      <View className="bg-green-500 pt-14 pb-6 px-5">
-        <Text className="text-white text-2xl font-bold mb-1">
+      <View style={{ backgroundColor: '#22c55e', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
+        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700', marginBottom: 4 }}>
           Good Morning! 👋
         </Text>
-        <Text className="text-green-100 text-base">
-          {user?.businessName || user?.name}
+        <Text style={{ color: '#bbf7d0', fontSize: 16 }}>
+          {user && user.businessName ? user.businessName : user && user.name ? user.name : ''}
         </Text>
       </View>
 
-      {/* Quick Stats Cards */}
-      <View className="px-5 -mt-0 mb-4">
-        <View className="bg-white rounded-xl p-4 shadow-md">
-          <View className="flex-row justify-around">
-            {/* Today */}
-            <View className="items-center">
-              <Text className="text-3xl font-bold text-gray-900">
+      <View style={{ paddingHorizontal: 20, marginTop: 0, marginBottom: 16 }}>
+        <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827' }}>
                 {stats.todayAppointments}
               </Text>
-              <Text className="text-xs text-gray-600 mt-1">Today</Text>
+              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Today</Text>
             </View>
 
-            {/* This Week */}
-            <View className="items-center border-l border-r border-gray-200 px-6">
-              <Text className="text-3xl font-bold text-gray-900">
+            <View style={{ alignItems: 'center', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#e5e7eb', paddingHorizontal: 24 }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827' }}>
                 {stats.weekAppointments}
               </Text>
-              <Text className="text-xs text-gray-600 mt-1">This Week</Text>
+              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>This Week</Text>
             </View>
 
-            {/* Revenue */}
-            <View className="items-center">
-              <Text className="text-3xl font-bold text-green-600">
-                ${stats.monthRevenue}
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#22c55e' }}>
+                ${formatRevenue(stats.monthRevenue)}
               </Text>
-              <Text className="text-xs text-gray-600 mt-1">Revenue</Text>
+              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Revenue</Text>
             </View>
           </View>
         </View>
       </View>
 
-      {/* Quick Actions */}
-      <View className="px-5 mb-4">
-        <Text className="text-lg font-bold text-gray-900 mb-3">
+      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
           Quick Actions
         </Text>
         
-        <View className="flex-row justify-between">
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <TouchableOpacity 
-            className="bg-white rounded-xl p-4 shadow-sm flex-1 mr-2 items-center"
-            onPress={() => navigation.navigate('ManageAppointments')}
+            style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flex: 1, marginRight: 8, alignItems: 'center' }}
+            onPress={function() { navigation.navigate('ManageAppointments'); }}
           >
-            <Text className="text-3xl mb-2">📋</Text>
-            <Text className="text-sm font-semibold text-gray-700 text-center">
+            <Text style={{ fontSize: 28, marginBottom: 8 }}>📋</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'center' }}>
               Appointments
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            className="bg-white rounded-xl p-4 shadow-sm flex-1 ml-2 items-center"
-            onPress={() => navigation.navigate('ManageServices')}
+            style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flex: 1, marginLeft: 8, alignItems: 'center' }}
+            onPress={function() { navigation.navigate('ManageServices'); }}
           >
-            <Text className="text-3xl mb-2">⚙️</Text>
-            <Text className="text-sm font-semibold text-gray-700 text-center">
+            <Text style={{ fontSize: 28, marginBottom: 8 }}>⚙️</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'center' }}>
               Services
             </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* TODAY'S SCHEDULE - Most Important Section */}
-      <View className="px-5 mb-6">
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-lg font-bold text-gray-900">
+      <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
             Today's Schedule 📅
           </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('ManageAppointments')}>
-            <Text className="text-green-600 font-semibold text-sm">
+          <TouchableOpacity onPress={function() { navigation.navigate('ManageAppointments'); }}>
+            <Text style={{ color: '#22c55e', fontWeight: '600', fontSize: 14 }}>
               View All
             </Text>
           </TouchableOpacity>
         </View>
 
         {todaySchedule.length === 0 ? (
-          <View className="bg-white rounded-xl p-8 items-center">
-            <Text className="text-5xl mb-3">🎉</Text>
-            <Text className="text-gray-500 font-semibold text-center">
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 32, alignItems: 'center' }}>
+            <Text style={{ fontSize: 40, marginBottom: 12 }}>🎉</Text>
+            <Text style={{ color: '#6b7280', fontWeight: '600', textAlign: 'center' }}>
               No appointments today
             </Text>
-            <Text className="text-gray-400 text-sm mt-1">
+            <Text style={{ color: '#9ca3af', fontSize: 14, marginTop: 4 }}>
               Enjoy your free time!
             </Text>
           </View>
         ) : (
-          todaySchedule.map((appointment, index) => (
-            <View 
-              key={appointment.id}
-              className="bg-white rounded-xl p-4 shadow-sm mb-3"
-            >
-              {/* Time & Status */}
-              <View className="flex-row justify-between items-center mb-3">
-                <View className="flex-row items-center">
-                  <View className="bg-green-100 px-3 py-1 rounded-full mr-3">
-                    <Text className="text-green-800 font-bold text-base">
-                      {formatTime(appointment.dateTime)}
-                    </Text>
-                  </View>
-                  {appointment.status === 'COMPLETED' && (
-                    <View className="bg-blue-100 px-2 py-1 rounded">
-                      <Text className="text-blue-800 text-xs font-bold">✓ DONE</Text>
+          todaySchedule.map(function(appointment) {
+            return (
+              <View 
+                key={appointment.id}
+                style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, marginBottom: 12 }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ backgroundColor: '#d1fae5', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 9999, marginRight: 12 }}>
+                      <Text style={{ color: '#065f46', fontWeight: '700', fontSize: 16 }}>
+                        {formatTime(appointment.appointmentDateTime)}
+                      </Text>
                     </View>
-                  )}
-                </View>
-                <Text className="text-green-600 font-bold text-base">
-                  ${appointment.service?.price || 0}
-                </Text>
-              </View>
-
-              {/* Customer Name */}
-              <Text className="text-lg font-bold text-gray-900 mb-1">
-                {appointment.clientName || appointment.client?.name}
-              </Text>
-
-              {/* Service */}
-              <Text className="text-sm text-gray-600 mb-3">
-                {appointment.serviceName || appointment.service?.name} • {appointment.service?.duration} min
-              </Text>
-
-              {/* Notes */}
-              {appointment.notes && (
-                <View className="bg-yellow-50 px-3 py-2 rounded-lg mb-3">
-                  <Text className="text-xs text-gray-600">
-                    💬 {appointment.notes}
+                    {appointment.status === 'COMPLETED' && (
+                      <View style={{ backgroundColor: '#dbeafe', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: '#1e40af', fontSize: 12, fontWeight: '700' }}>✓ DONE</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 16 }}>
+                    ${appointment.service && appointment.service.price ? appointment.service.price : 0}
                   </Text>
                 </View>
-              )}
 
-              {/* Quick Actions */}
-              {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
-                <View className="flex-row gap-2">
-                  <Button
-                    title="✓ Complete"
-                    variant="success"
-                    size="small"
-                    onPress={() => handleComplete(appointment.id)}
-                    className="flex-1"
-                  />
-                  <TouchableOpacity 
-                    className="flex-1 bg-gray-100 rounded-lg items-center justify-center py-2"
-                    onPress={() => {/* Call customer */}}
-                  >
-                    <Text className="text-sm font-semibold text-gray-700">📞 Call</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          ))
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
+                  {appointment.user && appointment.user.name ? appointment.user.name : 'Unknown'}
+                </Text>
+
+                <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 12 }}>
+                  {appointment.service && appointment.service.name ? appointment.service.name : 'Service'} • {appointment.service && appointment.service.duration ? appointment.service.duration : 0} min
+                </Text>
+
+                {appointment.notes && (
+                  <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 12, color: '#6b7280' }}>
+                      💬 {appointment.notes}
+                    </Text>
+                  </View>
+                )}
+
+                {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        title="✓ Complete"
+                        variant="success"
+                        size="small"
+                        onPress={function() { handleComplete(appointment.id); }}
+                      />
+                    </View>
+                    <TouchableOpacity 
+                      style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}
+                      onPress={function() { }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>📞 Call</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })
         )}
       </View>
 
-      {/* Business Info Card */}
-      <View className="px-5 mb-8">
+      <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
         <TouchableOpacity 
-          className="bg-white rounded-xl p-4 shadow-sm flex-row justify-between items-center"
-          onPress={() => navigation.navigate('BusinessProfile')}
+          style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          onPress={function() { navigation.navigate('BusinessProfile'); }}
         >
           <View>
-            <Text className="text-base font-bold text-gray-900 mb-1">
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
               My Business Profile
             </Text>
-            <Text className="text-sm text-gray-600">
+            <Text style={{ fontSize: 14, color: '#6b7280' }}>
               Update contact info, and more
             </Text>
           </View>
-          <Text className="text-2xl">🏪</Text>
+          <Text style={{ fontSize: 24 }}>🏪</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
   );
-};
+}
 
 export default BusinessHomeScreen;

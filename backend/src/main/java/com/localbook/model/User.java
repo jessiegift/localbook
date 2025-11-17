@@ -24,10 +24,20 @@ public class User {
     @Column(nullable = false)
     private String password;
     
-    @Column(nullable = false)
-    private String phoneNumber;
-    
-    @Enumerated(EnumType.STRING)  // ✅ Correct - stores as "CLIENT", "BUSINESS_OWNER", "ADMIN"
+@Column(nullable = false)
+private String phoneNumber;
+
+private Long businessId;
+
+public Long getBusinessId() {
+    return businessId;
+}
+
+public void setBusinessId(Long businessId) {
+    this.businessId = businessId;
+}
+
+@Enumerated(EnumType.STRING)  // ✅ Correct - stores as "CLIENT", "BUSINESS_OWNER", "ADMIN"
     @Column(nullable = false)
     private UserRole role;  // ✅ Changed from String to UserRole
     

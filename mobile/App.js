@@ -1,85 +1,77 @@
-
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ActivityIndicator, View, Text, TouchableOpacity } from 'react-native';
-// Auth Screens
+
 import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import RegisterScreen from './src/screens/auth/Registerscreen';
 
-// Client Screens
 import ClientHomeScreen from './src/screens/client/ClientHomeScreen';
 import BusinessDetailsScreen from './src/screens/client/BusinessDetailScreen';
 import BookAppointmentScreen from './src/screens/client/BookAppointment';
 import MyBookingsScreen from './src/screens/client/MyBookingsScreen';
 
-// Business Screens
 import BusinessHomeScreen from './src/screens/business/BusinessHomeScreen';
 import ManageAppointmentsScreen from './src/screens/business/ManageAppointmentScreen';
 import ManageServicesScreen from './src/screens/business/ManageServiceScreen';
 import BusinessProfileScreen from './src/screens/business/BusinessProfileScreen';
 
-
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// ============================================
-// CLIENT PROFILE SCREEN (Simple Placeholder)
-// ============================================
-const ClientProfileScreen = () => {
-  const { user, logout } = useAuth();
+function ClientProfileScreen() {
+  const authContext = useAuth();
+  const user = authContext.user;
+  const logout = authContext.logout;
   
   return (
-    <View className="flex-1 bg-gray-50 justify-center items-center px-6">
-      <View className="bg-white rounded-full w-24 h-24 items-center justify-center mb-4 shadow-lg">
-        <Text className="text-5xl">👤</Text>
+    <View style={{ flex: 1, backgroundColor: '#f9fafb', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
+      <View style={{ backgroundColor: '#ffffff', borderRadius: 9999, width: 96, height: 96, alignItems: 'center', justifyContent: 'center', marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.1 }}>
+        <Text style={{ fontSize: 48 }}>👤</Text>
       </View>
-      <Text className="text-2xl font-bold text-gray-900 mb-2">
-        {user?.name}
+      <Text style={{ fontSize: 24, fontWeight: '700', color: '#111827', marginBottom: 8 }}>
+        {user ? user.name : ''}
       </Text>
-      <Text className="text-base text-gray-600 mb-8">
-        {user?.email}
+      <Text style={{ fontSize: 16, color: '#6b7280', marginBottom: 32 }}>
+        {user ? user.email : ''}
       </Text>
       <TouchableOpacity 
         onPress={logout}
-        className="bg-red-500 px-8 py-3 rounded-lg active:bg-red-600"
+        style={{ backgroundColor: '#ef4444', paddingHorizontal: 32, paddingVertical: 12, borderRadius: 8 }}
       >
-        <Text className="text-white font-semibold text-base">Logout</Text>
+        <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 16 }}>Logout</Text>
       </TouchableOpacity>
-      <Text className="text-gray-400 text-xs mt-8">
+      <Text style={{ color: '#9ca3af', fontSize: 12, marginTop: 32 }}>
         LocalBook v1.0.0
       </Text>
     </View>
   );
-};
+}
 
-// ============================================
-// CLIENT TAB NAVIGATOR
-// ============================================
-const ClientTabNavigator = () => {
+function ClientTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: '#3b82f6',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
-          height: 120,            // Keep small
-          paddingBottom: 40,       // Lots of bottom padding (adjust as needed)
+          height: 120,
+          paddingBottom: 40,
           paddingTop: 7,
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
           backgroundColor: '#ffffff',
-          },
+        },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
-          marginBottom: 8,         // Remove extra margin
+          marginBottom: 8,
         },
         tabBarIconStyle: {
-          marginTop: 0,            // Remove extra margin
+          marginTop: 0,
         },
       }}
     >
@@ -89,9 +81,9 @@ const ClientTabNavigator = () => {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">🏠</Text>  // Even smaller
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>🏠</Text>;
+          },
         }}
       />
       <Tab.Screen
@@ -99,9 +91,9 @@ const ClientTabNavigator = () => {
         component={MyBookingsScreen}
         options={{
           title: 'My Bookings',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">📅</Text>
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>📅</Text>;
+          },
         }}
       />
       <Tab.Screen
@@ -109,27 +101,24 @@ const ClientTabNavigator = () => {
         component={ClientProfileScreen}
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">👤</Text>
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>👤</Text>;
+          },
         }}
       />
     </Tab.Navigator>
   );
-};
+}
 
-// ============================================
-// BUSINESS TAB NAVIGATOR
-// ============================================
-const BusinessTabNavigator = () => {
+function BusinessTabNavigator() {
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: '#22c55e',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
-          height: 120,            // Keep small
-          paddingBottom: 40,       // Lots of bottom padding (adjust as needed)
+          height: 120,
+          paddingBottom: 40,
           paddingTop: 7,
           borderTopWidth: 1,
           borderTopColor: '#e5e7eb',
@@ -150,9 +139,9 @@ const BusinessTabNavigator = () => {
         options={{
           title: 'Dashboard',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">📊</Text>
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>📊</Text>;
+          },
         }}
       />
       <Tab.Screen
@@ -160,37 +149,45 @@ const BusinessTabNavigator = () => {
         component={ManageAppointmentsScreen}
         options={{
           title: 'Appointments',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">📋</Text>
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>📋</Text>;
+          },
         }}
       />
-      
+      <Tab.Screen
+        name="ManageServices"
+        component={ManageServicesScreen}
+        options={{
+          title: 'Services',
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>⚙️</Text>;
+          },
+        }}
+      />
       <Tab.Screen
         name="BusinessProfile"
         component={BusinessProfileScreen}
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Text className="text-lg">🏪</Text>
-          ),
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>🏪</Text>;
+          },
         }}
       />
     </Tab.Navigator>
   );
-};
-// ============================================
-// MAIN NAVIGATION
-// ============================================
-const Navigation = () => {
-  const { user, loading } = useAuth();
+}
 
-  // Show loading spinner while checking auth status
+function Navigation() {
+  const authContext = useAuth();
+  const user = authContext.user;
+  const loading = authContext.loading;
+
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-white">
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff' }}>
         <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="text-gray-600 mt-4 text-base">Loading...</Text>
+        <Text style={{ color: '#6b7280', marginTop: 16, fontSize: 16 }}>Loading...</Text>
       </View>
     );
   }
@@ -198,10 +195,7 @@ const Navigation = () => {
   return (
     <Stack.Navigator>
       {!user ? (
-        // ============================================
-        // AUTH STACK - User NOT logged in
-        // ============================================
-        <>
+        <React.Fragment>
           <Stack.Screen
             name="RoleSelection"
             component={RoleSelectionScreen}
@@ -224,12 +218,9 @@ const Navigation = () => {
               headerBackTitle: 'Back',
             }}
           />
-        </>
+        </React.Fragment>
       ) : user.role === 'CLIENT' ? (
-        // ============================================
-        // CLIENT STACK - Client user logged in
-        // ============================================
-        <>
+        <React.Fragment>
           <Stack.Screen
             name="MainTabs"
             component={ClientTabNavigator}
@@ -253,12 +244,9 @@ const Navigation = () => {
               headerBackTitle: 'Back',
             }}
           />
-        </>
+        </React.Fragment>
       ) : user.role === 'BUSINESS_OWNER' ? (
-        // ============================================
-        // BUSINESS STACK - Business owner logged in
-        // ============================================
-        <>
+        <React.Fragment>
           <Stack.Screen
             name="BusinessTabs"
             component={BusinessTabNavigator}
@@ -266,38 +254,34 @@ const Navigation = () => {
               headerShown: false,
             }}
           />
-        </>
+        </React.Fragment>
       ) : (
-        // ============================================
-        // FALLBACK - Unknown role
-        // ============================================
-        <>
+        <React.Fragment>
           <Stack.Screen
             name="Error"
-            component={() => (
-              <View className="flex-1 justify-center items-center bg-white px-6">
-                <Text className="text-6xl mb-4">⚠️</Text>
-                <Text className="text-xl font-bold text-gray-900 mb-2">
-                  Unknown User Role
-                </Text>
-                <Text className="text-gray-600 text-center mb-6">
-                  Please contact support
-                </Text>
-              </View>
-            )}
+            component={function() {
+              return (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff', paddingHorizontal: 24 }}>
+                  <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827', marginBottom: 8 }}>
+                    Unknown User Role
+                  </Text>
+                  <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 24 }}>
+                    Please contact support
+                  </Text>
+                </View>
+              );
+            }}
             options={{
               headerShown: false,
             }}
           />
-        </>
+        </React.Fragment>
       )}
     </Stack.Navigator>
   );
-};
+}
 
-// ============================================
-// MAIN APP COMPONENT
-// ============================================
 export default function App() {
   return (
     <AuthProvider>

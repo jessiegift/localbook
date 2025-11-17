@@ -55,36 +55,30 @@ public class UserController {
     }
     
     // Login with JWT token generation
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        Optional<User> userOptional = userService.login(loginRequest.getEmail(), loginRequest.getPassword());
-        
-        if (userOptional.isPresent()) {
-            User foundUser = userOptional.get();
-            
-            // Generate JWT token
-            String token = jwtUtil.generateToken(
-                foundUser.getId(), 
-                foundUser.getEmail(), 
-                foundUser.getRole().toString()
-            );
-            
-            // Create response without password
-            UserResponseDTO userResponse = new UserResponseDTO(foundUser);
-            
-            // Create response object
-            Map<String, Object> response = new HashMap<>();
-            response.put("user", userResponse);
-            response.put("token", token);
-            
-            return new ResponseEntity<>(response, HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(
-                Map.of("message", "Invalid email or password"), 
-                HttpStatus.UNAUTHORIZED
-            );
-        }
-    }
+   @PostMapping("/login")
+public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+    // ... authentication logic ...
+    
+    User user = userService.getUserByEmail(loginRequest.getEmail())
+        .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+    
+    // Build response
+    Map<String, Object> userResponse = new HashMap<>();
+    userResponse.put("id", user.getId());
+    userResponse.put("name", user.getName());
+    userResponse.put("email", user.getEmail());
+    userResponse.put("phoneNumber", user.getPhoneNumber());
+    userResponse.put("role", user.getRole().toString());
+    userResponse.put("businessId", user.getBusinessId()); // CRITICAL!
+    
+    Map<String, Object> response = new HashMap<>();
+    response.put("token", "token_" + user.getId());
+    response.put("user", userResponse);
+    
+    System.out.println("Login response: " + response); // Debug log
+    
+    return ResponseEntity.ok(response);
+}
 
 
 
