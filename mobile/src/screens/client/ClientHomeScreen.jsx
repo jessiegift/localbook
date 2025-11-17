@@ -6,8 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  RefreshControl,
-  ScrollView,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import BusinessCard from '../../common/BusinessCard';
@@ -21,42 +21,23 @@ const CATEGORIES = [
   'Restaurant',
 ];
 
-const ClientHomeScreen = function(props) {
+const screenDimensions = Dimensions.get('window');
+const SCREEN_HEIGHT = screenDimensions.height;
+
+function ClientHomeScreen(props) {
   const navigation = props.navigation;
   const authContext = useAuth();
   const user = authContext.user;
   
-  const businessesState = useState([]);
-  const businesses = businessesState[0];
-  const setBusinesses = businessesState[1];
-  
-  const filteredBusinessesState = useState([]);
-  const filteredBusinesses = filteredBusinessesState[0];
-  const setFilteredBusinesses = filteredBusinessesState[1];
-  
-  const loadingState = useState(true);
-  const loading = loadingState[0];
-  const setLoading = loadingState[1];
-  
-  const refreshingState = useState(false);
-  const refreshing = refreshingState[0];
-  const setRefreshing = refreshingState[1];
-  
-  const searchQueryState = useState('');
-  const searchQuery = searchQueryState[0];
-  const setSearchQuery = searchQueryState[1];
-  
-  const selectedCategoryState = useState('All');
-  const selectedCategory = selectedCategoryState[0];
-  const setSelectedCategory = selectedCategoryState[1];
-  
-  const userLocationState = useState(null);
-  const userLocation = userLocationState[0];
-  const setUserLocation = userLocationState[1];
-  
-  const errorState = useState(null);
-  const error = errorState[0];
-  const setError = errorState[1];
+  const [businesses, setBusinesses] = useState([]);
+  const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [userLocation, setUserLocation] = useState(null);
+  const [error, setError] = useState(null);
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
@@ -69,7 +50,7 @@ const ClientHomeScreen = function(props) {
     filterBusinesses();
   }, [searchQuery, selectedCategory, businesses]);
 
-  const getUserLocation = async function() {
+  async function getUserLocation() {
     try {
       const permissionResult = await Location.requestForegroundPermissionsAsync();
       const permissionStatus = permissionResult.status;
@@ -103,9 +84,9 @@ const ClientHomeScreen = function(props) {
       };
       setUserLocation(defaultLocation);
     }
-  };
+  }
 
-  const fetchBusinesses = async function() {
+  async function fetchBusinesses() {
     try {
       setError(null);
       
@@ -156,9 +137,9 @@ const ClientHomeScreen = function(props) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }
 
-  const filterBusinesses = function() {
+  function filterBusinesses() {
     const businessesCopy = [];
     let businessIndex = 0;
     while (businessIndex < businesses.length) {
@@ -253,28 +234,55 @@ const ClientHomeScreen = function(props) {
     }
     
     setFilteredBusinesses(filtered);
-  };
+  }
 
-  const handleBusinessPress = function(business) {
+  function handleBusinessPress(business) {
     const businessId = business.id;
     const navigationParams = { 
       businessId: businessId,
       business: business 
     };
     navigation.navigate('BusinessDetails', navigationParams);
-  };
+  }
 
-  const onRefresh = function() {
+  function onRefresh() {
     setRefreshing(true);
     fetchBusinesses();
-  };
+  }
+
+  function handleClearSearch() {
+    setSearchQuery('');
+  }
+
+  function handleOpenFilterModal() {
+    setShowFilterModal(true);
+  }
+
+  function handleCloseFilterModal() {
+    setShowFilterModal(false);
+  }
+
+  function handleClearAllFilters() {
+    setSearchQuery('');
+    setSelectedCategory('All');
+  }
+
+  function handleSelectCategory(cat) {
+    setSelectedCategory(cat);
+    setShowFilterModal(false);
+  }
+
+  function handleResetAllFilters() {
+    setSelectedCategory('All');
+    setSearchQuery('');
+    setShowFilterModal(false);
+  }
 
   if (loading === true) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="mt-4 text-gray-600 text-base">Loading businesses...</Text>
-        <Text className="mt-2 text-gray-400 text-xs">Please wait...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
+        <ActivityIndicator size="large" color="#7c3aed" />
+        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 16 }}>Loading businesses...</Text>
       </View>
     );
   }
@@ -288,251 +296,335 @@ const ClientHomeScreen = function(props) {
     }
   }
 
-  const businessesLength = businesses.length;
-  const businessesLengthString = businessesLength.toString();
-  const servicesCount = businessesLength * 5;
-  const servicesCountString = servicesCount.toString();
-
   const filteredBusinessesLength = filteredBusinesses.length;
   const filteredBusinessesLengthString = filteredBusinessesLength.toString();
   
-  let businessesLabel = 'businesses';
-  const isSingleBusiness = filteredBusinessesLength === 1;
-  if (isSingleBusiness === true) {
-    businessesLabel = 'business';
+  const hasSearchQuery = searchQuery.length > 0;
+  const hasError = error !== null && error !== undefined;
+  const isNotAllCategory = selectedCategory !== 'All';
+  const hasActiveFilter = isNotAllCategory === true || hasSearchQuery === true;
+
+  function renderFlatListItem(renderProps) {
+    const item = renderProps.item;
+    
+    function handlePress() {
+      handleBusinessPress(item);
+    }
+    
+    return (
+      <BusinessCard
+        business={item}
+        userLocation={userLocation}
+        onPress={handlePress}
+      />
+    );
   }
 
-  const hasSearchQuery = searchQuery.length > 0;
+  function extractKeyFromItem(item) {
+    const itemId = item.id;
+    const hasItemId = itemId !== null && itemId !== undefined;
+    if (hasItemId === true) {
+      const itemIdString = itemId.toString();
+      return itemIdString;
+    }
+    const randomString = Math.random().toString();
+    return randomString;
+  }
 
-  const scrollContentStyle = { paddingVertical: 6 };
-  const listContentStyle = { padding: 12 };
+  function renderEmptyComponent() {
+    let emoji = '🏪';
+    let title = 'No businesses found';
+    let description = 'No businesses available yet';
+    
+    if (hasError === true) {
+      emoji = '⚠️';
+      title = 'Connection Failed';
+      description = 'Unable to load businesses. Check your connection.';
+    } else {
+      const hasSearchOrFilter = hasSearchQuery === true || selectedCategory !== 'All';
+      if (hasSearchOrFilter === true) {
+        emoji = '🔍';
+        description = 'Try adjusting your search or filter';
+      }
+    }
+    
+    const shouldShowRetry = hasError === true;
+    
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: 64 }}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>
+          {emoji}
+        </Text>
+        <Text style={{ color: '#111827', fontWeight: '700', fontSize: 18, marginBottom: 4 }}>
+          {title}
+        </Text>
+        <Text style={{ color: '#6b7280', fontSize: 14, textAlign: 'center', paddingHorizontal: 32, marginBottom: 16 }}>
+          {description}
+        </Text>
+        {shouldShowRetry === true && (
+          <TouchableOpacity 
+            onPress={fetchBusinesses}
+            style={{ backgroundColor: '#7c3aed', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 }}
+          >
+            <Text style={{ color: '#ffffff', fontWeight: '600' }}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
 
-  const hasError = error !== null && error !== undefined;
+  function renderCategoryButtons() {
+    const categoryButtons = [];
+    let categoryIndex = 0;
+    
+    while (categoryIndex < CATEGORIES.length) {
+      const cat = CATEGORIES[categoryIndex];
+      const isSelected = selectedCategory === cat;
+      
+      const containerStyle = {
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginBottom: 12,
+        borderWidth: 2,
+      };
+      
+      const textStyle = {
+        fontSize: 16,
+        fontWeight: '600',
+        textAlign: 'center',
+      };
+      
+      if (isSelected === true) {
+        containerStyle.backgroundColor = '#7c3aed';
+        containerStyle.borderColor = '#7c3aed';
+        textStyle.color = '#ffffff';
+      } else {
+        containerStyle.backgroundColor = '#f9fafb';
+        containerStyle.borderColor = '#e5e7eb';
+        textStyle.color = '#374151';
+      }
+      
+      function handleCategoryPress() {
+        handleSelectCategory(cat);
+      }
+      
+      const categoryButton = (
+        <TouchableOpacity
+          key={cat}
+          onPress={handleCategoryPress}
+          style={containerStyle}
+        >
+          <Text style={textStyle}>
+            {cat}
+          </Text>
+        </TouchableOpacity>
+      );
+      
+      categoryButtons.push(categoryButton);
+      categoryIndex = categoryIndex + 1;
+    }
+    
+    return categoryButtons;
+  }
+
+  const filterButtonEmoji = hasActiveFilter === true ? '🎯' : '⚙️';
+  const filterButtonBackgroundColor = hasActiveFilter === true ? '#ffffff' : 'rgba(255, 255, 255, 0.2)';
+  
+  const maxModalHeight = SCREEN_HEIGHT * 0.7;
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="bg-white pt-12 pb-2 px-4">
-        <Text className="text-lg font-bold text-gray-900">
-          Hello, {userName}! 👋
-        </Text>
-      </View>
-
-      <View className="bg-blue-600">
-        <View className="px-6 pt-10 pb-6">
-          <View className="flex-row items-center justify-between mb-6">
-            <View className="flex-1">
-              <Text className="text-3xl font-black text-white mb-1">
-                LocalBook
-              </Text>
-              <Text className="text-base text-blue-100 font-medium">
-                Carlow Edition
-              </Text>
-            </View>
-            
-            <View className="bg-white/20 px-4 py-2 rounded-full">
-              <View className="flex-row items-center">
-                <Text className="text-base mr-1">📍</Text>
-                <Text className="text-sm text-white font-bold">Carlow</Text>
-              </View>
-            </View>
-          </View>
-          
-          <View className="bg-white/10 backdrop-blur-lg px-4 py-3 rounded-xl border border-white/20">
-            <Text className="text-sm text-white text-center font-medium">
-              ✨ Your local services, all in one place
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      {/* Fixed Header */}
+      <View style={{ backgroundColor: '#7c3aed', paddingTop: 48, paddingBottom: 0 }}>
+        {/* Top Bar with Greeting */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{ fontSize: 24, fontWeight: '800', color: '#ffffff' }}>
+              LocalBook
+            </Text>
+            <Text style={{ fontSize: 14, color: '#e9d5ff', marginTop: 2 }}>
+              Hello, {userName}! 👋
             </Text>
           </View>
-        </View>
-        
-        <View className="bg-white/10 backdrop-blur-lg px-6 py-4 flex-row justify-around border-t border-white/20">
-          <View className="items-center">
-            <Text className="text-2xl font-bold text-white">{businessesLengthString}</Text>
-            <Text className="text-xs text-blue-100">Businesses</Text>
-          </View>
-          <View className="w-px h-8 bg-white/30" />
-          <View className="items-center">
-            <Text className="text-2xl font-bold text-white">{servicesCountString}</Text>
-            <Text className="text-xs text-blue-100">Services</Text>
-          </View>
-          <View className="w-px h-8 bg-white/30" />
-          <View className="items-center">
-            <Text className="text-2xl font-bold text-white">4.8★</Text>
-            <Text className="text-xs text-blue-100">Rating</Text>
+          
+          <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={{ fontSize: 14, marginRight: 4 }}>📍</Text>
+              <Text style={{ fontSize: 13, color: '#ffffff', fontWeight: '600' }}>Carlow</Text>
+            </View>
           </View>
         </View>
-        
-        <View className="h-3 bg-gray-50" style={{
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-        }} />
-      </View>
 
-      <View className="bg-white px-4 pb-2">
-        <View className="flex-row items-center bg-gray-100 rounded-full px-3 h-9">
-          <Text className="mr-2">🔍</Text>
-          <TextInput
-            className="flex-1 text-sm"
-            placeholder="Search businesses..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor="#9ca3af"
-          />
-          {hasSearchQuery === true && (
-            <TouchableOpacity 
-              onPress={function() {
-                setSearchQuery('');
+        {/* Search and Filter Row */}
+        <View style={{ paddingHorizontal: 20, paddingBottom: 16, flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 12, height: 44 }}>
+            <Text style={{ marginRight: 8, fontSize: 16 }}>🔍</Text>
+            <TextInput
+              style={{ flex: 1, fontSize: 15 }}
+              placeholder="Search businesses..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#9ca3af"
+            />
+            {hasSearchQuery === true && (
+              <TouchableOpacity onPress={handleClearSearch}>
+                <Text style={{ color: '#9ca3af', fontSize: 18 }}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <TouchableOpacity
+            onPress={handleOpenFilterModal}
+            style={{ 
+              backgroundColor: filterButtonBackgroundColor,
+              paddingHorizontal: 16,
+              borderRadius: 12,
+              height: 44,
+              justifyContent: 'center',
+              alignItems: 'center',
+              minWidth: 44,
+            }}
+          >
+            <Text style={{ fontSize: 20 }}>
+              {filterButtonEmoji}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Results Bar */}
+        <View style={{ 
+          backgroundColor: '#ffffff', 
+          paddingHorizontal: 20, 
+          paddingVertical: 12,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }}>
+          <Text style={{ fontSize: 14, color: '#6b7280', fontWeight: '600' }}>
+            {filteredBusinessesLengthString} businesses
+          </Text>
+          
+          {hasActiveFilter === true && (
+            <TouchableOpacity
+              onPress={handleClearAllFilters}
+              style={{ 
+                backgroundColor: '#fef2f2',
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 8,
               }}
             >
-              <Text className="text-gray-400 ml-2">✕</Text>
+              <Text style={{ fontSize: 12, color: '#ef4444', fontWeight: '600' }}>
+                Clear filters
+              </Text>
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      <View className="bg-white border-b border-gray-200">
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="px-4"
-          contentContainerStyle={scrollContentStyle}
-        >
-          {CATEGORIES.map(function(cat) {
-            const isSelected = selectedCategory === cat;
-            
-            let buttonClassName = 'mr-2 px-3 py-1 rounded-full ';
-            if (isSelected === true) {
-              buttonClassName = buttonClassName + 'bg-blue-500';
-            } else {
-              buttonClassName = buttonClassName + 'bg-gray-100';
-            }
-            
-            let textClassName = 'text-xs font-semibold ';
-            if (isSelected === true) {
-              textClassName = textClassName + 'text-white';
-            } else {
-              textClassName = textClassName + 'text-gray-700';
-            }
-            
-            return (
-              <TouchableOpacity
-                key={cat}
-                onPress={function() {
-                  setSelectedCategory(cat);
-                }}
-                className={buttonClassName}
-              >
-                <Text className={textClassName}>
-                  {cat}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      <View className="px-4 py-2 bg-white border-b border-gray-100">
-        <Text className="text-xs text-gray-600">
-          {filteredBusinessesLengthString} {businessesLabel} found
-        </Text>
-      </View>
-
+      {/* Error Message */}
       {hasError === true && (
-        <View className="mx-4 mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <Text className="text-red-700 text-sm font-semibold">
+        <View style={{ marginHorizontal: 16, marginTop: 12, padding: 12, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 12 }}>
+          <Text style={{ color: '#b91c1c', fontSize: 14, fontWeight: '600' }}>
             ⚠️ Connection Error
           </Text>
-          <Text className="text-red-600 text-xs mt-1">
+          <Text style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
             {error}
           </Text>
           <TouchableOpacity 
             onPress={fetchBusinesses}
-            className="mt-2 bg-red-500 py-2 px-4 rounded-lg"
+            style={{ marginTop: 8, backgroundColor: '#ef4444', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8 }}
           >
-            <Text className="text-white text-center text-sm font-semibold">
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontSize: 14, fontWeight: '600' }}>
               Try Again
             </Text>
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Business List */}
       <FlatList
         data={filteredBusinesses}
-        renderItem={function(renderProps) {
-          const item = renderProps.item;
-          return (
-            <BusinessCard
-              business={item}
-              userLocation={userLocation}
-              onPress={function() {
-                handleBusinessPress(item);
-              }}
-            />
-          );
-        }}
-        keyExtractor={function(item) {
-          const itemId = item.id;
-          const hasItemId = itemId !== null && itemId !== undefined;
-          if (hasItemId === true) {
-            const itemIdString = itemId.toString();
-            return itemIdString;
-          }
-          const randomString = Math.random().toString();
-          return randomString;
-        }}
-        contentContainerStyle={listContentStyle}
+        renderItem={renderFlatListItem}
+        keyExtractor={extractKeyFromItem}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={onRefresh}
-            colors={['#3b82f6']}
-            tintColor="#3b82f6"
-          />
-        }
-        ListEmptyComponent={function() {
-          let emoji = '🏪';
-          let title = 'No businesses found';
-          let description = 'No businesses available yet';
-          
-          if (hasError === true) {
-            emoji = '⚠️';
-            title = 'Connection Failed';
-            description = 'Unable to load businesses. Check your connection.';
-          } else {
-            const hasSearchOrFilter = hasSearchQuery === true || selectedCategory !== 'All';
-            if (hasSearchOrFilter === true) {
-              emoji = '🔍';
-              description = 'Try adjusting your search or filter';
-            }
-          }
-          
-          return (
-            <View className="items-center py-16">
-              <Text className="text-6xl mb-4">
-                {emoji}
-              </Text>
-              <Text className="text-gray-900 font-bold text-lg mb-1">
-                {title}
-              </Text>
-              <Text className="text-gray-500 text-sm text-center px-8 mb-4">
-                {description}
-              </Text>
-              {hasError === true && (
-                <TouchableOpacity 
-                  onPress={fetchBusinesses}
-                  className="bg-blue-500 py-3 px-6 rounded-lg"
-                >
-                  <Text className="text-white font-semibold">
-                    Retry
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        }}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+        ListEmptyComponent={renderEmptyComponent}
       />
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={handleCloseFilterModal}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ 
+            backgroundColor: '#ffffff',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingTop: 20,
+            paddingBottom: 40,
+            maxHeight: maxModalHeight,
+          }}>
+            {/* Modal Header */}
+            <View style={{ 
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 24,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#f3f4f6',
+            }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>
+                Filter by Category
+              </Text>
+              <TouchableOpacity onPress={handleCloseFilterModal}>
+                <Text style={{ fontSize: 24, color: '#9ca3af' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Categories Grid */}
+            <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
+              {renderCategoryButtons()}
+            </View>
+
+            {/* Reset Button */}
+            <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
+              <TouchableOpacity
+                onPress={handleResetAllFilters}
+                style={{
+                  backgroundColor: '#fef2f2',
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#fecaca',
+                }}
+              >
+                <Text style={{ 
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: '#ef4444',
+                  textAlign: 'center',
+                }}>
+                  Reset All Filters
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
-};
+}
 
 export default ClientHomeScreen;

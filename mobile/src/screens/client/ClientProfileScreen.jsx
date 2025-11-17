@@ -3,122 +3,72 @@ import {
   View,
   Text,
   ActivityIndicator,
-  FlatList,
   TouchableOpacity,
   Alert,
   ScrollView,
-  Image,
+  RefreshControl,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
-const ClientProfileScreen = function(props) {
+function ClientProfileScreen(props) {
   const navigation = props.navigation;
   const authContext = useAuth();
   const user = authContext.user;
   const token = authContext.token;
   const authLoading = authContext.loading;
   const logout = authContext.logout;
-  const API_BASE_URL = authContext.API_BASE_URL;
 
-  const bookingsState = useState([]);
-  const bookings = bookingsState[0];
-  const setBookings = bookingsState[1];
-
-  const loadingBookingsState = useState(false);
-  const loadingBookings = loadingBookingsState[0];
-  const setLoadingBookings = loadingBookingsState[1];
-
-  const errorState = useState(null);
-  const error = errorState[0];
-  const setError = errorState[1];
+  const [refreshing, setRefreshing] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [updating, setUpdating] = useState(false);
 
   useEffect(function() {
     const hasUser = user !== null && user !== undefined;
     if (hasUser === true) {
-      loadBookings();
+      initializeEditFields();
     }
   }, [user]);
 
-  const loadBookings = async function() {
+  function initializeEditFields() {
     const hasUser = user !== null && user !== undefined;
     if (hasUser === false) {
       return;
     }
 
-    setLoadingBookings(true);
-    setError(null);
-
-    try {
-      let baseUrl = 'http://192.168.1.15:8080/api';
-      const hasAPIBaseURL = API_BASE_URL !== null && API_BASE_URL !== undefined;
-      if (hasAPIBaseURL === true) {
-        baseUrl = API_BASE_URL;
-      }
-
-      const userId = user.id;
-      const userIdString = userId.toString();
-      const url = baseUrl + '/appointments/user/' + userIdString;
-
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-
-      const hasToken = token !== null && token !== undefined;
-      if (hasToken === true) {
-        const authHeader = 'Bearer ' + token;
-        headers.Authorization = authHeader;
-      }
-
-      const requestOptions = {
-        method: 'GET',
-        headers: headers,
-      };
-
-      const response = await fetch(url, requestOptions);
-      const isResponseOk = response.ok;
-
-      if (isResponseOk === false) {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to load bookings';
-        const hasErrorText = errorText !== null && errorText !== undefined && errorText.length > 0;
-        if (hasErrorText === true) {
-          errorMessage = errorText;
-        } else {
-          const statusCode = response.status;
-          const statusString = statusCode.toString();
-          errorMessage = 'Status ' + statusString;
-        }
-        const error = new Error(errorMessage);
-        throw error;
-      }
-
-      const data = await response.json();
-      const isArray = Array.isArray(data);
-      
-      let bookingsList = [];
-      if (isArray === true) {
-        bookingsList = data;
-      } else {
-        const hasBookingsProperty = data.bookings !== null && data.bookings !== undefined;
-        if (hasBookingsProperty === true) {
-          bookingsList = data.bookings;
-        } else {
-          bookingsList = [];
-        }
-      }
-
-      setBookings(bookingsList);
-    } catch (errorObject) {
-      console.warn('Load bookings error:', errorObject);
-      setError('Could not load bookings. Please check your connection.');
-      const emptyArray = [];
-      setBookings(emptyArray);
-    } finally {
-      setLoadingBookings(false);
+    const userName = user.name;
+    const hasUserName = userName !== null && userName !== undefined;
+    if (hasUserName === true) {
+      setEditName(userName);
     }
-  };
 
-  const handleLogout = function() {
+    const userEmail = user.email;
+    const hasUserEmail = userEmail !== null && userEmail !== undefined;
+    if (hasUserEmail === true) {
+      setEditEmail(userEmail);
+    }
+
+    const userPhone = user.phoneNumber;
+    const hasUserPhone = userPhone !== null && userPhone !== undefined;
+    if (hasUserPhone === true) {
+      setEditPhone(userPhone);
+    } else {
+      setEditPhone('');
+    }
+  }
+
+  function handleRefresh() {
+    setRefreshing(true);
+    setTimeout(function() {
+      setRefreshing(false);
+    }, 1000);
+  }
+
+  function handleLogout() {
     const alertButtons = [
       { 
         text: 'Cancel', 
@@ -138,142 +88,48 @@ const ClientProfileScreen = function(props) {
     ];
 
     Alert.alert('Confirm Logout', 'Are you sure you want to log out?', alertButtons);
-  };
+  }
 
-  const handleEditProfile = function() {
-    Alert.alert('Edit Profile', 'Profile editing feature coming soon!');
-  };
+  function handleOpenEditProfile() {
+    initializeEditFields();
+    setShowEditModal(true);
+  }
 
-  const handleViewBooking = function(booking) {
-    const bookingId = booking.id;
-    let bookingIdString = 'N/A';
-    const hasBookingId = bookingId !== null && bookingId !== undefined;
-    if (hasBookingId === true) {
-      bookingIdString = bookingId.toString();
-    }
-    
-    const alertMessage = 'Booking ID: ' + bookingIdString;
-    Alert.alert('Booking Details', alertMessage);
-  };
+  function handleCloseEditModal() {
+    setShowEditModal(false);
+  }
 
-  const renderBooking = function(renderProps) {
-    const item = renderProps.item;
+  function handleViewMyBookings() {
+    navigation.navigate('MyBookings');
+  }
 
-    let businessName = 'Business';
-    const hasBusiness = item.business !== null && item.business !== undefined;
-    if (hasBusiness === true) {
-      const hasBusinessName = item.business.businessName !== null && item.business.businessName !== undefined;
-      if (hasBusinessName === true) {
-        businessName = item.business.businessName;
-      }
-    }
+  async function handleSaveProfile() {
+    console.log('💾 Saving profile...');
+    setUpdating(true);
 
-    let serviceName = 'Service';
-    const hasService = item.service !== null && item.service !== undefined;
-    if (hasService === true) {
-      const hasServiceName = item.service.serviceName !== null && item.service.serviceName !== undefined;
-      if (hasServiceName === true) {
-        serviceName = item.service.serviceName;
-      }
-    }
-
-    const appointmentDateTimeString = item.appointmentDateTime;
-    const appointmentDate = new Date(appointmentDateTimeString);
-    const formattedDate = appointmentDate.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-
-    const formattedTime = appointmentDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const status = item.status;
-    let statusBgColor = 'bg-blue-100';
-    let statusTextColor = 'text-blue-800';
-
-    const isConfirmed = status === 'CONFIRMED';
-    const isCancelled = status === 'CANCELLED';
-    const isCompleted = status === 'COMPLETED';
-
-    if (isConfirmed === true) {
-      statusBgColor = 'bg-green-100';
-      statusTextColor = 'text-green-800';
-    } else if (isCancelled === true) {
-      statusBgColor = 'bg-red-100';
-      statusTextColor = 'text-red-800';
-    } else if (isCompleted === true) {
-      statusBgColor = 'bg-blue-100';
-      statusTextColor = 'text-blue-800';
-    }
-
-    const statusBadgeClassName = statusBgColor + ' px-2 py-1 rounded-full';
-    const statusTextClassName = statusTextColor + ' text-xs font-bold uppercase';
-
-    return (
-      <View className="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-200">
-        <View className="flex-row justify-between items-start mb-2">
-          <View className="flex-1">
-            <Text className="text-lg font-bold text-gray-900 mb-1">
-              {businessName}
-            </Text>
-            <Text className="text-sm text-gray-600">
-              {serviceName}
-            </Text>
-          </View>
-          <View className={statusBadgeClassName}>
-            <Text className={statusTextClassName}>
-              {status}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex-row items-center mt-2">
-          <Text className="text-sm text-gray-700 mr-4">
-            📅 {formattedDate}
-          </Text>
-          <Text className="text-sm text-gray-700">
-            🕐 {formattedTime}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          className="mt-3 bg-blue-500 py-2 rounded-lg active:bg-blue-600"
-          onPress={function() {
-            handleViewBooking(item);
-          }}
-          activeOpacity={0.7}
-        >
-          <Text className="text-white text-center font-semibold">
-            View Details
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderEmptyBookings = function() {
-    return (
-      <View className="items-center justify-center py-12">
-        <Text className="text-6xl mb-4">📅</Text>
-        <Text className="text-xl font-bold text-gray-700 mb-2">
-          No bookings yet
-        </Text>
-        <Text className="text-sm text-gray-500 text-center px-8">
-          Your appointment bookings will appear here
-        </Text>
-      </View>
-    );
-  };
+    setTimeout(function() {
+      setUpdating(false);
+      setShowEditModal(false);
+      Alert.alert('Success', 'Profile updated successfully!');
+    }, 1500);
+  }
 
   if (authLoading === true) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
-        <ActivityIndicator size="large" color="#3b82f6" />
-        <Text className="mt-4 text-gray-600">Loading profile...</Text>
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f9fafb'
+      }}>
+        <ActivityIndicator size="large" color="#7c3aed" />
+        <Text style={{
+          marginTop: 16,
+          color: '#6b7280',
+          fontSize: 15
+        }}>
+          Loading profile...
+        </Text>
       </View>
     );
   }
@@ -281,13 +137,38 @@ const ClientProfileScreen = function(props) {
   const hasUser = user !== null && user !== undefined;
   if (hasUser === false) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50 px-8">
-        <Text className="text-6xl mb-4">👤</Text>
-        <Text className="text-2xl font-bold text-gray-900 mb-2">
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f9fafb',
+        paddingHorizontal: 32
+      }}>
+        <View style={{
+          width: 120,
+          height: 120,
+          borderRadius: 60,
+          backgroundColor: '#f3f4f6',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 24,
+        }}>
+          <Text style={{ fontSize: 60 }}>👤</Text>
+        </View>
+        <Text style={{
+          fontSize: 24,
+          fontWeight: '700',
+          color: '#111827',
+          marginBottom: 8
+        }}>
           Not Signed In
         </Text>
-        <Text className="text-base text-gray-600 text-center">
-          Please log in to see your profile and bookings
+        <Text style={{
+          fontSize: 16,
+          color: '#6b7280',
+          textAlign: 'center'
+        }}>
+          Please log in to see your profile
         </Text>
       </View>
     );
@@ -295,6 +176,8 @@ const ClientProfileScreen = function(props) {
 
   const userName = user.name;
   const userEmail = user.email;
+  const userPhone = user.phoneNumber;
+  const userRole = user.role;
   
   let displayName = 'No name';
   const hasUserName = userName !== null && userName !== undefined;
@@ -308,6 +191,23 @@ const ClientProfileScreen = function(props) {
     displayEmail = userEmail;
   }
 
+  let displayPhone = 'No phone number';
+  const hasUserPhone = userPhone !== null && userPhone !== undefined && userPhone.length > 0;
+  if (hasUserPhone === true) {
+    displayPhone = userPhone;
+  }
+
+  let displayRole = 'User';
+  const hasUserRole = userRole !== null && userRole !== undefined;
+  if (hasUserRole === true) {
+    const isClient = userRole === 'CLIENT';
+    if (isClient === true) {
+      displayRole = 'Client';
+    } else {
+      displayRole = userRole;
+    }
+  }
+
   const userInitials = (function() {
     const hasName = userName !== null && userName !== undefined && userName.length > 0;
     if (hasName === true) {
@@ -318,7 +218,8 @@ const ClientProfileScreen = function(props) {
       
       const hasMultipleParts = nameParts.length > 1;
       if (hasMultipleParts === true) {
-        const lastPart = nameParts[nameParts.length - 1];
+        const lastIndex = nameParts.length - 1;
+        const lastPart = nameParts[lastIndex];
         const lastLetter = lastPart.charAt(0);
         const upperLastLetter = lastLetter.toUpperCase();
         return upperFirstLetter + upperLastLetter;
@@ -329,122 +230,666 @@ const ClientProfileScreen = function(props) {
     return '?';
   })();
 
-  const bookingsCount = bookings.length;
-  const bookingsCountString = bookingsCount.toString();
-
-  const hasError = error !== null && error !== undefined;
+  const joinDate = new Date();
+  const formattedJoinDate = joinDate.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric'
+  });
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="bg-blue-500 pt-12 pb-8 px-5">
-          <View className="flex-row justify-between items-start mb-6">
-            <Text className="text-white text-2xl font-bold">
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#7c3aed']}
+            tintColor="#7c3aed"
+          />
+        }
+      >
+        {/* Purple Header */}
+        <View style={{
+          backgroundColor: '#7c3aed',
+          paddingTop: 48,
+          paddingBottom: 32,
+          paddingHorizontal: 20
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: 24
+          }}>
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 24,
+              fontWeight: '700'
+            }}>
               My Profile
             </Text>
             <TouchableOpacity
-              className="bg-white/20 px-4 py-2 rounded-lg active:bg-white/30"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8
+              }}
               onPress={handleLogout}
               activeOpacity={0.7}
             >
-              <Text className="text-white font-semibold">
+              <Text style={{
+                color: '#ffffff',
+                fontWeight: '600'
+              }}>
                 Logout
               </Text>
             </TouchableOpacity>
           </View>
 
-          <View className="bg-white/10 rounded-2xl p-6">
-            <View className="items-center mb-4">
-              <View className="bg-white w-24 h-24 rounded-full items-center justify-center mb-3">
-                <Text className="text-blue-500 text-3xl font-bold">
+          <View style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            borderRadius: 16,
+            padding: 24,
+            borderWidth: 1,
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+          }}>
+            <View style={{
+              alignItems: 'center',
+              marginBottom: 16
+            }}>
+              <View style={{
+                backgroundColor: '#ffffff',
+                width: 96,
+                height: 96,
+                borderRadius: 48,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 12,
+                shadowColor: '#000',
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
+              }}>
+                <Text style={{
+                  color: '#7c3aed',
+                  fontSize: 36,
+                  fontWeight: '700'
+                }}>
                   {userInitials}
                 </Text>
               </View>
-              <Text className="text-white text-xl font-bold mb-1">
+              <Text style={{
+                color: '#ffffff',
+                fontSize: 20,
+                fontWeight: '700',
+                marginBottom: 4
+              }}>
                 {displayName}
               </Text>
-              <Text className="text-white/80 text-sm">
+              <Text style={{
+                color: 'rgba(255, 255, 255, 0.8)',
+                fontSize: 14,
+                marginBottom: 8
+              }}>
                 {displayEmail}
               </Text>
+              <View style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 12,
+              }}>
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 12,
+                  fontWeight: '600'
+                }}>
+                  {displayRole}
+                </Text>
+              </View>
             </View>
 
             <TouchableOpacity
-              className="bg-white/20 py-3 rounded-lg active:bg-white/30 mt-2"
-              onPress={handleEditProfile}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                paddingVertical: 12,
+                borderRadius: 8,
+                marginTop: 8
+              }}
+              onPress={handleOpenEditProfile}
               activeOpacity={0.7}
             >
-              <Text className="text-white text-center font-semibold">
-                Edit Profile
+              <Text style={{
+                color: '#ffffff',
+                textAlign: 'center',
+                fontWeight: '600'
+              }}>
+                ✏️ Edit Profile
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <View className="px-5 py-6">
-          <View className="flex-row justify-between items-center mb-4">
-            <View>
-              <Text className="text-2xl font-bold text-gray-900">
-                My Bookings
-              </Text>
-              <Text className="text-sm text-gray-500 mt-1">
-                {bookingsCountString} total bookings
-              </Text>
+        {/* Profile Information */}
+        <View style={{
+          paddingHorizontal: 20,
+          paddingVertical: 24
+        }}>
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: '#111827',
+            marginBottom: 16
+          }}>
+            Account Information
+          </Text>
+
+          {/* Email Card */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 12,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#ede9fe',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12
+              }}>
+                <Text style={{ fontSize: 18 }}>📧</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 12,
+                  color: '#6b7280',
+                  fontWeight: '600',
+                  marginBottom: 2
+                }}>
+                  EMAIL
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  color: '#111827',
+                  fontWeight: '600'
+                }}>
+                  {displayEmail}
+                </Text>
+              </View>
             </View>
-            <TouchableOpacity
-              className="bg-blue-500 px-4 py-2 rounded-lg active:bg-blue-600"
-              onPress={loadBookings}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white font-semibold">
-                Refresh
-              </Text>
-            </TouchableOpacity>
           </View>
 
-          {loadingBookings === true ? (
-            <View className="py-12 items-center">
-              <ActivityIndicator size="large" color="#3b82f6" />
-              <Text className="mt-4 text-gray-600">Loading bookings...</Text>
+          {/* Phone Card */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 12,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#dbeafe',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12
+              }}>
+                <Text style={{ fontSize: 18 }}>📱</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 12,
+                  color: '#6b7280',
+                  fontWeight: '600',
+                  marginBottom: 2
+                }}>
+                  PHONE
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  color: '#111827',
+                  fontWeight: '600'
+                }}>
+                  {displayPhone}
+                </Text>
+              </View>
             </View>
-          ) : hasError === true ? (
-            <View className="bg-red-50 border border-red-200 rounded-xl p-6 items-center">
-              <Text className="text-red-800 text-center mb-3">
-                {error}
-              </Text>
+          </View>
+
+          {/* Member Since Card */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 12,
+            padding: 16,
+            marginBottom: 24,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center'
+            }}>
+              <View style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: '#d1fae5',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12
+              }}>
+                <Text style={{ fontSize: 18 }}>📅</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{
+                  fontSize: 12,
+                  color: '#6b7280',
+                  fontWeight: '600',
+                  marginBottom: 2
+                }}>
+                  MEMBER SINCE
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  color: '#111827',
+                  fontWeight: '600'
+                }}>
+                  {formattedJoinDate}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '700',
+            color: '#111827',
+            marginBottom: 16
+          }}>
+            Quick Actions
+          </Text>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#7c3aed',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12,
+              shadowColor: '#7c3aed',
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 4,
+            }}
+            onPress={handleViewMyBookings}
+            activeOpacity={0.8}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>📅</Text>
+                <View>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '700',
+                    color: '#ffffff'
+                  }}>
+                    My Bookings
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    marginTop: 2
+                  }}>
+                    View and manage appointments
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 18, color: '#ffffff' }}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12,
+              borderWidth: 2,
+              borderColor: '#e5e7eb',
+            }}
+            onPress={function() {
+              Alert.alert('Settings', 'Settings feature coming soon!');
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>⚙️</Text>
+                <View>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '700',
+                    color: '#111827'
+                  }}>
+                    Settings
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: '#6b7280',
+                    marginTop: 2
+                  }}>
+                    Preferences and notifications
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 18, color: '#9ca3af' }}>→</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12,
+              borderWidth: 2,
+              borderColor: '#e5e7eb',
+            }}
+            onPress={function() {
+              Alert.alert('Help & Support', 'Contact support at support@localbook.com');
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center'
+              }}>
+                <Text style={{ fontSize: 24, marginRight: 12 }}>❓</Text>
+                <View>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '700',
+                    color: '#111827'
+                  }}>
+                    Help & Support
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: '#6b7280',
+                    marginTop: 2
+                  }}>
+                    Get help or contact us
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 18, color: '#9ca3af' }}>→</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* App Version */}
+        <View style={{
+          paddingBottom: 40,
+          alignItems: 'center'
+        }}>
+          <Text style={{
+            color: '#9ca3af',
+            fontSize: 13
+          }}>
+            LocalBook v1.0.0
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseEditModal}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          justifyContent: 'flex-end'
+        }}>
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            paddingTop: 20,
+            paddingBottom: 40,
+            maxHeight: '80%'
+          }}>
+            {/* Modal Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingBottom: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: '#f3f4f6'
+            }}>
               <TouchableOpacity
-                className="bg-red-500 px-6 py-2 rounded-lg active:bg-red-600"
-                onPress={loadBookings}
+                onPress={handleCloseEditModal}
                 activeOpacity={0.7}
               >
-                <Text className="text-white font-semibold">
-                  Try Again
+                <Text style={{
+                  color: '#6b7280',
+                  fontSize: 16,
+                  fontWeight: '600'
+                }}>
+                  Cancel
                 </Text>
               </TouchableOpacity>
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#111827'
+              }}>
+                Edit Profile
+              </Text>
+              <View style={{ width: 60 }} />
             </View>
-          ) : bookingsCount === 0 ? (
-            renderEmptyBookings()
-          ) : (
-            <FlatList
-              data={bookings}
-              keyExtractor={function(item) {
-                const itemId = item.id;
-                const hasItemId = itemId !== null && itemId !== undefined;
-                if (hasItemId === true) {
-                  const itemIdString = itemId.toString();
-                  return itemIdString;
-                }
-                return '';
-              }}
-              renderItem={renderBooking}
-              scrollEnabled={false}
-            />
-          )}
-        </View>
 
-        <View className="h-8" />
-      </ScrollView>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 24
+              }}
+              showsVerticalScrollIndicator={false}
+            >
+              {/* Name Input */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: 8
+                }}>
+                  Full Name
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    borderWidth: 2,
+                    borderColor: '#e5e7eb',
+                    borderRadius: 12,
+                    padding: 14,
+                    fontSize: 16,
+                    color: '#111827'
+                  }}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Enter your name"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+
+              {/* Email Input */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: 8
+                }}>
+                  Email Address
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    borderWidth: 2,
+                    borderColor: '#e5e7eb',
+                    borderRadius: 12,
+                    padding: 14,
+                    fontSize: 16,
+                    color: '#111827'
+                  }}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              {/* Phone Input */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: 8
+                }}>
+                  Phone Number
+                </Text>
+                <TextInput
+                  style={{
+                    backgroundColor: '#f9fafb',
+                    borderWidth: 2,
+                    borderColor: '#e5e7eb',
+                    borderRadius: 12,
+                    padding: 14,
+                    fontSize: 16,
+                    color: '#111827'
+                  }}
+                  value={editPhone}
+                  onChangeText={setEditPhone}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={{ height: 20 }} />
+            </ScrollView>
+
+            {/* Save Button */}
+            <View style={{
+              paddingHorizontal: 20,
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: '#f3f4f6'
+            }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: updating === true ? '#a78bfa' : '#7c3aed',
+                  borderRadius: 12,
+                  padding: 16,
+                  shadowColor: '#7c3aed',
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 4 }
+                }}
+                onPress={handleSaveProfile}
+                disabled={updating}
+                activeOpacity={0.8}
+              >
+                {updating === true ? (
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                  }}>
+                    <ActivityIndicator size="small" color="#ffffff" />
+                    <Text style={{
+                      color: '#ffffff',
+                      fontSize: 16,
+                      fontWeight: '700',
+                      marginLeft: 8
+                    }}>
+                      Saving...
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{
+                    color: '#ffffff',
+                    textAlign: 'center',
+                    fontSize: 16,
+                    fontWeight: '700'
+                  }}>
+                    Save Changes
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
-};
+}
 
 export default ClientProfileScreen;

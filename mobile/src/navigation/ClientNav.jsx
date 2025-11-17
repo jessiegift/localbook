@@ -1,45 +1,98 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 
-// Client Screens
 import ClientHomeScreen from '../screens/client/ClientHomeScreen';
 import MyBookingsScreen from '../screens/client/MyBookingsScreen';
-import ClientProfileScreen from '../screens/client/ClientProfileScreen';
 import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
 
-// Simple Profile Screen placeholder
-const ClientProfileScreen = () => {
-  const { user, logout } = useAuth();
+function ClientProfileScreen() {
+  const authContext = useAuth();
+  const user = authContext.user;
+  const logout = authContext.logout;
   
+  let userName = 'Guest';
+  const hasUser = user !== null && user !== undefined;
+  if (hasUser === true) {
+    const hasUserName = user.name !== null && user.name !== undefined;
+    if (hasUserName === true) {
+      userName = user.name;
+    }
+  }
+
+  let userEmail = 'No email';
+  if (hasUser === true) {
+    const hasUserEmail = user.email !== null && user.email !== undefined;
+    if (hasUserEmail === true) {
+      userEmail = user.email;
+    }
+  }
+
   return (
-    <View className="flex-1 bg-gray-50 justify-center items-center p-6">
-      <View className="bg-white rounded-full w-24 h-24 items-center justify-center mb-4">
-        <Text className="text-5xl">👤</Text>
+    <View style={{ 
+      flex: 1, 
+      backgroundColor: '#f9fafb', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      padding: 24 
+    }}>
+      <View style={{ 
+        backgroundColor: '#ffffff', 
+        borderRadius: 40, 
+        width: 96, 
+        height: 96, 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 12
+      }}>
+        <Text style={{ fontSize: 48 }}>👤</Text>
       </View>
-      <Text className="text-2xl font-bold text-gray-900 mb-2">
-        {user?.name}
+      <Text style={{ 
+        fontSize: 24, 
+        fontWeight: '700', 
+        color: '#111827', 
+        marginBottom: 8 
+      }}>
+        {userName}
       </Text>
-      <Text className="text-base text-gray-600 mb-8">
-        {user?.email}
+      <Text style={{ 
+        fontSize: 16, 
+        color: '#6b7280', 
+        marginBottom: 32 
+      }}>
+        {userEmail}
       </Text>
       <TouchableOpacity 
         onPress={logout}
-        className="bg-red-500 px-8 py-3 rounded-lg"
+        style={{ 
+          backgroundColor: '#ef4444', 
+          paddingHorizontal: 32, 
+          paddingVertical: 12, 
+          borderRadius: 12 
+        }}
       >
-        <Text className="text-white font-semibold">Logout</Text>
+        <Text style={{ 
+          color: '#ffffff', 
+          fontWeight: '600',
+          fontSize: 16
+        }}>
+          Logout
+        </Text>
       </TouchableOpacity>
     </View>
   );
-};
+}
 
-const ClientNav= () => {
+function ClientNav() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#3b82f6',
+        tabBarActiveTintColor: '#7c3aed',
         tabBarInactiveTintColor: '#9ca3af',
         tabBarStyle: {
           paddingBottom: 5,
@@ -53,9 +106,9 @@ const ClientNav= () => {
           fontWeight: '600',
         },
         headerStyle: {
-          backgroundColor: '#3b82f6',
+          backgroundColor: '#7c3aed',
         },
-        headerTintColor: '#fff',
+        headerTintColor: '#ffffff',
         headerTitleStyle: {
           fontWeight: 'bold',
         },
@@ -66,35 +119,45 @@ const ClientNav= () => {
         component={ClientHomeScreen}
         options={{
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>🏠</Text>
-          ),
+          tabBarIcon: function(props) {
+            const color = props.color;
+            return (
+              <Text style={{ fontSize: 24 }}>🏠</Text>
+            );
+          },
         }}
       />
 
-        
       <Tab.Screen
         name="MyBookings"
         component={MyBookingsScreen}
         options={{
           title: 'My Bookings',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>📅</Text>
-          ),
+          headerShown: false,
+          tabBarIcon: function(props) {
+            const color = props.color;
+            return (
+              <Text style={{ fontSize: 24 }}>📅</Text>
+            );
+          },
         }}
       />
+
       <Tab.Screen
         name="Profile"
         component={ClientProfileScreen}
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>👤</Text>
-          ),
+          tabBarIcon: function(props) {
+            const color = props.color;
+            return (
+              <Text style={{ fontSize: 24 }}>👤</Text>
+            );
+          },
         }}
       />
     </Tab.Navigator>
   );
-};
+}
 
 export default ClientNav;

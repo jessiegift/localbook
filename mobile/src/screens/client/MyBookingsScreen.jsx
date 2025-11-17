@@ -9,67 +9,33 @@ import {
   Modal,
   Platform,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 
-const MyBookingsScreen = function(props) {
+const screenDimensions = Dimensions.get('window');
+const SCREEN_WIDTH = screenDimensions.width;
+
+function MyBookingsScreen(props) {
   const navigation = props.navigation;
   const authContext = useAuth();
   const user = authContext.user;
   const token = authContext.token;
   
-  const activeTabState = useState('upcoming');
-  const activeTab = activeTabState[0];
-  const setActiveTab = activeTabState[1];
-  
-  const bookingsState = useState([]);
-  const bookings = bookingsState[0];
-  const setBookings = bookingsState[1];
-  
-  const loadingState = useState(true);
-  const loading = loadingState[0];
-  const setLoading = loadingState[1];
-  
-  const refreshingState = useState(false);
-  const refreshing = refreshingState[0];
-  const setRefreshing = refreshingState[1];
-  
-  const currentTimeState = useState(new Date());
-  const currentTime = currentTimeState[0];
-  const setCurrentTime = currentTimeState[1];
-  
-  const showRescheduleModalState = useState(false);
-  const showRescheduleModal = showRescheduleModalState[0];
-  const setShowRescheduleModal = showRescheduleModalState[1];
-  
-  const selectedBookingState = useState(null);
-  const selectedBooking = selectedBookingState[0];
-  const setSelectedBooking = selectedBookingState[1];
-  
-  const rescheduleDateState = useState(new Date());
-  const rescheduleDate = rescheduleDateState[0];
-  const setRescheduleDate = rescheduleDateState[1];
-  
-  const tempRescheduleDateState = useState(new Date());
-  const tempRescheduleDate = tempRescheduleDateState[0];
-  const setTempRescheduleDate = tempRescheduleDateState[1];
-  
-  const rescheduleTimeState = useState(null);
-  const rescheduleTime = rescheduleTimeState[0];
-  const setRescheduleTime = rescheduleTimeState[1];
-  
-  const showDatePickerState = useState(false);
-  const showDatePicker = showDatePickerState[0];
-  const setShowDatePicker = showDatePickerState[1];
-  
-  const availableSlotsState = useState([]);
-  const availableSlots = availableSlotsState[0];
-  const setAvailableSlots = availableSlotsState[1];
-  
-  const reschedulingState = useState(false);
-  const rescheduling = reschedulingState[0];
-  const setRescheduling = reschedulingState[1];
+  const [activeTab, setActiveTab] = useState('upcoming');
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date());
+  const [tempRescheduleDate, setTempRescheduleDate] = useState(new Date());
+  const [rescheduleTime, setRescheduleTime] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
@@ -103,7 +69,7 @@ const MyBookingsScreen = function(props) {
     }
   }, [rescheduleDate, showRescheduleModal]);
 
-  const generateTimeSlots = function() {
+  function generateTimeSlots() {
     const slots = [];
     const startHour = 9;
     const endHour = 18;
@@ -120,9 +86,9 @@ const MyBookingsScreen = function(props) {
     }
     
     setAvailableSlots(slots);
-  };
+  }
 
-  const fetchBookings = async function() {
+  async function fetchBookings() {
     try {
       let userId = null;
       const hasUser = user !== null && user !== undefined;
@@ -230,21 +196,21 @@ const MyBookingsScreen = function(props) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }
 
-  const onRefresh = function() {
+  function onRefresh() {
     setRefreshing(true);
     fetchBookings();
-  };
+  }
 
-  const handleCancelBooking = function(bookingId) {
+  function handleCancelBooking(bookingId) {
     const alertButtons = [
       { 
-        text: 'No', 
+        text: 'Keep Booking', 
         style: 'cancel' 
       },
       {
-        text: 'Yes, Cancel',
+        text: 'Cancel Booking',
         style: 'destructive',
         onPress: function() {
           cancelBooking(bookingId);
@@ -253,13 +219,13 @@ const MyBookingsScreen = function(props) {
     ];
     
     Alert.alert(
-      'Cancel Booking',
-      'Are you sure you want to cancel this booking?',
+      'Cancel Booking?',
+      'This action cannot be undone. Are you sure?',
       alertButtons
     );
-  };
+  }
 
-  const cancelBooking = async function(bookingId) {
+  async function cancelBooking(bookingId) {
     try {
       console.log('🗑️ Cancelling booking:', bookingId);
 
@@ -282,7 +248,7 @@ const MyBookingsScreen = function(props) {
       const isResponseOk = response.ok;
       if (isResponseOk === true) {
         console.log('✅ Booking cancelled');
-        Alert.alert('Success', 'Booking cancelled successfully');
+        Alert.alert('Cancelled', 'Your booking has been cancelled');
         fetchBookings();
       } else {
         const errorText = await response.text();
@@ -293,9 +259,9 @@ const MyBookingsScreen = function(props) {
       console.error('❌ Error cancelling booking:', error);
       Alert.alert('Error', 'Network error. Please try again.');
     }
-  };
+  }
 
-  const handleOpenRescheduleModal = function(booking) {
+  function handleOpenRescheduleModal(booking) {
     const bookingId = booking.id;
     console.log('📅 Opening reschedule modal for booking:', bookingId);
     
@@ -311,9 +277,9 @@ const MyBookingsScreen = function(props) {
     setRescheduleTime(null);
     setShowDatePicker(false);
     setShowRescheduleModal(true);
-  };
+  }
 
-  const handleCloseRescheduleModal = function() {
+  function handleCloseRescheduleModal() {
     console.log('❌ Closing reschedule modal');
     
     setShowRescheduleModal(false);
@@ -328,9 +294,9 @@ const MyBookingsScreen = function(props) {
     setTempRescheduleDate(tomorrow);
     setRescheduleTime(null);
     setShowDatePicker(false);
-  };
+  }
 
-  const formatDate = function(date) {
+  function formatDate(date) {
     const formattedDate = date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -338,9 +304,21 @@ const MyBookingsScreen = function(props) {
       day: 'numeric',
     });
     return formattedDate;
-  };
+  }
 
-  const formatTime12Hour = function(time24) {
+  function formatDateShort(date) {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = date.getMonth();
+    const monthName = monthNames[month];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    const dayString = day.toString();
+    const yearString = year.toString();
+    const formatted = monthName + ' ' + dayString + ', ' + yearString;
+    return formatted;
+  }
+
+  function formatTime12Hour(time24) {
     const parts = time24.split(':');
     const hours = parts[0];
     const minutes = parts[1];
@@ -361,12 +339,12 @@ const MyBookingsScreen = function(props) {
     const hour12String = hour12.toString();
     const formattedTime = hour12String + ':' + minutes + ' ' + ampm;
     return formattedTime;
-  };
+  }
 
-  const handleRescheduleConfirm = async function() {
+  async function handleRescheduleConfirm() {
     const hasRescheduleTime = rescheduleTime !== null && rescheduleTime !== undefined;
     if (hasRescheduleTime === false) {
-      Alert.alert('Error', 'Please select a time for the rescheduled appointment');
+      Alert.alert('Missing Information', 'Please select a time for your appointment');
       return;
     }
 
@@ -428,9 +406,9 @@ const MyBookingsScreen = function(props) {
         
         handleCloseRescheduleModal();
         
-        const formattedDate = formatDate(rescheduleDate);
+        const formattedDate = formatDateShort(rescheduleDate);
         const formattedTime = formatTime12Hour(rescheduleTime);
-        const successMessage = 'Your appointment has been rescheduled to ' + formattedDate + ' at ' + formattedTime;
+        const successMessage = 'Rescheduled to ' + formattedDate + ' at ' + formattedTime;
         
         const alertButtons = [
           {
@@ -441,7 +419,7 @@ const MyBookingsScreen = function(props) {
           },
         ];
         
-        Alert.alert('Success! ✅', successMessage, alertButtons);
+        Alert.alert('Rescheduled! ✓', successMessage, alertButtons);
       } else {
         console.error('❌ Reschedule failed with status:', responseStatus);
         console.error('❌ Response text:', responseText);
@@ -468,7 +446,7 @@ const MyBookingsScreen = function(props) {
           }
         }
         
-        Alert.alert('Reschedule Failed', errorMessage);
+        Alert.alert('Unable to Reschedule', errorMessage);
       }
     } catch (error) {
       const errorMessage = error.message;
@@ -476,13 +454,13 @@ const MyBookingsScreen = function(props) {
       console.error('❌ Error details:', errorMessage);
       
       const alertMessage = 'Network error: ' + errorMessage;
-      Alert.alert('Error', alertMessage);
+      Alert.alert('Connection Error', alertMessage);
     } finally {
       setRescheduling(false);
     }
-  };
+  }
 
-  const isAppointmentNow = function(booking) {
+  function isAppointmentNow(booking) {
     const appointmentDateTimeString = booking.appointmentDateTime;
     const appointmentDateTime = new Date(appointmentDateTimeString);
     const appointmentDateTimeMillis = appointmentDateTime.getTime();
@@ -495,9 +473,9 @@ const MyBookingsScreen = function(props) {
     const isBetween = isAfterStart === true && isBeforeEnd === true;
     
     return isBetween;
-  };
+  }
 
-  const isAppointmentSoon = function(booking) {
+  function isAppointmentSoon(booking) {
     const appointmentDateTimeString = booking.appointmentDateTime;
     const appointmentDateTime = new Date(appointmentDateTimeString);
     const timeDiff = appointmentDateTime - currentTime;
@@ -508,9 +486,9 @@ const MyBookingsScreen = function(props) {
     const isSoon = isPositive === true && isWithin30Min === true;
     
     return isSoon;
-  };
+  }
 
-  const getRelativeTime = function(booking) {
+  function getRelativeTime(booking) {
     const appointmentDateTimeString = booking.appointmentDateTime;
     const appointmentDateTime = new Date(appointmentDateTimeString);
     const timeDiff = appointmentDateTime - currentTime;
@@ -520,51 +498,34 @@ const MyBookingsScreen = function(props) {
 
     const isNow = isAppointmentNow(booking);
     if (isNow === true) {
-      return '🔴 Happening Now';
+      return 'Now';
     }
     
     const isSoon = isAppointmentSoon(booking);
     if (isSoon === true) {
       const minutesString = minutesDiff.toString();
-      const message = '⏰ Starting in ' + minutesString + ' min';
+      const message = minutesString + 'm';
       return message;
     }
     
     const hasDays = daysDiff > 0;
     if (hasDays === true) {
-      let dayLabel = 'days';
-      const isSingleDay = daysDiff === 1;
-      if (isSingleDay === true) {
-        dayLabel = 'day';
-      }
       const daysString = daysDiff.toString();
-      const message = '📅 In ' + daysString + ' ' + dayLabel;
+      const message = daysString + 'd';
       return message;
     }
     
     const hasHours = hoursDiff > 0;
     if (hasHours === true) {
-      let hourLabel = 'hours';
-      const isSingleHour = hoursDiff === 1;
-      if (isSingleHour === true) {
-        hourLabel = 'hour';
-      }
       const hoursString = hoursDiff.toString();
-      const message = '⏰ In ' + hoursString + ' ' + hourLabel;
+      const message = hoursString + 'h';
       return message;
     }
     
-    const hasMinutes = minutesDiff > 0;
-    if (hasMinutes === true) {
-      const minutesString = minutesDiff.toString();
-      const message = '⏰ In ' + minutesString + ' minutes';
-      return message;
-    }
-    
-    return '✓ Past';
-  };
+    return 'Soon';
+  }
 
-  const getStatusConfig = function(status) {
+  function getStatusConfig(status) {
     let upperStatus = '';
     const hasStatus = status !== null && status !== undefined;
     if (hasStatus === true) {
@@ -574,11 +535,9 @@ const MyBookingsScreen = function(props) {
     const isConfirmed = upperStatus === 'CONFIRMED';
     if (isConfirmed === true) {
       const config = {
-        bgColor: 'bg-green-100',
-        textColor: 'text-green-800',
-        borderColor: 'border-green-200',
-        icon: '✓',
-        label: 'CONFIRMED'
+        bgColor: '#10b981',
+        textColor: '#ffffff',
+        label: 'Confirmed'
       };
       return config;
     }
@@ -586,11 +545,9 @@ const MyBookingsScreen = function(props) {
     const isCancelled = upperStatus === 'CANCELLED';
     if (isCancelled === true) {
       const config = {
-        bgColor: 'bg-red-100',
-        textColor: 'text-red-800',
-        borderColor: 'border-red-200',
-        icon: '✗',
-        label: 'CANCELLED'
+        bgColor: '#ef4444',
+        textColor: '#ffffff',
+        label: 'Cancelled'
       };
       return config;
     }
@@ -598,11 +555,9 @@ const MyBookingsScreen = function(props) {
     const isCompleted = upperStatus === 'COMPLETED';
     if (isCompleted === true) {
       const config = {
-        bgColor: 'bg-blue-100',
-        textColor: 'text-blue-800',
-        borderColor: 'border-blue-200',
-        icon: '✓',
-        label: 'COMPLETED'
+        bgColor: '#8b5cf6',
+        textColor: '#ffffff',
+        label: 'Completed'
       };
       return config;
     }
@@ -610,31 +565,27 @@ const MyBookingsScreen = function(props) {
     const isNoShow = upperStatus === 'NO_SHOW';
     if (isNoShow === true) {
       const config = {
-        bgColor: 'bg-gray-100',
-        textColor: 'text-gray-800',
-        borderColor: 'border-gray-200',
-        icon: '⊘',
-        label: 'NO SHOW'
+        bgColor: '#6b7280',
+        textColor: '#ffffff',
+        label: 'No Show'
       };
       return config;
     }
     
-    let displayLabel = 'UNKNOWN';
+    let displayLabel = 'Unknown';
     if (hasStatus === true) {
       displayLabel = status;
     }
     
     const config = {
-      bgColor: 'bg-blue-100',
-      textColor: 'text-blue-800',
-      borderColor: 'border-blue-200',
-      icon: '•',
+      bgColor: '#3b82f6',
+      textColor: '#ffffff',
       label: displayLabel
     };
     return config;
-  };
+  }
 
-  const renderBookingCard = function(renderProps) {
+  function renderBookingCard(renderProps) {
     const item = renderProps.item;
     const itemStatus = item.status;
     const statusConfig = getStatusConfig(itemStatus);
@@ -644,13 +595,6 @@ const MyBookingsScreen = function(props) {
     
     const appointmentDateTimeString = item.appointmentDateTime;
     const appointmentDate = new Date(appointmentDateTimeString);
-
-    let borderColorClass = statusConfig.borderColor;
-    if (appointmentNow === true) {
-      borderColorClass = 'border-red-500';
-    } else if (appointmentSoon === true) {
-      borderColorClass = 'border-orange-400';
-    }
 
     let businessName = 'Business';
     const hasBusiness = item.business !== null && item.business !== undefined;
@@ -690,183 +634,285 @@ const MyBookingsScreen = function(props) {
 
     const isUpcoming = activeTab === 'upcoming';
     const isConfirmed = itemStatus === 'CONFIRMED';
-    const showTimeIndicator = isUpcoming === true && isConfirmed === true;
-
-    let timeIndicatorBgColor = 'bg-blue-50';
-    let timeIndicatorTextColor = 'text-blue-700';
-    
-    if (appointmentNow === true) {
-      timeIndicatorBgColor = 'bg-red-100';
-      timeIndicatorTextColor = 'text-red-700';
-    } else if (appointmentSoon === true) {
-      timeIndicatorBgColor = 'bg-orange-100';
-      timeIndicatorTextColor = 'text-orange-700';
-    }
-
     const showActionButtons = isUpcoming === true && isConfirmed === true;
 
-    const cardClassName = 'bg-white rounded-2xl p-4 mb-4 shadow-md border-2 ' + borderColorClass;
-    const statusBadgeClassName = statusConfig.bgColor + ' px-3 py-1.5 rounded-full border ' + statusConfig.borderColor;
-    const statusTextClassName = statusConfig.textColor + ' text-xs font-bold uppercase';
-    const timeIndicatorClassName = 'px-3 py-1.5 rounded-full ' + timeIndicatorBgColor;
-    const timeIndicatorTextClassName = 'text-xs font-bold ' + timeIndicatorTextColor;
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const month = appointmentDate.getMonth();
+    const monthName = monthNames[month];
+    const day = appointmentDate.getDate();
+    const dayString = day.toString();
 
-    const hasNotes = item.notes !== null && item.notes !== undefined;
+    const hours = appointmentDate.getHours();
+    const minutes = appointmentDate.getMinutes();
+    const minutesString = minutes.toString();
+    const paddedMinutes = minutesString.padStart(2, '0');
+    
+    let ampm = 'AM';
+    const isAfternoon = hours >= 12;
+    if (isAfternoon === true) {
+      ampm = 'PM';
+    }
+    
+    let hour12 = hours % 12;
+    const isMidnight = hour12 === 0;
+    if (isMidnight === true) {
+      hour12 = 12;
+    }
+    
+    const hour12String = hour12.toString();
+    const timeString = hour12String + ':' + paddedMinutes + ' ' + ampm;
+
+    let accentColor = '#7c3aed';
+    if (appointmentNow === true) {
+      accentColor = '#ef4444';
+    } else if (appointmentSoon === true) {
+      accentColor = '#f59e0b';
+    }
+
+    const showTimeIndicator = isUpcoming === true && isConfirmed === true;
 
     return (
-      <View className={cardClassName}>
-        <View className="flex-row justify-between items-start mb-3">
-          <View className={statusBadgeClassName}>
-            <Text className={statusTextClassName}>
-              {statusConfig.icon} {statusConfig.label}
-            </Text>
-          </View>
+      <View style={{
+        backgroundColor: '#ffffff',
+        borderRadius: 20,
+        marginBottom: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+      }}>
+        <View style={{ flexDirection: 'row' }}>
+          <View style={{
+            width: 4,
+            backgroundColor: accentColor,
+          }} />
+          
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', padding: 16 }}>
+              <View style={{
+                width: 70,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingVertical: 12,
+                marginRight: 16,
+              }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#6b7280',
+                  letterSpacing: 1,
+                }}>
+                  {monthName}
+                </Text>
+                <Text style={{
+                  fontSize: 32,
+                  fontWeight: '800',
+                  color: '#111827',
+                  lineHeight: 36,
+                }}>
+                  {dayString}
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: accentColor,
+                  marginTop: 4,
+                }}>
+                  {timeString}
+                </Text>
+              </View>
 
-          {showTimeIndicator === true && (
-            <View className={timeIndicatorClassName}>
-              <Text className={timeIndicatorTextClassName}>
-                {getRelativeTime(item)}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: '#111827',
+                    flex: 1,
+                    marginRight: 8,
+                  }}>
+                    {businessName}
+                  </Text>
+                  
+                  <View style={{
+                    backgroundColor: statusConfig.bgColor,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                  }}>
+                    <Text style={{
+                      color: statusConfig.textColor,
+                      fontSize: 11,
+                      fontWeight: '700',
+                    }}>
+                      {statusConfig.label}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={{
+                  fontSize: 15,
+                  color: '#374151',
+                  marginBottom: 12,
+                  fontWeight: '500',
+                }}>
+                  {serviceName}
+                </Text>
+
+                {showTimeIndicator === true && (
+                  <View style={{
+                    backgroundColor: appointmentNow === true ? '#fee2e2' : appointmentSoon === true ? '#fef3c7' : '#f3f4f6',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    alignSelf: 'flex-start',
+                  }}>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '700',
+                      color: appointmentNow === true ? '#991b1b' : appointmentSoon === true ? '#92400e' : '#374151',
+                    }}>
+                      {appointmentNow === true && '🔴 '}
+                      {appointmentSoon === true && '⏰ '}
+                      {getRelativeTime(item)}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, marginRight: 4 }}>⏱️</Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '600' }}>
+                      {durationMinutes}min
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, marginRight: 4 }}>💰</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#7c3aed' }}>
+                      €{formattedPrice}
+                    </Text>
+                  </View>
+                </View>
+              </View>
             </View>
-          )}
-        </View>
 
-        <Text className="text-xl font-bold text-gray-900 mb-3">
-          {businessName}
-        </Text>
+            {showActionButtons === true && (
+              <View style={{
+                flexDirection: 'row',
+                borderTopWidth: 1,
+                borderTopColor: '#f3f4f6',
+              }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    borderRightWidth: 1,
+                    borderRightColor: '#f3f4f6',
+                  }}
+                  onPress={function() {
+                    handleOpenRescheduleModal(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16, marginRight: 6 }}>📅</Text>
+                  <Text style={{ color: '#7c3aed', fontSize: 15, fontWeight: '700' }}>
+                    Reschedule
+                  </Text>
+                </TouchableOpacity>
 
-        <View className="bg-gray-50 rounded-xl p-3 mb-3">
-          <View className="flex-row items-center mb-2">
-            <Text className="text-2xl mr-2">💼</Text>
-            <Text className="text-base font-semibold text-gray-900 flex-1">
-              {serviceName}
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <Text className="text-lg mr-2">📅</Text>
-            <Text className="text-sm text-gray-700 font-medium">
-              {appointmentDate.toLocaleDateString('en-US', {
-                weekday: 'short',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              })}
-            </Text>
-          </View>
-
-          <View className="flex-row items-center mb-2">
-            <Text className="text-lg mr-2">🕐</Text>
-            <Text className="text-sm text-gray-700 font-medium">
-              {appointmentDate.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </Text>
-            {appointmentNow === true && (
-              <View className="ml-2 bg-red-500 px-2 py-0.5 rounded">
-                <Text className="text-white text-xs font-bold">LIVE</Text>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                  }}
+                  onPress={function() {
+                    const itemId = item.id;
+                    handleCancelBooking(itemId);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16, marginRight: 6 }}>✕</Text>
+                  <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
-
-          <View className="flex-row justify-between mt-1">
-            <View className="flex-row items-center">
-              <Text className="text-lg mr-2">⏱️</Text>
-              <Text className="text-sm text-gray-600">
-                {durationMinutes} min
-              </Text>
-            </View>
-            <View className="flex-row items-center">
-              <Text className="text-lg mr-1">💰</Text>
-              <Text className="text-lg font-bold text-blue-600">
-                €{formattedPrice}
-              </Text>
-            </View>
-          </View>
         </View>
-
-        {hasNotes === true && (
-          <View className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-200">
-            <Text className="text-xs text-blue-900 font-semibold mb-1">
-              📝 Notes:
-            </Text>
-            <Text className="text-sm text-gray-700">
-              {item.notes}
-            </Text>
-          </View>
-        )}
-
-        {showActionButtons === true && (
-          <View className="flex-row space-x-2">
-            <TouchableOpacity
-              className="flex-1 bg-blue-500 border-2 border-blue-500 py-3 rounded-xl active:bg-blue-600 mr-2"
-              onPress={function() {
-                handleOpenRescheduleModal(item);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white text-center text-base font-bold">
-                📅 Reschedule
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-1 bg-white border-2 border-red-500 py-3 rounded-xl active:bg-red-50"
-              onPress={function() {
-                const itemId = item.id;
-                handleCancelBooking(itemId);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text className="text-red-600 text-center text-base font-bold">
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     );
-  };
+  }
 
-  const renderEmptyState = function() {
+  function renderEmptyState() {
     const isUpcoming = activeTab === 'upcoming';
     
     let emoji = '📋';
-    let title = 'No past bookings';
-    let description = 'Your completed bookings will appear here';
+    let title = 'No Past Bookings';
+    let description = 'Your booking history will appear here';
     
     if (isUpcoming === true) {
       emoji = '📅';
-      title = 'No upcoming bookings';
-      description = 'Your confirmed appointments will appear here';
+      title = 'No Upcoming Bookings';
+      description = 'Book a service to get started';
     }
 
     return (
-      <View className="items-center justify-center py-20 px-8">
-        <Text className="text-6xl mb-4">
-          {emoji}
-        </Text>
-        <Text className="text-xl font-bold text-gray-700 mb-2 text-center">
+      <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 100, paddingHorizontal: 32 }}>
+        <View style={{
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: '#f3f4f6',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 24,
+        }}>
+          <Text style={{ fontSize: 50 }}>
+            {emoji}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' }}>
           {title}
         </Text>
-        <Text className="text-sm text-gray-500 text-center mb-6">
+        <Text style={{ fontSize: 15, color: '#6b7280', textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
           {description}
         </Text>
         {isUpcoming === true && (
           <TouchableOpacity
-            className="bg-blue-600 px-6 py-3 rounded-full active:bg-blue-700"
+            style={{
+              backgroundColor: '#7c3aed',
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 12,
+              shadowColor: '#7c3aed',
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+            }}
             onPress={function() {
               navigation.goBack();
             }}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
           >
-            <Text className="text-white font-bold">Browse Services</Text>
+            <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>
+              Explore Services
+            </Text>
           </TouchableOpacity>
         )}
       </View>
     );
-  };
+  }
 
   const minDate = new Date();
   const minDateCurrentDays = minDate.getDate();
@@ -880,93 +926,123 @@ const MyBookingsScreen = function(props) {
 
   const hasRescheduleTime = rescheduleTime !== null && rescheduleTime !== undefined;
 
-  const platformOS = Platform.OS;
-  const isIOS = platformOS === 'ios';
-  const isAndroid = platformOS === 'android';
+  const isUpcomingTab = activeTab === 'upcoming';
+  const isPastTab = activeTab === 'past';
 
-  const currentTimeLocaleString = currentTime.toLocaleString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  const upcomingTabBorderClass = activeTab === 'upcoming' ? 'border-blue-600' : 'border-transparent';
-  const upcomingTabTextClass = activeTab === 'upcoming' ? 'text-blue-600' : 'text-gray-400';
-  const pastTabBorderClass = activeTab === 'past' ? 'border-blue-600' : 'border-transparent';
-  const pastTabTextClass = activeTab === 'past' ? 'text-blue-600' : 'text-gray-400';
-
-  const upcomingTabClassName = 'flex-1 py-4 border-b-2 ' + upcomingTabBorderClass;
-  const upcomingTabTextClassName = 'text-center text-base font-bold ' + upcomingTabTextClass;
-  const pastTabClassName = 'flex-1 py-4 border-b-2 ' + pastTabBorderClass;
-  const pastTabTextClassName = 'text-center text-base font-bold ' + pastTabTextClass;
-
-  const confirmButtonClassName = rescheduling === true ? 'py-4 rounded-xl bg-blue-400' : 'py-4 rounded-xl bg-blue-600';
-
-  const contentContainerStyle = { padding: 16 };
+  const bookingsCount = bookings.length;
+  const bookingsCountString = bookingsCount.toString();
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="bg-white pt-12 pb-3 px-4 border-b border-gray-200">
-        <Text className="text-2xl font-bold text-gray-900 mb-1">
-          My Bookings
-        </Text>
-        <Text className="text-sm text-gray-500">
-          {currentTimeLocaleString}
-        </Text>
-      </View>
-
-      <View className="flex-row bg-white border-b border-gray-200">
-        <TouchableOpacity
-          className={upcomingTabClassName}
-          onPress={function() {
-            setActiveTab('upcoming');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text className={upcomingTabTextClassName}>
-            Upcoming
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      <View style={{
+        backgroundColor: '#7c3aed',
+        paddingTop: 48,
+        paddingBottom: 0,
+      }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 }}>
+            My Bookings
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className={pastTabClassName}
-          onPress={function() {
-            setActiveTab('past');
-          }}
-          activeOpacity={0.7}
-        >
-          <Text className={pastTabTextClassName}>
-            Past
+          <Text style={{ fontSize: 14, color: '#e9d5ff' }}>
+            Manage your appointments
           </Text>
-        </TouchableOpacity>
+        </View>
+
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+          marginHorizontal: 20,
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 16,
+        }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: isUpcomingTab === true ? '#ffffff' : 'transparent',
+            }}
+            onPress={function() {
+              setActiveTab('upcoming');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 15,
+              fontWeight: '700',
+              color: isUpcomingTab === true ? '#7c3aed' : '#e9d5ff',
+            }}>
+              Upcoming
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: isPastTab === true ? '#ffffff' : 'transparent',
+            }}
+            onPress={function() {
+              setActiveTab('past');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 15,
+              fontWeight: '700',
+              color: isPastTab === true ? '#7c3aed' : '#e9d5ff',
+            }}>
+              Past
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{
+          height: 20,
+          backgroundColor: '#f9fafb',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }} />
       </View>
 
       {loading === true ? (
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color="#3b82f6" />
-          <Text className="mt-4 text-gray-600">Loading bookings...</Text>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#7c3aed" />
+          <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 15 }}>Loading...</Text>
         </View>
       ) : (
-        <FlatList
-          data={bookings}
-          renderItem={renderBookingCard}
-          keyExtractor={function(item) {
-            const hasId = item.id !== null && item.id !== undefined;
-            if (hasId === true) {
-              const itemId = item.id;
-              const itemIdString = itemId.toString();
-              return itemIdString;
-            }
-            return '';
-          }}
-          contentContainerStyle={contentContainerStyle}
-          showsVerticalScrollIndicator={false}
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          ListEmptyComponent={renderEmptyState}
-        />
+        <View style={{ flex: 1 }}>
+          {bookingsCount > 0 && (
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+              <Text style={{ fontSize: 14, color: '#6b7280', fontWeight: '600' }}>
+                {bookingsCountString} {bookingsCount === 1 ? 'booking' : 'bookings'}
+              </Text>
+            </View>
+          )}
+          
+          <FlatList
+            data={bookings}
+            renderItem={renderBookingCard}
+            keyExtractor={function(item) {
+              const hasId = item.id !== null && item.id !== undefined;
+              if (hasId === true) {
+                const itemId = item.id;
+                const itemIdString = itemId.toString();
+                return itemIdString;
+              }
+              return '';
+            }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+            showsVerticalScrollIndicator={false}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            ListEmptyComponent={renderEmptyState}
+          />
+        </View>
       )}
 
       <Modal
@@ -975,24 +1051,57 @@ const MyBookingsScreen = function(props) {
         animationType="slide"
         onRequestClose={handleCloseRescheduleModal}
       >
-        <View className="flex-1 bg-black/50">
-          <View className="flex-1 mt-20 bg-white rounded-t-3xl">
-            <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-200">
-              <TouchableOpacity 
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+          <View style={{
+            flex: 1,
+            marginTop: 60,
+            backgroundColor: '#ffffff',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingVertical: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: '#f3f4f6',
+            }}>
+              <TouchableOpacity
                 onPress={handleCloseRescheduleModal}
+                style={{
+                  paddingVertical: 6,
+                  paddingHorizontal: 12,
+                }}
                 activeOpacity={0.7}
               >
-                <Text className="text-red-500 text-base font-semibold">Cancel</Text>
+                <Text style={{ color: '#6b7280', fontSize: 16, fontWeight: '600' }}>✕ Close</Text>
               </TouchableOpacity>
-              <Text className="text-lg font-bold text-gray-900">Reschedule Appointment</Text>
-              <View style={{ width: 60 }} />
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+                Reschedule
+              </Text>
+              <View style={{ width: 70 }} />
             </View>
 
-            <ScrollView className="flex-1 px-5 py-5" showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}
+              showsVerticalScrollIndicator={false}
+            >
               {selectedBooking && (
-                <View className="bg-blue-50 rounded-xl p-4 mb-5 border-2 border-blue-200">
-                  <Text className="text-sm font-bold text-blue-900 mb-2">Current Appointment:</Text>
-                  <Text className="text-base font-semibold text-gray-900 mb-1">
+                <View style={{
+                  backgroundColor: '#f9fafb',
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 24,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                }}>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#6b7280', marginBottom: 8 }}>
+                    CURRENT BOOKING
+                  </Text>
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
                     {(function() {
                       const hasService = selectedBooking.service !== null && selectedBooking.service !== undefined;
                       if (hasService === true) {
@@ -1004,127 +1113,151 @@ const MyBookingsScreen = function(props) {
                       return 'Service';
                     })()}
                   </Text>
-                  <Text className="text-sm text-gray-700">
-                    📅 {(function() {
+                  <Text style={{ fontSize: 14, color: '#6b7280' }}>
+                    {(function() {
                       const appointmentDateTimeString = selectedBooking.appointmentDateTime;
                       const appointmentDate = new Date(appointmentDateTimeString);
-                      return appointmentDate.toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      });
-                    })()}
-                  </Text>
-                  <Text className="text-sm text-gray-700">
-                    🕐 {(function() {
-                      const appointmentDateTimeString = selectedBooking.appointmentDateTime;
-                      const appointmentDate = new Date(appointmentDateTimeString);
-                      return appointmentDate.toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      });
+                      const dateStr = formatDateShort(appointmentDate);
+                      const hours = appointmentDate.getHours();
+                      const minutes = appointmentDate.getMinutes();
+                      const minutesString = minutes.toString();
+                      const paddedMinutes = minutesString.padStart(2, '0');
+                      
+                      let ampm = 'AM';
+                      const isAfternoon = hours >= 12;
+                      if (isAfternoon === true) {
+                        ampm = 'PM';
+                      }
+                      
+                      let hour12 = hours % 12;
+                      const isMidnight = hour12 === 0;
+                      if (isMidnight === true) {
+                        hour12 = 12;
+                      }
+                      
+                      const hour12String = hour12.toString();
+                      const timeStr = hour12String + ':' + paddedMinutes + ' ' + ampm;
+                      
+                      return dateStr + ' at ' + timeStr;
                     })()}
                   </Text>
                 </View>
               )}
 
-              <View className="flex-row items-center mb-4">
-                <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
-                  <Text className="text-white font-bold">1</Text>
-                </View>
-                <Text className="text-xl font-bold text-gray-900">
-                  Select New Date
-                </Text>
-              </View>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
+                Select New Date
+              </Text>
 
               {showDatePicker === false && (
                 <TouchableOpacity
-                  className="bg-white border-2 border-blue-500 rounded-xl p-4 mb-6 active:bg-blue-50"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderWidth: 2,
+                    borderColor: '#7c3aed',
+                    borderRadius: 14,
+                    padding: 18,
+                    marginBottom: 28,
+                    alignItems: 'center',
+                  }}
                   onPress={function() {
                     console.log('📅 Opening date picker');
                     setShowDatePicker(true);
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text className="text-center text-base font-semibold text-gray-900">
-                    📅 {formatDate(rescheduleDate)}
+                  <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
+                    {formatDateShort(rescheduleDate)}
                   </Text>
-                  <Text className="text-center text-xs text-gray-500 mt-1">
-                    Tap to change date
+                  <Text style={{ fontSize: 13, color: '#7c3aed', fontWeight: '600' }}>
+                    Tap to change
                   </Text>
                 </TouchableOpacity>
               )}
 
               {showDatePicker === true && (
-  <View className="bg-white border-2 border-blue-500 rounded-xl mb-6 overflow-hidden">
-    <View className="flex-row justify-between items-center px-4 py-3 bg-blue-50 border-b border-blue-200">
-      <TouchableOpacity 
-        onPress={function() {
-          console.log('❌ Cancel date picker');
-          setShowDatePicker(false);
-        }}
-        activeOpacity={0.7}
-      >
-        <Text className="text-blue-600 font-semibold">Cancel</Text>
-      </TouchableOpacity>
-      <Text className="font-bold text-gray-900">Pick a Date</Text>
-      <TouchableOpacity 
-        onPress={function() {
-          console.log('✅ Confirm date:', tempRescheduleDate);
-          setRescheduleDate(tempRescheduleDate);
-          setRescheduleTime(null);
-          setShowDatePicker(false);
-        }}
-        activeOpacity={0.7}
-      >
-        <Text className="text-blue-600 font-bold">Done</Text>
-      </TouchableOpacity>
-    </View>
-    
-    <DateTimePicker
-  value={tempRescheduleDate}
-  mode="date"
-  display="inline"
-  onChange={function(event, date) {
-    console.log('📅 Date changed to:', date);
-    if (date) {
-      setTempRescheduleDate(date);
-    }
-  }}
-  minimumDate={minDate}
-  maximumDate={maxDate}
-  accentColor="#3b82f6"
-  themeVariant="light"
-  style={{ backgroundColor: 'white', height: 350 }}
-/>
-  </View>
-)}
-              <View className="flex-row items-center mb-4">
-                <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
-                  <Text className="text-white font-bold">2</Text>
-                </View>
-                <Text className="text-xl font-bold text-gray-900">
-                  Select New Time
-                </Text>
-              </View>
+                <View style={{
+                  backgroundColor: '#ffffff',
+                  borderWidth: 2,
+                  borderColor: '#7c3aed',
+                  borderRadius: 14,
+                  marginBottom: 28,
+                  overflow: 'hidden',
+                }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    backgroundColor: '#f5f3ff',
+                  }}>
+                    <TouchableOpacity
+                      onPress={function() {
+                        console.log('❌ Cancel date picker');
+                        setShowDatePicker(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: '#7c3aed', fontWeight: '600', fontSize: 15 }}>Cancel</Text>
+                    </TouchableOpacity>
+                    <Text style={{ fontWeight: '700', color: '#111827', fontSize: 15 }}>Pick a Date</Text>
+                    <TouchableOpacity
+                      onPress={function() {
+                        console.log('✅ Confirm date:', tempRescheduleDate);
+                        setRescheduleDate(tempRescheduleDate);
+                        setRescheduleTime(null);
+                        setShowDatePicker(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ color: '#7c3aed', fontWeight: '700', fontSize: 15 }}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              <View className="bg-white rounded-xl p-4 shadow-sm mb-6">
-                <View className="flex-row flex-wrap">
+                  <DateTimePicker
+                    value={tempRescheduleDate}
+                    mode="date"
+                    display="inline"
+                    onChange={function(event, date) {
+                      console.log('📅 Date changed to:', date);
+                      if (date) {
+                        setTempRescheduleDate(date);
+                      }
+                    }}
+                    minimumDate={minDate}
+                    maximumDate={maxDate}
+                    accentColor="#7c3aed"
+                    themeVariant="light"
+                    style={{ backgroundColor: '#ffffff', height: 350 }}
+                  />
+                </View>
+              )}
+
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
+                Select New Time
+              </Text>
+
+              <View style={{
+                backgroundColor: '#ffffff',
+                borderRadius: 14,
+                padding: 4,
+                marginBottom: 24,
+              }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                   {availableSlots.map(function(time, index) {
                     const isSelected = rescheduleTime === time;
                     const indexPlusOne = index + 1;
                     const remainder = indexPlusOne % 3;
                     const isLastInRow = remainder === 0;
 
-                    let buttonBgColor = 'bg-white';
-                    let buttonBorderColor = 'border-gray-300';
-                    let textColor = 'text-gray-700';
+                    let buttonBgColor = '#f9fafb';
+                    let buttonBorderColor = '#e5e7eb';
+                    let textColor = '#374151';
 
                     if (isSelected === true) {
-                      buttonBgColor = 'bg-blue-500';
-                      buttonBorderColor = 'border-blue-500';
-                      textColor = 'text-white';
+                      buttonBgColor = '#7c3aed';
+                      buttonBorderColor = '#7c3aed';
+                      textColor = '#ffffff';
                     }
 
                     let marginRight = '3.5%';
@@ -1132,21 +1265,30 @@ const MyBookingsScreen = function(props) {
                       marginRight = 0;
                     }
 
-                    const buttonClassName = 'w-[31%] py-3 rounded-lg border-2 mb-3 ' + buttonBgColor + ' ' + buttonBorderColor;
-                    const textClassName = 'text-center font-semibold ' + textColor;
-                    const styleObject = { marginRight: marginRight };
-
                     return (
                       <TouchableOpacity
                         key={index}
-                        className={buttonClassName}
-                        style={styleObject}
+                        style={{
+                          width: '31%',
+                          paddingVertical: 14,
+                          borderRadius: 10,
+                          borderWidth: 2,
+                          marginBottom: 12,
+                          backgroundColor: buttonBgColor,
+                          borderColor: buttonBorderColor,
+                          marginRight: marginRight,
+                        }}
                         onPress={function() {
                           setRescheduleTime(time);
                         }}
                         activeOpacity={0.7}
                       >
-                        <Text className={textClassName}>
+                        <Text style={{
+                          textAlign: 'center',
+                          fontWeight: '700',
+                          fontSize: 14,
+                          color: textColor,
+                        }}>
                           {formatTime12Hour(time)}
                         </Text>
                       </TouchableOpacity>
@@ -1156,40 +1298,63 @@ const MyBookingsScreen = function(props) {
               </View>
 
               {hasRescheduleTime === true && (
-                <View className="bg-green-50 border-2 border-green-200 p-4 rounded-xl mb-6">
-                  <Text className="text-green-800 font-bold text-center text-base mb-2">
-                    ✅ New Appointment Time
+                <View style={{
+                  backgroundColor: '#d1fae5',
+                  borderWidth: 2,
+                  borderColor: '#6ee7b7',
+                  padding: 18,
+                  borderRadius: 14,
+                  marginBottom: 24,
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ color: '#065f46', fontWeight: '700', fontSize: 16, marginBottom: 10 }}>
+                    ✓ New Appointment
                   </Text>
-                  <Text className="text-center text-gray-900 font-semibold">
-                    📅 {formatDate(rescheduleDate)}
+                  <Text style={{ color: '#111827', fontWeight: '600', fontSize: 15, marginBottom: 4 }}>
+                    {formatDateShort(rescheduleDate)}
                   </Text>
-                  <Text className="text-center text-gray-900 font-semibold">
-                    ⏰ {formatTime12Hour(rescheduleTime)}
+                  <Text style={{ color: '#111827', fontWeight: '700', fontSize: 17 }}>
+                    {formatTime12Hour(rescheduleTime)}
                   </Text>
                 </View>
               )}
 
-              <View className="h-20" />
+              <View style={{ height: 100 }} />
             </ScrollView>
 
             {hasRescheduleTime === true && (
-              <View className="bg-white border-t border-gray-200 px-5 py-4">
+              <View style={{
+                backgroundColor: '#ffffff',
+                borderTopWidth: 1,
+                borderTopColor: '#f3f4f6',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                paddingBottom: 32,
+              }}>
                 <TouchableOpacity
-                  className={confirmButtonClassName}
+                  style={{
+                    paddingVertical: 16,
+                    borderRadius: 14,
+                    backgroundColor: rescheduling === true ? '#a78bfa' : '#7c3aed',
+                    shadowColor: '#7c3aed',
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 4 },
+                  }}
                   onPress={handleRescheduleConfirm}
                   disabled={rescheduling}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   {rescheduling === true ? (
-                    <View className="flex-row justify-center items-center">
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center' }}>
                       <ActivityIndicator size="small" color="#ffffff" />
-                      <Text className="text-white text-base font-bold ml-2">
+                      <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '700', marginLeft: 10 }}>
                         Rescheduling...
                       </Text>
                     </View>
                   ) : (
-                    <Text className="text-white text-center text-lg font-bold">
-                      ✓ Confirm Reschedule
+                    <Text style={{ color: '#ffffff', textAlign: 'center', fontSize: 17, fontWeight: '700' }}>
+                      Confirm Reschedule
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -1200,6 +1365,6 @@ const MyBookingsScreen = function(props) {
       </Modal>
     </View>
   );
-};
+}
 
 export default MyBookingsScreen;

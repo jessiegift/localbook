@@ -13,11 +13,13 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
 
-const BookAppointment = function(props) {
+function BookAppointment(props) {
   const route = props.route;
   const navigation = props.navigation;
-  const business = route.params.business;
-  const service = route.params.service;
+  const routeParams = route.params;
+  const business = routeParams.business;
+  const service = routeParams.service;
+  
   const authContext = useAuth();
   const user = authContext.user;
   const token = authContext.token;
@@ -58,7 +60,7 @@ const BookAppointment = function(props) {
     generateTimeSlots();
   }, [selectedDate]);
 
-  const generateTimeSlots = function() {
+  function generateTimeSlots() {
     const slots = [];
     const startHour = 9;
     const endHour = 18;
@@ -75,14 +77,14 @@ const BookAppointment = function(props) {
     }
     
     setAvailableSlots(slots);
-  };
+  }
 
-  const handleOpenDatePicker = function() {
+  function handleOpenDatePicker() {
     setTempDate(selectedDate);
     setShowDatePicker(true);
-  };
+  }
 
-  const handleDateChange = function(event, date) {
+  function handleDateChange(event, date) {
     const platformOS = Platform.OS;
     const isAndroid = platformOS === 'android';
     
@@ -103,19 +105,19 @@ const BookAppointment = function(props) {
         setTempDate(date);
       }
     }
-  };
+  }
 
-  const handleConfirmDate = function() {
+  function handleConfirmDate() {
     setSelectedDate(tempDate);
     setSelectedTime(null);
     setShowDatePicker(false);
-  };
+  }
 
-  const handleCancelDate = function() {
+  function handleCancelDate() {
     setShowDatePicker(false);
-  };
+  }
 
-  const formatDate = function(date) {
+  function formatDate(date) {
     const formattedDate = date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
@@ -123,9 +125,9 @@ const BookAppointment = function(props) {
       day: 'numeric',
     });
     return formattedDate;
-  };
+  }
 
-  const formatTime12Hour = function(time24) {
+  function formatTime12Hour(time24) {
     const parts = time24.split(':');
     const hours = parts[0];
     const minutes = parts[1];
@@ -143,31 +145,35 @@ const BookAppointment = function(props) {
       hour12 = 12;
     }
     
-    const formattedTime = hour12.toString() + ':' + minutes + ' ' + ampm;
+    const hour12String = hour12.toString();
+    const formattedTime = hour12String + ':' + minutes + ' ' + ampm;
     return formattedTime;
-  };
+  }
 
-  const handleBooking = async function() {
+  async function handleBooking() {
     console.log('🎯 === BOOKING PROCESS STARTED ===');
     
     const hasUser = user !== null && user !== undefined;
     if (hasUser === false) {
       console.log('❌ User is not logged in');
+      
+      const alertButtons = [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Login',
+          onPress: function() {
+            navigation.navigate('Login');
+          }
+        }
+      ];
+      
       Alert.alert(
         'Login Required',
         'Please login to book an appointment',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          },
-          {
-            text: 'Login',
-            onPress: function() {
-              navigation.navigate('Login');
-            }
-          }
-        ]
+        alertButtons
       );
       return;
     }
@@ -178,17 +184,20 @@ const BookAppointment = function(props) {
       const error = new Error();
       const errorStack = error.stack;
       console.log('Error Stack:', errorStack);
+      
+      const alertButtons = [
+        {
+          text: 'OK',
+          onPress: function() {
+            navigation.navigate('Login');
+          }
+        }
+      ];
+      
       Alert.alert(
         'Session Expired',
         'Please login again to continue',
-        [
-          {
-            text: 'OK',
-            onPress: function() {
-              navigation.navigate('Login');
-            }
-          }
-        ]
+        alertButtons
       );
       return;
     }
@@ -370,7 +379,8 @@ const BookAppointment = function(props) {
         
         const isEmpty = responseTextLength === 0;
         if (isEmpty === true) {
-          errorMessage = 'Server error (' + responseStatus.toString() + '): Empty response. Please check server logs.';
+          const statusString = responseStatus.toString();
+          errorMessage = 'Server error (' + statusString + '): Empty response. Please check server logs.';
           console.error('❌ Empty response body from server');
         } else {
           try {
@@ -424,7 +434,7 @@ const BookAppointment = function(props) {
     } finally {
       setSubmitting(false);
     }
-  };
+  }
 
   const minDate = new Date();
   const maxDate = new Date();
@@ -459,27 +469,70 @@ const BookAppointment = function(props) {
   const isIOS = platformOS === 'ios';
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="bg-blue-500 pt-4 pb-6 px-5">
-          <Text className="text-white text-2xl font-bold mb-3">
+        <View style={{
+          backgroundColor: '#7c3aed',
+          paddingTop: 16,
+          paddingBottom: 24,
+          paddingHorizontal: 20,
+        }}>
+          <Text style={{
+            color: '#ffffff',
+            fontSize: 24,
+            fontWeight: '700',
+            marginBottom: 12,
+          }}>
             Book Appointment
           </Text>
-          <View className="bg-white/20 rounded-xl p-4">
-            <Text className="text-white text-lg font-bold mb-2">
+          <View style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            borderRadius: 12,
+            padding: 16,
+          }}>
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 18,
+              fontWeight: '700',
+              marginBottom: 8,
+            }}>
               {serviceDisplayName}
             </Text>
-            <Text className="text-white/90 text-sm mb-3">
+            <Text style={{
+              color: 'rgba(255, 255, 255, 0.9)',
+              fontSize: 14,
+              marginBottom: 12,
+            }}>
               at {businessDisplayName}
             </Text>
-            <View className="flex-row items-center">
-              <View className="bg-white/30 px-3 py-1 rounded-full mr-2">
-                <Text className="text-white font-bold">
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+              <View style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 20,
+                marginRight: 8,
+              }}>
+                <Text style={{
+                  color: '#ffffff',
+                  fontWeight: '700',
+                }}>
                   €{formattedPrice}
                 </Text>
               </View>
-              <View className="bg-white/30 px-3 py-1 rounded-full">
-                <Text className="text-white font-semibold">
+              <View style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 20,
+              }}>
+                <Text style={{
+                  color: '#ffffff',
+                  fontWeight: '600',
+                }}>
                   {serviceDuration} min
                 </Text>
               </View>
@@ -487,81 +540,169 @@ const BookAppointment = function(props) {
           </View>
         </View>
 
-        <View className="px-5 py-5">
-          <View className="flex-row items-center mb-4">
-            <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
-              <Text className="text-white font-bold">1</Text>
+        <View style={{
+          paddingHorizontal: 20,
+          paddingVertical: 20,
+        }}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <View style={{
+              backgroundColor: '#7c3aed',
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Text style={{
+                color: '#ffffff',
+                fontWeight: '700',
+              }}>
+                1
+              </Text>
             </View>
-            <Text className="text-xl font-bold text-gray-900">
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: '#111827',
+            }}>
               Select Date
             </Text>
           </View>
 
           <TouchableOpacity
-            className="bg-white border-2 border-blue-500 rounded-xl p-4 mb-6 active:bg-blue-50"
+            style={{
+              backgroundColor: '#ffffff',
+              borderWidth: 2,
+              borderColor: '#7c3aed',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 24,
+            }}
             onPress={handleOpenDatePicker}
             activeOpacity={0.7}
           >
-            <Text className="text-center text-base font-semibold text-gray-900">
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 16,
+              fontWeight: '600',
+              color: '#111827',
+            }}>
               📅 {formatDate(selectedDate)}
             </Text>
-            <Text className="text-center text-xs text-gray-500 mt-1">
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 12,
+              color: '#6b7280',
+              marginTop: 4,
+            }}>
               Tap to change date
             </Text>
           </TouchableOpacity>
 
-          <View className="flex-row items-center mb-4">
-            <View className="bg-blue-500 w-8 h-8 rounded-full items-center justify-center mr-3">
-              <Text className="text-white font-bold">2</Text>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <View style={{
+              backgroundColor: '#7c3aed',
+              width: 32,
+              height: 32,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginRight: 12,
+            }}>
+              <Text style={{
+                color: '#ffffff',
+                fontWeight: '700',
+              }}>
+                2
+              </Text>
             </View>
-            <Text className="text-xl font-bold text-gray-900">
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: '#111827',
+            }}>
               Select Time
             </Text>
           </View>
 
           {loading === true ? (
-            <View className="py-8 items-center">
-              <ActivityIndicator size="large" color="#3b82f6" />
+            <View style={{
+              paddingVertical: 32,
+              alignItems: 'center',
+            }}>
+              <ActivityIndicator size="large" color="#7c3aed" />
             </View>
           ) : (
-            <View className="bg-white rounded-xl p-4 shadow-sm mb-6">
-              <View className="flex-row flex-wrap">
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              padding: 16,
+              shadowColor: '#000',
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              marginBottom: 24,
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+              }}>
                 {availableSlots.map(function(time, index) {
                   const isSelected = selectedTime === time;
                   const indexPlusOne = index + 1;
                   const remainder = indexPlusOne % 3;
                   const isLastInRow = remainder === 0;
 
-                  let buttonBgColor = 'bg-white';
-                  let buttonBorderColor = 'border-gray-300';
-                  let textColor = 'text-gray-700';
+                  let buttonBgColor = '#ffffff';
+                  let buttonBorderColor = '#d1d5db';
+                  let textColor = '#374151';
 
                   if (isSelected === true) {
-                    buttonBgColor = 'bg-blue-500';
-                    buttonBorderColor = 'border-blue-500';
-                    textColor = 'text-white';
+                    buttonBgColor = '#7c3aed';
+                    buttonBorderColor = '#7c3aed';
+                    textColor = '#ffffff';
                   }
 
-                  let marginRight = '3.5%';
+                  let marginRight = 8;
                   if (isLastInRow === true) {
                     marginRight = 0;
                   }
 
-                  const buttonClassName = 'w-[31%] py-3 rounded-lg border-2 mb-3 ' + buttonBgColor + ' ' + buttonBorderColor;
-                  const textClassName = 'text-center font-semibold ' + textColor;
-                  const styleObject = { marginRight: marginRight };
+                  const buttonStyle = {
+                    width: '31%',
+                    paddingVertical: 12,
+                    borderRadius: 8,
+                    borderWidth: 2,
+                    marginBottom: 12,
+                    backgroundColor: buttonBgColor,
+                    borderColor: buttonBorderColor,
+                    marginRight: marginRight,
+                  };
+
+                  const textStyle = {
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    color: textColor,
+                  };
 
                   return (
                     <TouchableOpacity
                       key={index}
-                      className={buttonClassName}
-                      style={styleObject}
+                      style={buttonStyle}
                       onPress={function() {
                         setSelectedTime(time);
                       }}
                       activeOpacity={0.7}
                     >
-                      <Text className={textClassName}>
+                      <Text style={textStyle}>
                         {formatTime12Hour(time)}
                       </Text>
                     </TouchableOpacity>
@@ -572,76 +713,212 @@ const BookAppointment = function(props) {
           )}
 
           {hasSelectedTime === true && (
-            <View className="bg-blue-50 border-2 border-blue-200 p-4 rounded-xl mb-6">
-              <Text className="text-blue-800 font-bold text-center text-base">
+            <View style={{
+              backgroundColor: '#ede9fe',
+              borderWidth: 2,
+              borderColor: '#c4b5fd',
+              padding: 16,
+              borderRadius: 12,
+              marginBottom: 24,
+            }}>
+              <Text style={{
+                color: '#5b21b6',
+                fontWeight: '700',
+                textAlign: 'center',
+                fontSize: 16,
+              }}>
                 ⏰ Selected: {formatTime12Hour(selectedTime)}
               </Text>
             </View>
           )}
 
           {hasSelectedTime === true && (
-            <>
-              <View className="flex-row items-center mb-4">
-                <View className="bg-gray-400 w-8 h-8 rounded-full items-center justify-center mr-3">
-                  <Text className="text-white font-bold">3</Text>
+            <View>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <View style={{
+                  backgroundColor: '#9ca3af',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                  <Text style={{
+                    color: '#ffffff',
+                    fontWeight: '700',
+                  }}>
+                    3
+                  </Text>
                 </View>
-                <Text className="text-xl font-bold text-gray-900">
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: '#111827',
+                }}>
                   Add Notes (Optional)
                 </Text>
               </View>
 
-              <View className="bg-white rounded-xl p-4 shadow-sm mb-6 border-2 border-gray-200">
+              <View style={{
+                backgroundColor: '#ffffff',
+                borderRadius: 12,
+                padding: 16,
+                shadowColor: '#000',
+                shadowOpacity: 0.05,
+                shadowRadius: 4,
+                marginBottom: 24,
+                borderWidth: 2,
+                borderColor: '#e5e7eb',
+              }}>
                 <TextInput
-                  className="text-base text-gray-900 min-h-[80px]"
+                  style={{
+                    fontSize: 16,
+                    color: '#111827',
+                    minHeight: 80,
+                    textAlignVertical: 'top',
+                  }}
                   placeholder="Any special requests or notes..."
                   placeholderTextColor="#9ca3af"
                   value={notes}
                   onChangeText={setNotes}
-                  multiline
-                  textAlignVertical="top"
+                  multiline={true}
                 />
               </View>
-            </>
+            </View>
           )}
 
           {hasSelectedTime === true && (
-            <View className="bg-white rounded-xl p-5 shadow-lg border-2 border-blue-200">
-              <Text className="text-xl font-bold text-gray-900 mb-4">
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              padding: 20,
+              shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+              borderWidth: 2,
+              borderColor: '#c4b5fd',
+            }}>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#111827',
+                marginBottom: 16,
+              }}>
                 📋 Booking Summary
               </Text>
 
-              <View className="space-y-3">
-                <View className="flex-row justify-between py-2 border-b border-gray-100">
-                  <Text className="text-sm text-gray-600">Service</Text>
-                  <Text className="text-sm font-semibold text-gray-900">
+              <View>
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6',
+                }}>
+                  <Text style={{
+                    fontSize: 14,
+                    color: '#6b7280',
+                  }}>
+                    Service
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#111827',
+                  }}>
                     {serviceDisplayName}
                   </Text>
                 </View>
 
-                <View className="flex-row justify-between py-2 border-b border-gray-100">
-                  <Text className="text-sm text-gray-600">Date</Text>
-                  <Text className="text-sm font-semibold text-gray-900">
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6',
+                }}>
+                  <Text style={{
+                    fontSize: 14,
+                    color: '#6b7280',
+                  }}>
+                    Date
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#111827',
+                  }}>
                     {selectedDate.toLocaleDateString()}
                   </Text>
                 </View>
 
-                <View className="flex-row justify-between py-2 border-b border-gray-100">
-                  <Text className="text-sm text-gray-600">Time</Text>
-                  <Text className="text-sm font-semibold text-gray-900">
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6',
+                }}>
+                  <Text style={{
+                    fontSize: 14,
+                    color: '#6b7280',
+                  }}>
+                    Time
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#111827',
+                  }}>
                     {formatTime12Hour(selectedTime)}
                   </Text>
                 </View>
 
-                <View className="flex-row justify-between py-2 border-b border-gray-100">
-                  <Text className="text-sm text-gray-600">Duration</Text>
-                  <Text className="text-sm font-semibold text-gray-900">
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 8,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6',
+                }}>
+                  <Text style={{
+                    fontSize: 14,
+                    color: '#6b7280',
+                  }}>
+                    Duration
+                  </Text>
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: '#111827',
+                  }}>
                     {serviceDuration} min
                   </Text>
                 </View>
 
-                <View className="flex-row justify-between py-3 pt-4">
-                  <Text className="text-lg font-bold text-gray-900">Total</Text>
-                  <Text className="text-2xl font-bold text-blue-600">
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
+                  paddingTop: 16,
+                }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: '#111827',
+                  }}>
+                    Total
+                  </Text>
+                  <Text style={{
+                    fontSize: 24,
+                    fontWeight: '700',
+                    color: '#7c3aed',
+                  }}>
                     €{formattedPrice}
                   </Text>
                 </View>
@@ -650,26 +927,54 @@ const BookAppointment = function(props) {
           )}
         </View>
 
-        <View className="h-24" />
+        <View style={{ height: 96 }} />
       </ScrollView>
 
       {hasSelectedTime === true && (
-        <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-4">
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: '#ffffff',
+          borderTopWidth: 1,
+          borderTopColor: '#e5e7eb',
+          paddingHorizontal: 20,
+          paddingVertical: 16,
+        }}>
           <TouchableOpacity
-            className={submitting === true ? 'py-4 rounded-xl bg-blue-400' : 'py-4 rounded-xl bg-blue-600'}
+            style={{
+              paddingVertical: 16,
+              borderRadius: 12,
+              backgroundColor: submitting === true ? '#a78bfa' : '#7c3aed',
+            }}
             onPress={handleBooking}
             disabled={submitting}
             activeOpacity={0.7}
           >
             {submitting === true ? (
-              <View className="flex-row justify-center items-center">
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}>
                 <ActivityIndicator size="small" color="#ffffff" />
-                <Text className="text-white text-base font-bold ml-2">
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: 16,
+                  fontWeight: '700',
+                  marginLeft: 8,
+                }}>
                   Booking...
                 </Text>
               </View>
             ) : (
-              <Text className="text-white text-center text-lg font-bold">
+              <Text style={{
+                color: '#ffffff',
+                textAlign: 'center',
+                fontSize: 18,
+                fontWeight: '700',
+              }}>
                 ✓ Confirm Booking
               </Text>
             )}
@@ -684,15 +989,49 @@ const BookAppointment = function(props) {
           animationType="slide"
           onRequestClose={handleCancelDate}
         >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-white rounded-t-3xl">
-              <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-200">
+          <View style={{
+            flex: 1,
+            justifyContent: 'flex-end',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          }}>
+            <View style={{
+              backgroundColor: '#ffffff',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 16,
+                borderBottomWidth: 1,
+                borderBottomColor: '#e5e7eb',
+              }}>
                 <TouchableOpacity onPress={handleCancelDate}>
-                  <Text className="text-blue-500 text-lg font-semibold">Cancel</Text>
+                  <Text style={{
+                    color: '#7c3aed',
+                    fontSize: 18,
+                    fontWeight: '600',
+                  }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
-                <Text className="text-lg font-bold text-gray-900">Select Date</Text>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '700',
+                  color: '#111827',
+                }}>
+                  Select Date
+                </Text>
                 <TouchableOpacity onPress={handleConfirmDate}>
-                  <Text className="text-blue-500 text-lg font-bold">Done</Text>
+                  <Text style={{
+                    color: '#7c3aed',
+                    fontSize: 18,
+                    fontWeight: '700',
+                  }}>
+                    Done
+                  </Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
@@ -721,6 +1060,6 @@ const BookAppointment = function(props) {
       )}
     </View>
   );
-};
+}
 
 export default BookAppointment;
