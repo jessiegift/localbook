@@ -1,8 +1,9 @@
 package com.localbook.service;
-
+import com.localbook.model.Notification; 
 import com.localbook.model.Business;
 import com.localbook.model.User;
 import com.localbook.repository.BusinessRepository;
+import com.localbook.repository.NotificationRepository;
 import com.localbook.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,9 @@ public class BusinessService {
     
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+private NotificationRepository notificationRepository;
     
     public Business registerBusiness(Business business, Long ownerId) {
         System.out.println("=== REGISTER BUSINESS SERVICE ===");
@@ -132,63 +136,6 @@ public class BusinessService {
     /**
      * Approve business with console notification
      */
-    @Transactional
-    public Business approveBusiness(Long businessId) {
-        Business business = businessRepository.findById(businessId)
-            .orElseThrow(() -> new IllegalArgumentException("Business not found"));
-        
-        business.setApproved(true);
-        business.setStatus("ACTIVE");
-        business.setUpdatedAt(LocalDateTime.now());
-        
-        Business approved = businessRepository.save(business);
-        
-        // Simple console notification
-        System.out.println("\n========================================");
-        System.out.println("✅ BUSINESS APPROVED");
-        System.out.println("========================================");
-        System.out.println("Business: " + business.getBusinessName());
-        System.out.println("Owner: " + business.getOwnerName());
-        System.out.println("Email: " + business.getEmail());
-        System.out.println("\n📧 EMAIL SENT:");
-        System.out.println("To: " + business.getEmail());
-        System.out.println("Subject: Business Approved - LocalBook");
-        System.out.println("Message: Congratulations! Your business is now live on LocalBook.");
-        System.out.println("========================================\n");
-        
-        return approved;
-    }
-    
-    /**
-     * Reject business with reason
-     */
-    @Transactional
-    public Business rejectBusiness(Long businessId, String reason) {
-        Business business = businessRepository.findById(businessId)
-            .orElseThrow(() -> new IllegalArgumentException("Business not found"));
-        
-        business.setApproved(false);
-        business.setStatus("REJECTED");
-        business.setUpdatedAt(LocalDateTime.now());
-        
-        Business rejected = businessRepository.save(business);
-        
-        // Simple console notification
-        System.out.println("\n========================================");
-        System.out.println("❌ BUSINESS REJECTED");
-        System.out.println("========================================");
-        System.out.println("Business: " + business.getBusinessName());
-        System.out.println("Owner: " + business.getOwnerName());
-        System.out.println("Email: " + business.getEmail());
-        System.out.println("Reason: " + reason);
-        System.out.println("\n📧 EMAIL SENT:");
-        System.out.println("To: " + business.getEmail());
-        System.out.println("Subject: Business Registration Update - LocalBook");
-        System.out.println("Message: Your business was not approved. Reason: " + reason);
-        System.out.println("========================================\n");
-        
-        return rejected;
-    }
     
     public void deleteBusiness(Long id, Long userId) {
         Optional<Business> businessOpt = businessRepository.findById(id);
@@ -206,4 +153,70 @@ public class BusinessService {
         
         businessRepository.deleteById(id);
     }
+
+    /**
+ * Approve business with in-app notification
+ */
+@Transactional
+public Business approveBusiness(Long businessId) {
+    Business business = businessRepository.findById(businessId)
+        .orElseThrow(() -> new IllegalArgumentException("Business not found"));
+    
+    business.setApproved(true);
+    business.setUpdatedAt(LocalDateTime.now());
+    
+    Business approved = businessRepository.save(business);
+    
+    // Console notification
+    System.out.println("\n========================================");
+    System.out.println("✅ BUSINESS APPROVED: " + business.getBusinessName());
+    System.out.println("========================================\n");
+    
+    // ✅ Create in-app notification
+    Notification notification = new Notification(
+        business.getOwner().getId(),
+        "BUSINESS_APPROVED",
+        "🎉 Business Approved!",
+        "Congratulations! Your business '" + business.getBusinessName() + 
+        "' has been approved and is now live on LocalBook. Customers can now find and book with you!"
+    );
+    notificationRepository.save(notification);
+    System.out.println("📧 In-app notification created for user: " + business.getOwner().getId());
+    
+    return approved;
+}
+
+/**
+ * Reject business with in-app notification
+ */
+@Transactional
+public Business rejectBusiness(Long businessId, String reason) {
+    Business business = businessRepository.findById(businessId)
+        .orElseThrow(() -> new IllegalArgumentException("Business not found"));
+    
+    business.setApproved(false);
+    business.setUpdatedAt(LocalDateTime.now());
+    
+    Business rejected = businessRepository.save(business);
+    
+    // Console notification
+    System.out.println("\n========================================");
+    System.out.println("❌ BUSINESS REJECTED: " + business.getBusinessName());
+    System.out.println("Reason: " + reason);
+    System.out.println("========================================\n");
+    
+    // ✅ Create in-app notification
+    Notification notification = new Notification(
+        business.getOwner().getId(),
+        "BUSINESS_REJECTED",
+        "❌ Business Registration Update",
+        "Your business '" + business.getBusinessName() + 
+        "' was not approved. Reason: " + reason + 
+        ". You can update your information and resubmit for review."
+    );
+    notificationRepository.save(notification);
+    System.out.println("📧 In-app notification created for user: " + business.getOwner().getId());
+    
+    return rejected;
+}
 }

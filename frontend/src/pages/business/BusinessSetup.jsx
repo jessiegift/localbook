@@ -4,34 +4,17 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
 function BusinessSetup() {
-    const authContext = useAuth();
-    const user = authContext.user;
+    const { user } = useAuth();
     const navigate = useNavigate();
-    
-    let initialOwnerName = '';
-    const hasUser = user !== null && user !== undefined;
-    if (hasUser === true) {
-        const hasUserName = user.name !== null && user.name !== undefined;
-        if (hasUserName === true) {
-            initialOwnerName = user.name;
-        }
-    }
-
-    let initialEmail = '';
-    if (hasUser === true) {
-        const hasUserEmail = user.email !== null && user.email !== undefined;
-        if (hasUserEmail === true) {
-            initialEmail = user.email;
-        }
-    }
     
     const [formData, setFormData] = useState({
         businessName: '',
-        ownerName: initialOwnerName,
+        ownerName: user?.name || '',
         category: '',
         address: '',
         phoneNumber: '',
-        email: initialEmail,
+        email: user?.email || '',
+        eircode: '',
         description: ''
     });
     
@@ -39,555 +22,307 @@ function BusinessSetup() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    function handleChange(event) {
-        const target = event.target;
-        const name = target.name;
-        const value = target.value;
-        
-        const updatedFormData = {
-            businessName: formData.businessName,
-            ownerName: formData.ownerName,
-            category: formData.category,
-            address: formData.address,
-            phoneNumber: formData.phoneNumber,
-            email: formData.email,
-            description: formData.description
-        };
-        
-        updatedFormData[name] = value;
-        
-        setFormData(updatedFormData);
-    }
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
 
-    async function handleSubmit(event) {
-        event.preventDefault();
-        
-        console.log('📤 Submitting business registration...');
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         
         setLoading(true);
         setError('');
         setSuccess('');
 
         try {
-            const hasUser = user !== null && user !== undefined;
-            if (hasUser === false) {
+            if (!user?.id) {
                 setError('User not found. Please login again.');
                 setLoading(false);
                 return;
             }
 
-            const userId = user.id;
-            const hasUserId = userId !== null && userId !== undefined;
-            if (hasUserId === false) {
-                setError('User ID not found. Please login again.');
-                setLoading(false);
-                return;
-            }
-
-            const userIdString = userId.toString();
-            
-            // Create business data object
             const businessData = {
-                businessName: formData.businessName,
-                ownerName: formData.ownerName,
-                category: formData.category,
-                address: formData.address,
-                phoneNumber: formData.phoneNumber,
-                email: formData.email,
-                description: formData.description,
+                ...formData,
                 town: 'Carlow',
                 county: 'Carlow',
-                location: 'Carlow',
-                eircode: 'R93 0000'
+                location: 'Carlow'
             };
 
-            console.log('📦 Business data:', JSON.stringify(businessData, null, 2));
+            await api.post(`/businesses/register?ownerId=${user.id}`, businessData);
 
-            const url = '/businesses/register?ownerId=' + userIdString;
-            console.log('🔗 Request URL:', url);
-
-            // Send registration request
-            const response = await api.post(url, businessData);
-
-            console.log('✅ Registration successful:', response.data);
-
-            setSuccess('✅ Business registered successfully!');
+            setSuccess('Business registered successfully! Redirecting...');
             
-            // Navigate after 2 seconds
-            setTimeout(function() {
-                console.log('📍 Navigating to business dashboard');
+            setTimeout(() => {
                 navigate('/business/dashboard');
             }, 2000);
 
-        } catch (errorObject) {
-            console.error('❌ Registration error:', errorObject);
+        } catch (err) {
+            const errorMessage = err.response?.data?.message 
+                || err.response?.data?.error 
+                || 'Failed to register business. Please try again.';
             
-            const hasResponse = errorObject.response !== null && errorObject.response !== undefined;
-            if (hasResponse === true) {
-                const response = errorObject.response;
-                const status = response.status;
-                const data = response.data;
-                
-                console.error('Error status:', status);
-                console.error('Error data:', data);
-                
-                let errorMessage = 'Failed to register business. Please try again.';
-                
-                const hasData = data !== null && data !== undefined;
-                if (hasData === true) {
-                    const hasMessage = data.message !== null && data.message !== undefined;
-                    if (hasMessage === true) {
-                        errorMessage = data.message;
-                    } else {
-                        const hasError = data.error !== null && data.error !== undefined;
-                        if (hasError === true) {
-                            errorMessage = data.error;
-                        } else {
-                            const isString = typeof data === 'string';
-                            if (isString === true) {
-                                errorMessage = data;
-                            }
-                        }
-                    }
-                }
-                
-                if (status === 415) {
-                    errorMessage = 'Invalid data format. Please contact support.';
-                } else if (status === 500) {
-                    errorMessage = 'Server error. Please try again later.';
-                } else if (status === 400) {
-                    errorMessage = 'Invalid data: ' + errorMessage;
-                } else if (status === 409) {
-                    errorMessage = 'Business already exists.';
-                }
-                
-                setError(errorMessage);
-            } else {
-                const hasRequest = errorObject.request !== null && errorObject.request !== undefined;
-                if (hasRequest === true) {
-                    console.error('No response received');
-                    setError('Network error. Please check your connection.');
-                } else {
-                    const hasMessage = errorObject.message !== null && errorObject.message !== undefined;
-                    if (hasMessage === true) {
-                        console.error('Error:', errorObject.message);
-                        setError('Error: ' + errorObject.message);
-                    } else {
-                        setError('An unexpected error occurred.');
-                    }
-                }
-            }
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
-    }
-
-    function handleCancel() {
-        console.log('❌ Registration cancelled');
-        navigate('/business/dashboard');
-    }
-
-    const hasSuccess = success.length > 0;
-    const hasError = error.length > 0;
+    };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            background: 'linear-gradient(to bottom right, #ede9fe, #f5f3ff)',
-            paddingTop: 48,
-            paddingBottom: 48,
-            paddingLeft: 16,
-            paddingRight: 16
-        }}>
-            <div style={{
-                maxWidth: 672,
-                marginLeft: 'auto',
-                marginRight: 'auto'
-            }}>
-                {/* Header */}
-                <div style={{
-                    textAlign: 'center',
-                    marginBottom: 32
-                }}>
-                    <div style={{
-                        fontSize: 60,
-                        marginBottom: 16
-                    }}>🏢</div>
-                    <h1 style={{
-                        fontSize: 36,
-                        fontWeight: '700',
-                        color: '#111827',
-                        marginBottom: 8
-                    }}>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 py-12 px-4">
+            <div className="max-w-3xl mx-auto">
+                {/* Header with Animation */}
+                <div className="text-center mb-10 animate-fadeIn">
+                    <div className="inline-block mb-4 relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 blur-2xl opacity-30 animate-pulse"></div>
+                        <div className="text-7xl relative">🏢</div>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 bg-clip-text text-transparent mb-3">
                         Register Your Business
                     </h1>
-                    <p style={{
-                        color: '#6b7280',
-                        fontSize: 18
-                    }}>
-                        Join LocalBook and start accepting bookings
+                    <p className="text-gray-600 text-lg">
+                        Join LocalBook and start accepting bookings today ✨
                     </p>
                 </div>
 
-                {/* Form Card */}
-                <div style={{
-                    backgroundColor: '#ffffff',
-                    borderRadius: 16,
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-                    padding: 32
-                }}>
-                    {/* Success Message */}
-                    {hasSuccess === true && (
-                        <div style={{
-                            marginBottom: 24,
-                            backgroundColor: '#f0fdf4',
-                            borderLeft: '4px solid #22c55e',
-                            color: '#166534',
-                            paddingLeft: 24,
-                            paddingRight: 24,
-                            paddingTop: 16,
-                            paddingBottom: 16,
-                            borderRadius: 8
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                <span style={{
-                                    fontSize: 24,
-                                    marginRight: 12
-                                }}>✅</span>
-                                <p style={{
-                                    fontWeight: '600'
-                                }}>{success}</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Error Message */}
-                    {hasError === true && (
-                        <div style={{
-                            marginBottom: 24,
-                            backgroundColor: '#fef2f2',
-                            borderLeft: '4px solid #ef4444',
-                            color: '#991b1b',
-                            paddingLeft: 24,
-                            paddingRight: 24,
-                            paddingTop: 16,
-                            paddingBottom: 16,
-                            borderRadius: 8
-                        }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center'
-                            }}>
-                                <span style={{
-                                    fontSize: 24,
-                                    marginRight: 12
-                                }}>⚠️</span>
-                                <div>
-                                    <p style={{
-                                        fontWeight: '600'
-                                    }}>Registration Failed</p>
-                                    <p style={{
-                                        fontSize: 14
-                                    }}>{error}</p>
+                {/* Form Card with Gradient Border */}
+                <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
+                    <div className="relative bg-white rounded-2xl shadow-2xl p-8 md:p-10">
+                        {/* Success Message */}
+                        {success && (
+                            <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-l-4 border-green-500 text-green-800 p-5 rounded-lg shadow-sm animate-slideDown">
+                                <div className="flex items-center">
+                                    <span className="text-3xl mr-4 animate-bounce">✅</span>
+                                    <div>
+                                        <p className="font-bold text-lg">{success}</p>
+                                        <p className="text-sm text-green-700">Taking you to your dashboard...</p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <form onSubmit={handleSubmit}>
-                        {/* Business Name */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Business Name *
-                            </label>
-                            <input
-                                type="text"
-                                name="businessName"
-                                value={formData.businessName}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                placeholder="e.g., Beauty Salon Carlow"
-                                required
-                            />
-                        </div>
+                        {/* Error Message */}
+                        {error && (
+                            <div className="mb-6 bg-gradient-to-r from-red-50 to-pink-50 border-l-4 border-red-500 text-red-800 p-5 rounded-lg shadow-sm animate-shake">
+                                <div className="flex items-start">
+                                    <span className="text-3xl mr-4">⚠️</span>
+                                    <div>
+                                        <p className="font-bold text-lg">Registration Failed</p>
+                                        <p className="text-sm text-red-700 mt-1">{error}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-                        {/* Owner Name */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Owner Name *
-                            </label>
-                            <input
-                                type="text"
-                                name="ownerName"
-                                value={formData.ownerName}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                placeholder="Your full name"
-                                required
-                            />
-                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            {/* Business Name */}
+                            <div className="group">
+                                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                    <span className="mr-2">🏪</span> Business Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="businessName"
+                                    value={formData.businessName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                    placeholder="e.g., Beauty Salon Carlow"
+                                    required
+                                />
+                            </div>
 
-                        {/* Category */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Business Category *
-                            </label>
-                            <select
-                                name="category"
-                                value={formData.category}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                required
-                            >
-                                <option value="">Select a category</option>
-                                <option value="Salon">💇 Hair Salon</option>
-                                <option value="Spa">🧖 Spa & Wellness</option>
-                                <option value="Barbershop">✂️ Barbershop</option>
-                                <option value="Clinic">🏥 Medical Clinic</option>
-                                <option value="Restaurant">🍽️ Restaurant</option>
-                                <option value="Cafe">☕ Cafe</option>
-                                <option value="Gym">💪 Gym & Fitness</option>
-                                <option value="Other">📦 Other</option>
-                            </select>
-                        </div>
+                            {/* Owner Name */}
+                            <div className="group">
+                                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                    <span className="mr-2">👤</span> Owner Name *
+                                </label>
+                                <input
+                                    type="text"
+                                    name="ownerName"
+                                    value={formData.ownerName}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                    placeholder="Your full name"
+                                    required
+                                />
+                            </div>
 
-                        {/* Address */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Business Address *
-                            </label>
-                            <input
-                                type="text"
-                                name="address"
-                                value={formData.address}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                placeholder="e.g., 123 Tullow Street, Carlow"
-                                required
-                            />
-                        </div>
+                            {/* Category */}
+                            <div className="group">
+                                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                    <span className="mr-2">📂</span> Business Category *
+                                </label>
+                                <select
+                                    name="category"
+                                    value={formData.category}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
+                                    required
+                                >
+                                    <option value="">Select a category</option>
+                                    <option value="Salon">💇 Hair Salon</option>
+                                    <option value="Spa">🧖 Spa & Wellness</option>
+                                    <option value="Barbershop">✂️ Barbershop</option>
+                                    <option value="Clinic">🏥 Medical Clinic</option>
+                                    <option value="Restaurant">🍽️ Restaurant</option>
+                                    <option value="Cafe">☕ Cafe</option>
+                                    <option value="Gym">💪 Gym & Fitness</option>
+                                    <option value="Other">📦 Other</option>
+                                </select>
+                            </div>
 
-                        {/* Phone Number */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Phone Number *
-                            </label>
-                            <input
-                                type="tel"
-                                name="phoneNumber"
-                                value={formData.phoneNumber}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                placeholder="e.g., 0851234567"
-                                required
-                            />
-                        </div>
+                            {/* Two Column Layout for Address & Eircode */}
+                            <div className="grid md:grid-cols-2 gap-6">
+                                {/* Address */}
+                                <div className="group md:col-span-2">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                        <span className="mr-2">📍</span> Business Address *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                        placeholder="e.g., 123 Tullow Street, Carlow"
+                                        required
+                                    />
+                                </div>
 
-                        {/* Email */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Business Email *
-                            </label>
-                            <input
-                                type="email"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16
-                                }}
-                                placeholder="business@example.com"
-                                required
-                            />
-                        </div>
+                                {/* Eircode */}
+                                <div className="group">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                        <span className="mr-2">🔢</span> Eircode *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="eircode"
+                                        value={formData.eircode}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                        placeholder="e.g., R93 X5P2"
+                                        required
+                                        maxLength="8"
+                                    />
+                                </div>
 
-                        {/* Description */}
-                        <div style={{ marginBottom: 24 }}>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 14,
-                                fontWeight: '700',
-                                color: '#374151',
-                                marginBottom: 8
-                            }}>
-                                Description *
-                            </label>
-                            <textarea
-                                name="description"
-                                value={formData.description}
-                                onChange={handleChange}
-                                rows={4}
-                                style={{
-                                    width: '100%',
-                                    paddingLeft: 16,
-                                    paddingRight: 16,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    border: '2px solid #d1d5db',
-                                    borderRadius: 8,
-                                    fontSize: 16,
-                                    resize: 'vertical'
-                                }}
-                                placeholder="Tell customers about your business..."
-                                required
-                            />
-                        </div>
+                                {/* Phone Number */}
+                                <div className="group">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                        <span className="mr-2">📞</span> Phone Number *
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        name="phoneNumber"
+                                        value={formData.phoneNumber}
+                                        onChange={handleChange}
+                                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                        placeholder="e.g., 0851234567"
+                                        required
+                                    />
+                                </div>
+                            </div>
 
-                        {/* Buttons */}
-                        <div style={{
-                            display: 'flex',
-                            gap: 16,
-                            paddingTop: 16
-                        }}>
-                            <button
-                                type="button"
-                                onClick={handleCancel}
-                                style={{
-                                    flex: 1,
-                                    paddingLeft: 24,
-                                    paddingRight: 24,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    backgroundColor: '#e5e7eb',
-                                    color: '#374151',
-                                    borderRadius: 8,
-                                    fontWeight: '600',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    fontSize: 16
-                                }}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                style={{
-                                    flex: 1,
-                                    paddingLeft: 24,
-                                    paddingRight: 24,
-                                    paddingTop: 12,
-                                    paddingBottom: 12,
-                                    backgroundColor: loading === true ? '#9ca3af' : '#7c3aed',
-                                    color: '#ffffff',
-                                    borderRadius: 8,
-                                    fontWeight: '600',
-                                    border: 'none',
-                                    cursor: loading === true ? 'not-allowed' : 'pointer',
-                                    opacity: loading === true ? 0.5 : 1,
-                                    fontSize: 16
-                                }}
-                            >
-                                {loading === true ? 'Registering...' : 'Register Business'}
-                            </button>
-                        </div>
-                    </form>
+                            {/* Email */}
+                            <div className="group">
+                                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                    <span className="mr-2">✉️</span> Business Email *
+                                </label>
+                                <input
+                                    type="email"
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300"
+                                    placeholder="business@example.com"
+                                    required
+                                />
+                            </div>
+
+                            {/* Description */}
+                            <div className="group">
+                                <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
+                                    <span className="mr-2">📝</span> Description *
+                                </label>
+                                <textarea
+                                    name="description"
+                                    value={formData.description}
+                                    onChange={handleChange}
+                                    rows={4}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300 resize-vertical"
+                                    placeholder="Tell customers about your business, services, and what makes you special..."
+                                    required
+                                />
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex flex-col sm:flex-row gap-4 pt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/business/dashboard')}
+                                    className="flex-1 px-6 py-4 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-all duration-200 hover:scale-105 active:scale-95"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="flex-1 px-6 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-500 text-white rounded-xl font-bold hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                                >
+                                    {loading ? (
+                                        <span className="flex items-center justify-center">
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Registering...
+                                        </span>
+                                    ) : (
+                                        '🚀 Register Business'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
-                {/* Footer Note */}
-                <div style={{
-                    marginTop: 24,
-                    textAlign: 'center'
-                }}>
-                    <p style={{
-                        fontSize: 14,
-                        color: '#6b7280'
-                    }}>
-                        * All fields are required for business registration
-                    </p>
+                {/* Footer Note with Icon */}
+                <div className="mt-8 text-center">
+                    <div className="inline-flex items-center px-6 py-3 bg-white rounded-full shadow-md">
+                        <span className="mr-2">💡</span>
+                        <p className="text-sm text-gray-600 font-medium">
+                            All fields are required for business registration
+                        </p>
+                    </div>
                 </div>
             </div>
+
+            <style jsx>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes slideDown {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    25% { transform: translateX(-5px); }
+                    75% { transform: translateX(5px); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.6s ease-out;
+                }
+                .animate-slideDown {
+                    animation: slideDown 0.4s ease-out;
+                }
+                .animate-shake {
+                    animation: shake 0.4s ease-out;
+                }
+            `}</style>
         </div>
     );
 }
