@@ -6,7 +6,7 @@ import AllBusinesses from "./AllBusinesses";
 import BusinessDetails from "./BusinessDetails";
 import AllUsers from "./AllUsers";
 import Reports from "./Reports";
-import Disputes from "./Disputes";
+
 import Categories from "./Categories";
 import PlatformSettings from "./PlatformSettings";
 import Pending from "./Pending"; // ✅ updated import name and file path
@@ -90,18 +90,7 @@ function AdminApp() {
                 👥 Users
               </NavLink>
 
-              <NavLink
-                to="/admin/disputes"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
-              >
-                ⚖️ Disputes
-              </NavLink>
+             
 
               <NavLink
                 to="/admin/categories"
@@ -184,7 +173,7 @@ function AdminApp() {
           <Route path="/businesses/:id" element={<BusinessDetails />} />
           <Route path="/pending" element={<Pending />} /> {/* ✅ updated route */}
           <Route path="/users" element={<AllUsers />} />
-          <Route path="/disputes" element={<Disputes />} />
+         
           <Route path="/categories" element={<Categories />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<PlatformSettings />} />

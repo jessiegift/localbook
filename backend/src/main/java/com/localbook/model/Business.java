@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -15,64 +16,68 @@ public class Business {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Column(nullable = false)
-    private String businessName;  // "Mary's Salon", "John's Barber Shop"
+    @Column(name = "business_name", nullable = false)
+    private String businessName;
+    
+    @Column(name = "owner_name", nullable = false)
+    private String ownerName;
     
     @Column(nullable = false)
-    private String ownerName;  // Owner's full name
+    private String address;
     
     @Column(nullable = false)
-    private String address;  // "123 Tullow Street"
-    
-    @Column(nullable = false)
-    private String town;     // Default: "Carlow"
+    private String town;
 
     @Column(nullable = false)
-    private String county;   // Default: "Carlow"
+    private String county;
 
     @Column(nullable = false)
-     private String eircode;  // "R93 F7W3"
+    private String eircode;
+    
+    @Column(nullable = true)
+    private String location;
     
     @Column(nullable = false)
-    private String category;  // "Beauty Salon", "Barber Shop", "Pet Grooming"
+    private String category;
     
-    @Column(nullable = false)
+    @Column(name = "phone_number", nullable = false)
     private String phoneNumber;
     
     @Column(nullable = false, unique = true)
     private String email;
     
-    @Column(nullable = false)
-    private boolean isApproved = false;  // Admin must approve new businesses
+    @Column(name = "is_approved", nullable = false)
+    private boolean isApproved = false;
     
     @Column(length = 1000)
-    private String description;  // About the business
+    private String description;
 
     @Column(name = "latitude")
-    private Double lat;  // For map display
+    private Double lat;
     
     @Column(name = "longitude")
-    private Double lng;  // For map display
-
-    @Column(nullable = true)
-    private String location; // Optional location descriptor, used by getLocation()/setLocation()
+    private Double lng;
     
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    private User owner;  // Link to the User who owns this business
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private User owner;
     
     @CreatedDate
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
     @LastModifiedDate
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
     
     // Default Constructor
     public Business() {
+        this.isApproved = false;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
+    
     // Constructor with parameters
     public Business(String businessName, String ownerName, String address, 
                     String location, String town, String county, String eircode,
@@ -127,6 +132,30 @@ public class Business {
         this.address = address;
     }
     
+    public String getTown() {
+        return town;
+    }
+    
+    public void setTown(String town) {
+        this.town = town;
+    }
+    
+    public String getCounty() {
+        return county;
+    }
+    
+    public void setCounty(String county) {
+        this.county = county;
+    }
+    
+    public String getEircode() {
+        return eircode;
+    }
+    
+    public void setEircode(String eircode) {
+        this.eircode = eircode;
+    }
+    
     public String getLocation() {
         return location;
     }
@@ -164,7 +193,15 @@ public class Business {
     }
     
     public void setApproved(boolean approved) {
-        isApproved = approved;
+        this.isApproved = approved;
+    }
+    
+    public boolean getIsApproved() {
+        return isApproved;
+    }
+    
+    public void setIsApproved(boolean isApproved) {
+        this.isApproved = isApproved;
     }
     
     public String getDescription() {
@@ -173,6 +210,22 @@ public class Business {
     
     public void setDescription(String description) {
         this.description = description;
+    }
+    
+    public Double getLat() {
+        return lat;
+    }
+    
+    public void setLat(Double lat) {
+        this.lat = lat;
+    }
+    
+    public Double getLng() {
+        return lng;
+    }
+    
+    public void setLng(Double lng) {
+        this.lng = lng;
     }
     
     public User getOwner() {
@@ -198,4 +251,35 @@ public class Business {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+    
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        updatedAt = LocalDateTime.now();
+    }
+    
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+@Column(nullable = true)
+private String status; // "ACTIVE", "PENDING", "REJECTED", "SUSPENDED"
+
+// 2. Add these getter/setter methods with your other getters/setters
+public String getStatus() {
+    return status;
+}
+
+public void setStatus(String status) {
+    this.status = status;
+    // Sync with isApproved
+    if ("ACTIVE".equals(status) || "APPROVED".equals(status)) {
+        this.isApproved = true;
+    } else {
+        this.isApproved = false;
+    }
+}
+
 }

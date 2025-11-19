@@ -4,13 +4,14 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import BusinessOwnerApp from './pages/business/BusinessOwnerApp';
 import AdminApp from './pages/admin/AdminApp';
-
 function App() {
     return (
         <Routes>
+            {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             
+            {/* Business Owner Routes - All Protected with Approval Guard */}
             <Route
                 path="/business/*"
                 element={
@@ -20,6 +21,7 @@ function App() {
                 }
             />
             
+            {/* Admin Routes */}
             <Route
                 path="/admin/*"
                 element={
@@ -29,6 +31,7 @@ function App() {
                 }
             />
             
+            {/* Default Route */}
             <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
     );

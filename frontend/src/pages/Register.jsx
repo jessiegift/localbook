@@ -11,8 +11,7 @@ const Register = () => {
         email: "",
         password: "",
         confirmPassword: "",
-        phoneNumber: "",
-        userType: "BUSINESS_OWNER"
+        phoneNumber: ""
     });
     
     const [error, setError] = useState("");
@@ -43,21 +42,13 @@ const Register = () => {
         setLoading(true);
         
         try {
-            const { confirmPassword, userType, ...userData } = formData;
+            const { confirmPassword, ...userData } = formData;
             
-            // Choose endpoint based on user type
-            const endpoint = userType === "BUSINESS_OWNER" 
-                ? "/users/register/business-owner" 
-                : "/users/register/client";
-            
-            await register(userData, endpoint);
+            // Register as business owner
+            await register(userData, "/users/register/business-owner");
             
             // Success message
-            if (userType === "BUSINESS_OWNER") {
-                alert("Registration successful! Your business is pending approval. You will be notified when approved.");
-            } else {
-                alert("Registration successful! You can now log in.");
-            }
+            alert("Registration successful! Welcome to LocalBook. You can now log in and set up your business.");
             
             navigate("/login");
         } catch (err) {
@@ -68,76 +59,25 @@ const Register = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen w-screen bg-gray-100 overflow-hidden">
-            <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-                <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
+        <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 overflow-hidden">
+            <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200">
+                <div className="text-center mb-6">
+                    <div className="text-4xl mb-3">🏢</div>
+                    <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+                    <p className="text-gray-600 mt-2">Register your business on LocalBook</p>
+                </div>
                 
                 {error && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                        {error}
+                    <div className="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg mb-4 flex items-start gap-2">
+                        <span className="text-xl">⚠️</span>
+                        <span className="text-sm font-medium">{error}</span>
                     </div>
                 )}
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* User Type Selection */}
+                    {/* Full Name */}
                     <div>
-                        <label className="block text-sm font-medium mb-3">
-                            I want to register as:
-                        </label>
-                        <div className="space-y-3">
-                            <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                                <input
-                                    type="radio"
-                                    name="userType"
-                                    value="BUSINESS_OWNER"
-                                    checked={formData.userType === "BUSINESS_OWNER"}
-                                    onChange={handleChange}
-                                    className="mr-3 mt-1"
-                                />
-                                <div>
-                                    <span className="font-medium">Business Owner</span>
-                                    <p className="text-xs text-gray-600">Offer services and manage bookings</p>
-                                </div>
-                            </label>
-                            
-                            <label className="flex items-start p-3 border rounded-lg cursor-pointer hover:bg-gray-50 bg-blue-50">
-                                <input
-                                    type="radio"
-                                    name="userType"
-                                    value="CLIENT"
-                                    checked={formData.userType === "CLIENT"}
-                                    onChange={handleChange}
-                                    className="mr-3 mt-1"
-                                />
-                                <div>
-                                    <span className="font-medium">Client</span>
-                                    <p className="text-xs text-gray-600">
-                                        📱 Normally mobile-only (demo purposes)
-                                    </p>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    {formData.userType === "CLIENT" && (
-                        <div className="bg-blue-50 border border-blue-200 p-3 rounded">
-                            <p className="text-xs text-blue-800">
-                                ℹ️ In production, clients register via mobile app. This option is for demonstration only.
-                            </p>
-                        </div>
-                    )}
-                    
-                    {formData.userType === "BUSINESS_OWNER" && (
-                        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
-                            <p className="text-xs text-yellow-800">
-                                📌 Business accounts require admin approval.
-                            </p>
-                        </div>
-                    )}
-                    
-                    {/* Name */}
-                    <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Full Name
                         </label>
                         <input
@@ -145,7 +85,7 @@ const Register = () => {
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             placeholder="Enter your full name"
                             required
                         />
@@ -153,15 +93,15 @@ const Register = () => {
                     
                     {/* Email */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
-                            Email
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            Email Address
                         </label>
                         <input
                             type="email"
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             placeholder="your.email@example.com"
                             required
                         />
@@ -169,7 +109,7 @@ const Register = () => {
                     
                     {/* Phone Number */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Phone Number
                         </label>
                         <input
@@ -177,7 +117,7 @@ const Register = () => {
                             name="phoneNumber"
                             value={formData.phoneNumber}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             placeholder="e.g., 0851234567"
                             required
                         />
@@ -185,7 +125,7 @@ const Register = () => {
                     
                     {/* Password */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Password
                         </label>
                         <input
@@ -193,16 +133,19 @@ const Register = () => {
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             placeholder="Minimum 6 characters"
                             required
                             minLength="6"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Must be at least 6 characters long
+                        </p>
                     </div>
                     
                     {/* Confirm Password */}
                     <div>
-                        <label className="block text-sm font-medium mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
                             Confirm Password
                         </label>
                         <input
@@ -210,7 +153,7 @@ const Register = () => {
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             placeholder="Re-enter your password"
                             required
                         />
@@ -220,18 +163,33 @@ const Register = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 transition disabled:bg-gray-400 font-medium"
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:from-gray-400 disabled:to-gray-400 font-semibold shadow-md hover:shadow-lg mt-6"
                     >
-                        {loading ? "Registering..." : "Register"}
+                        {loading ? (
+                            <span className="flex items-center justify-center gap-2">
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                Registering...
+                            </span>
+                        ) : (
+                            "Create Account"
+                        )}
                     </button>
                 </form>
                 
-                <p className="text-center text-sm text-gray-600 mt-6">
-                    Already have an account?{' '}
-                    <Link to="/login" className="text-blue-500 hover:underline font-medium">
-                        Login here
-                    </Link>
-                </p>
+                <div className="mt-6 text-center">
+                    <p className="text-sm text-gray-600">
+                        Already have an account?{' '}
+                        <Link to="/login" className="text-purple-600 hover:text-purple-700 font-semibold hover:underline">
+                            Login here
+                        </Link>
+                    </p>
+                </div>
+                
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                    <p className="text-xs text-gray-500 text-center">
+                        By creating an account, you agree to LocalBook's Terms of Service and Privacy Policy
+                    </p>
+                </div>
             </div>
         </div>
     );

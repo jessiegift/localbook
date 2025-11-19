@@ -1,256 +1,154 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
-const Pending = () => {
+function Pending() {
+  const navigate = useNavigate();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [selectedBusiness, setSelectedBusiness] = useState(null);
 
   useEffect(() => {
     fetchPendingBusinesses();
   }, []);
 
-  const fetchPendingBusinesses = async () => {
+  async function fetchPendingBusinesses() {
     try {
-      const response = await api.get("/businesses");
-      const pending = response.data.filter((b) => b.status === "PENDING");
-      setBusinesses(pending);
+      const response = await api.get("/businesses/unapproved");
+      const data = response.data.map(b => ({
+        ...b,
+        businessName: b.businessName || b.name || 'Unnamed Business'
+      }));
+      setBusinesses(data);
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching pending businesses:", error);
+      console.error("Error:", error);
       setLoading(false);
     }
-  };
+  }
 
-  const handleApprove = async (businessId) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to approve this business? It will go live immediately."
-    );
-    if (!confirmed) return;
+  function showMessage(text) {
+    setMessage(text);
+    setTimeout(() => setMessage(""), 3000);
+  }
 
-    try {
-      await api.put(`/businesses/${businessId}/status`, { status: "ACTIVE" });
-      setMessage("✅ Business approved successfully!");
-      fetchPendingBusinesses();
-      setSelectedBusiness(null);
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error approving business:", error);
-      setMessage("❌ Failed to approve business");
-    }
-  };
-
-  const handleReject = async (businessId) => {
-    const reason = prompt("Please provide a reason for rejection:");
-    if (!reason) return;
+  async function handleApprove(id, name) {
+    if (!window.confirm(`Approve "${name}"?`)) return;
 
     try {
-      await api.put(`/businesses/${businessId}/status`, {
-        status: "REJECTED",
-        rejectionReason: reason,
-      });
-      setMessage("❌ Business rejected");
+      await api.put(`/businesses/${id}/approve`);
+      showMessage(`✅ ${name} approved!`);
       fetchPendingBusinesses();
-      setSelectedBusiness(null);
-      setTimeout(() => setMessage(""), 3000);
     } catch (error) {
-      console.error("Error rejecting business:", error);
-      setMessage("❌ Failed to reject business");
+      showMessage("❌ Failed to approve");
     }
-  };
+  }
+
+  async function handleReject(id, name) {
+    const reason = window.prompt(`Why reject "${name}"?`);
+    if (!reason || reason.length < 10) {
+      alert("Please provide a detailed reason (min 10 characters)");
+      return;
+    }
+
+    if (!window.confirm(`Reject "${name}"?\n\nReason: ${reason}`)) return;
+
+    try {
+      await api.put(`/businesses/${id}/reject`, { reason });
+      showMessage(`❌ ${name} rejected`);
+      fetchPendingBusinesses();
+    } catch (error) {
+      showMessage("❌ Failed to reject");
+    }
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900">Pending Businesses</h1>
-        <p className="text-gray-600 mt-2">
-          Review and approve new business registrations
-        </p>
-      </div>
-
-      {/* Message */}
-      {message && (
-        <div
-          className={`mb-6 p-4 rounded-lg ${
-            message.includes("✅")
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {message}
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <button onClick={() => navigate("/admin/dashboard")} className="text-2xl mb-2">←</button>
+          <h1 className="text-3xl font-bold">Pending Businesses ({businesses.length})</h1>
         </div>
-      )}
 
-      {/* Pending Count */}
-      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6 rounded-lg">
-        <div className="flex items-center">
-          <span className="text-2xl mr-3">⏳</span>
-          <div>
-            <p className="font-semibold text-yellow-800">
-              {businesses.length} business
-              {businesses.length !== 1 ? "es" : ""} awaiting approval
-            </p>
-            <p className="text-sm text-yellow-700">
-              Please review and approve/reject each application
-            </p>
+        {/* Message */}
+        {message && (
+          <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            {message}
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Businesses List */}
-      {businesses.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-md p-12 text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <p className="text-gray-500 text-lg font-semibold">All caught up!</p>
-          <p className="text-gray-400 text-sm mt-2">
-            No pending businesses to review
-          </p>
-        </div>
-      ) : (
-        <div className="grid gap-6">
+        {/* Empty State */}
+        {businesses.length === 0 && (
+          <div className="bg-white rounded-xl p-12 text-center shadow">
+            <div className="text-6xl mb-4">✅</div>
+            <p className="text-xl font-semibold text-gray-700">All caught up!</p>
+            <p className="text-gray-500 mt-2">No pending businesses</p>
+          </div>
+        )}
+
+        {/* Business Cards */}
+        <div className="space-y-4">
           {businesses.map((business) => (
-            <div
-              key={business.id}
-              className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition"
-            >
+            <div key={business.id} className="bg-white rounded-xl p-6 shadow hover:shadow-lg transition">
               <div className="flex justify-between items-start">
                 {/* Business Info */}
                 <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {business.name}
-                  </h3>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <h3 className="text-xl font-bold mb-3">{business.businessName}</h3>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <p className="text-sm text-gray-600">Category</p>
-                      <p className="font-semibold text-gray-900">
-                        {business.category}
-                      </p>
+                      <span className="text-gray-600">Category:</span>
+                      <span className="ml-2 font-semibold">{business.category}</span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Location</p>
-                      <p className="font-semibold text-gray-900">
-                        {business.location}
-                      </p>
+                      <span className="text-gray-600">Owner:</span>
+                      <span className="ml-2 font-semibold">{business.ownerName}</span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Owner</p>
-                      <p className="font-semibold text-gray-900">
-                        {business.ownerName || "N/A"}
-                      </p>
+                      <span className="text-gray-600">Location:</span>
+                      <span className="ml-2 font-semibold">{business.town}</span>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Contact</p>
-                      <p className="font-semibold text-gray-900">
-                        {business.phoneNumber || "N/A"}
-                      </p>
+                      <span className="text-gray-600">Phone:</span>
+                      <span className="ml-2 font-semibold">{business.phoneNumber}</span>
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-600 mb-1">Description</p>
-                    <p className="text-gray-700">{business.description}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Address</p>
-                    <p className="text-gray-700">{business.address}</p>
-                  </div>
+                  <p className="mt-3 text-gray-600">{business.description}</p>
+                  <p className="mt-2 text-sm text-gray-500">{business.address}</p>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-col gap-3 ml-6">
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-2 ml-6">
                   <button
-                    onClick={() => handleApprove(business.id)}
-                    className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition font-semibold flex items-center gap-2"
+                    onClick={() => handleApprove(business.id, business.businessName)}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold"
                   >
                     ✅ Approve
                   </button>
                   <button
-                    onClick={() => handleReject(business.id)}
-                    className="px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-semibold flex items-center gap-2"
+                    onClick={() => handleReject(business.id, business.businessName)}
+                    className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold"
                   >
                     ❌ Reject
                   </button>
-                  <button
-                    onClick={() =>
-                      setSelectedBusiness(
-                        selectedBusiness?.id === business.id ? null : business
-                      )
-                    }
-                    className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
-                  >
-                    {selectedBusiness?.id === business.id ? "Hide" : "View"} Details
-                  </button>
                 </div>
               </div>
-                    <div className="business-details">
-  <h3>{business.name}</h3>
-  
-              {/* Carlow verification */}
-              <div className="location-check">
-                <p><strong>Address:</strong> {business.address}</p>
-                <p><strong>Eircode:</strong> {business.eircode}</p>
-                <p><strong>Town:</strong> {business.town}</p>
-                
-                {business.town !== "Carlow" && (
-                  <div className="warning">
-                    ⚠️ Warning: Business not located in Carlow
-                  </div>
-                )}
-              </div>
-              
-              <button onClick={() => approveBusinesses(business.id)}>
-                ✅ Approve (Verified Carlow Business)
-              </button>
-              
-              <button onClick={() => rejectBusiness(business.id)}>
-                ❌ Reject (Not in Carlow / Doesn't meet criteria)
-              </button>
-            </div>
-
-              {/* Expanded Details */}
-              {selectedBusiness?.id === business.id && (
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h4 className="font-semibold text-lg mb-4">
-                    Additional Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-600">Email</p>
-                      <p className="text-gray-900">{business.email || "N/A"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Website</p>
-                      <p className="text-gray-900">
-                        {business.website || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600">Submitted</p>
-                      <p className="text-gray-900">
-                        {new Date(business.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
-      )}
+      </div>
     </div>
   );
-};
+}
 
 export default Pending;

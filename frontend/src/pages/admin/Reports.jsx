@@ -1,312 +1,691 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 
 const Reports = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [timeframe, setTimeframe] = useState("MONTH");
-  const [reportData, setReportData] = useState({
+  const [error, setError] = useState(null);
+
+  const [analytics, setAnalytics] = useState({
     totalRevenue: 0,
     totalBookings: 0,
     newBusinesses: 0,
     newClients: 0,
+    carlowBusinesses: 0,
+    nonCarlowBusinesses: 0,
     popularCategories: [],
     topBusinesses: [],
     recentBookings: [],
-    geographicData: [],
+    carlowTowns: [],
+    businessGrowth: 0,
+    clientGrowth: 0,
+    bookingGrowth: 0,
   });
 
   useEffect(() => {
-    fetchReportData();
+    fetchAnalyticsData();
   }, [timeframe]);
 
-  const fetchReportData = async () => {
+  const isInCarlow = (business) => {
+    const town = (business.town || "").toLowerCase();
+    const location = (business.location || "").toLowerCase();
+    const address = (business.address || "").toLowerCase();
+    const eircode = (business.eircode || "").toUpperCase();
+
+    return (
+      town === "carlow" ||
+      location.includes("carlow") ||
+      address.includes("carlow") ||
+      eircode.startsWith("R93")
+    );
+  };
+
+  const fetchAnalyticsData = async () => {
     try {
+      setLoading(true);
+      setError(null);
+
       const [businesses, bookings, users] = await Promise.all([
         api.get("/businesses"),
         api.get("/appointments"),
         api.get("/users"),
       ]);
 
-      // Calculate stats
-      const totalBookings = bookings.data?.length || 0;
-      const totalRevenue = totalBookings * 25;
+      const allBusinesses = businesses.data || [];
+      const allBookings = bookings.data || [];
+      const allUsers = users.data || [];
 
-      // Get timeframe data
+      // Time calculations
       const now = new Date();
       const startDate = new Date();
+      const previousPeriodStart = new Date();
+      const previousPeriodEnd = new Date();
+
       if (timeframe === "WEEK") {
         startDate.setDate(now.getDate() - 7);
+        previousPeriodStart.setDate(now.getDate() - 14);
+        previousPeriodEnd.setDate(now.getDate() - 7);
       } else if (timeframe === "MONTH") {
         startDate.setMonth(now.getMonth() - 1);
+        previousPeriodStart.setMonth(now.getMonth() - 2);
+        previousPeriodEnd.setMonth(now.getMonth() - 1);
       } else if (timeframe === "YEAR") {
         startDate.setFullYear(now.getFullYear() - 1);
+        previousPeriodStart.setFullYear(now.getFullYear() - 2);
+        previousPeriodEnd.setFullYear(now.getFullYear() - 1);
+      } else {
+        // ALL TIME
+        startDate.setFullYear(2000);
+        previousPeriodStart.setFullYear(2000);
+        previousPeriodEnd.setFullYear(2000);
       }
 
-      const newBusinesses =
-        businesses.data?.filter((b) => new Date(b.createdAt) >= startDate).length || 0;
+      // Filter data by timeframe
+      const periodBookings = allBookings.filter((b) => {
+        const date = new Date(b.appointmentDate || b.date || b.createdAt);
+        return date >= startDate && date <= now;
+      });
 
-      const newClients =
-        users.data?.filter(
-          (u) => u.role === "CLIENT" && new Date(u.createdAt) >= startDate
-        ).length || 0;
+      const previousBookings = allBookings.filter((b) => {
+        const date = new Date(b.appointmentDate || b.date || b.createdAt);
+        return date >= previousPeriodStart && date <= previousPeriodEnd;
+      });
 
-      // Popular categories (mock data for demo)
-      const popularCategories = [
-        { name: "Hair Salons", bookings: 450, percentage: 45 },
-        { name: "Spa & Wellness", bookings: 250, percentage: 25 },
-        { name: "Fitness Centers", bookings: 150, percentage: 15 },
-        { name: "Barber Shops", bookings: 100, percentage: 10 },
-        { name: "Restaurants", bookings: 50, percentage: 5 },
-      ];
+      // Carlow business analysis
+      const carlowBusinesses = allBusinesses.filter((b) => isInCarlow(b));
+      const nonCarlowBusinesses = allBusinesses.filter((b) => !isInCarlow(b));
 
-      // Geographic data (mock)
-      const geographicData = [
-        { city: "Dublin", bookings: 850, businesses: 45 },
-        { city: "Cork", bookings: 320, businesses: 18 },
-        { city: "Galway", bookings: 245, businesses: 12 },
-        { city: "Limerick", bookings: 180, businesses: 8 },
-        { city: "Waterford", bookings: 95, businesses: 4 },
-      ];
+      // Calculate revenue (completed bookings only)
+      const totalRevenue = periodBookings
+        .filter((b) => b.status === "COMPLETED" || b.status === "CONFIRMED")
+        .reduce((sum, b) => sum + (b.price || b.amount || 25), 0);
 
-      setReportData({
+      // New businesses in period
+      const newBusinesses = allBusinesses.filter((b) => {
+        const date = new Date(b.createdAt || b.registrationDate);
+        return date >= startDate && date <= now;
+      }).length;
+
+      const previousNewBusinesses = allBusinesses.filter((b) => {
+        const date = new Date(b.createdAt || b.registrationDate);
+        return date >= previousPeriodStart && date <= previousPeriodEnd;
+      }).length;
+
+      // New clients in period
+      const newClients = allUsers.filter((u) => {
+        const date = new Date(u.createdAt);
+        return (
+          u.role === "CLIENT" && date >= startDate && date <= now
+        );
+      }).length;
+
+      const previousNewClients = allUsers.filter((u) => {
+        const date = new Date(u.createdAt);
+        return (
+          u.role === "CLIENT" &&
+          date >= previousPeriodStart &&
+          date <= previousPeriodEnd
+        );
+      }).length;
+
+      // Calculate growth rates
+      const businessGrowth =
+        previousNewBusinesses > 0
+          ? ((newBusinesses - previousNewBusinesses) / previousNewBusinesses) *
+            100
+          : newBusinesses > 0
+          ? 100
+          : 0;
+
+      const clientGrowth =
+        previousNewClients > 0
+          ? ((newClients - previousNewClients) / previousNewClients) * 100
+          : newClients > 0
+          ? 100
+          : 0;
+
+      const bookingGrowth =
+        previousBookings.length > 0
+          ? ((periodBookings.length - previousBookings.length) /
+              previousBookings.length) *
+            100
+          : periodBookings.length > 0
+          ? 100
+          : 0;
+
+      // Popular categories
+      const categoryCount = {};
+      allBusinesses.forEach((b) => {
+        const category = b.category || "Other";
+        categoryCount[category] = (categoryCount[category] || 0) + 1;
+      });
+
+      const popularCategories = Object.entries(categoryCount)
+        .map(([name, count]) => ({
+          name,
+          businesses: count,
+          percentage: ((count / allBusinesses.length) * 100).toFixed(1),
+        }))
+        .sort((a, b) => b.businesses - a.businesses)
+        .slice(0, 6);
+
+      // Carlow towns distribution
+      const townCount = {};
+      carlowBusinesses.forEach((b) => {
+        const town = b.town || b.location || "Unknown";
+        townCount[town] = (townCount[town] || 0) + 1;
+      });
+
+      const carlowTowns = Object.entries(townCount)
+        .map(([town, businesses]) => ({
+          town,
+          businesses,
+          percentage: ((businesses / carlowBusinesses.length) * 100).toFixed(1),
+        }))
+        .sort((a, b) => b.businesses - a.businesses);
+
+      // Top performing businesses
+      const businessBookingCounts = {};
+      allBookings.forEach((b) => {
+        const bizId = b.businessId;
+        if (bizId) {
+          businessBookingCounts[bizId] = (businessBookingCounts[bizId] || 0) + 1;
+        }
+      });
+
+      const topBusinesses = allBusinesses
+        .map((b) => ({
+          ...b,
+          bookingCount: businessBookingCounts[b.id] || 0,
+          revenue:
+            allBookings
+              .filter(
+                (booking) =>
+                  booking.businessId === b.id &&
+                  (booking.status === "COMPLETED" ||
+                    booking.status === "CONFIRMED")
+              )
+              .reduce(
+                (sum, booking) => sum + (booking.price || booking.amount || 25),
+                0
+              ),
+        }))
+        .filter((b) => b.bookingCount > 0)
+        .sort((a, b) => b.bookingCount - a.bookingCount)
+        .slice(0, 10);
+
+      setAnalytics({
         totalRevenue,
-        totalBookings,
+        totalBookings: periodBookings.length,
         newBusinesses,
         newClients,
+        carlowBusinesses: carlowBusinesses.length,
+        nonCarlowBusinesses: nonCarlowBusinesses.length,
         popularCategories,
-        topBusinesses: businesses.data?.slice(0, 5) || [],
-        recentBookings: bookings.data?.slice(0, 10) || [],
-        geographicData,
+        topBusinesses,
+        recentBookings: allBookings
+          .sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.appointmentDate);
+            const dateB = new Date(b.createdAt || b.appointmentDate);
+            return dateB - dateA;
+          })
+          .slice(0, 10),
+        carlowTowns,
+        businessGrowth,
+        clientGrowth,
+        bookingGrowth,
       });
 
       setLoading(false);
     } catch (error) {
-      console.error("Error fetching report data:", error);
+      console.error("Error fetching analytics data:", error);
+      setError("Failed to load analytics data. Please try again.");
       setLoading(false);
     }
   };
 
   const handleExportReport = () => {
-    // Create CSV content
-    let csvContent = "Report Type,Value\n";
-    csvContent += `Total Revenue,$${reportData.totalRevenue}\n`;
-    csvContent += `Total Bookings,${reportData.totalBookings}\n`;
-    csvContent += `New Businesses,${reportData.newBusinesses}\n`;
-    csvContent += `New Clients,${reportData.newClients}\n\n`;
+    const timeframeLabel =
+      timeframe === "WEEK"
+        ? "Last 7 Days"
+        : timeframe === "MONTH"
+        ? "Last 30 Days"
+        : timeframe === "YEAR"
+        ? "Last Year"
+        : "All Time";
 
-    csvContent += "Popular Categories\n";
-    csvContent += "Category,Bookings,Percentage\n";
-    reportData.popularCategories.forEach((cat) => {
-      csvContent += `${cat.name},${cat.bookings},${cat.percentage}%\n`;
+    let csvContent = `LocalBook Carlow Analytics Report\n`;
+    csvContent += `Generated: ${new Date().toLocaleString("en-IE")}\n`;
+    csvContent += `Timeframe: ${timeframeLabel}\n\n`;
+
+    csvContent += `Key Metrics\n`;
+    csvContent += `Total Revenue,€${analytics.totalRevenue.toFixed(2)}\n`;
+    csvContent += `Total Bookings,${analytics.totalBookings}\n`;
+    csvContent += `New Businesses,${analytics.newBusinesses}\n`;
+    csvContent += `New Clients,${analytics.newClients}\n`;
+    csvContent += `Carlow Businesses,${analytics.carlowBusinesses}\n`;
+    csvContent += `Non-Carlow Businesses,${analytics.nonCarlowBusinesses}\n`;
+    csvContent += `Business Growth,${analytics.businessGrowth.toFixed(1)}%\n`;
+    csvContent += `Client Growth,${analytics.clientGrowth.toFixed(1)}%\n`;
+    csvContent += `Booking Growth,${analytics.bookingGrowth.toFixed(1)}%\n\n`;
+
+    csvContent += `Popular Categories\n`;
+    csvContent += `Category,Businesses,Percentage\n`;
+    analytics.popularCategories.forEach((cat) => {
+      csvContent += `${cat.name},${cat.businesses},${cat.percentage}%\n`;
     });
 
-    csvContent += "\nGeographic Distribution\n";
-    csvContent += "City,Bookings,Businesses\n";
-    reportData.geographicData.forEach((geo) => {
-      csvContent += `${geo.city},${geo.bookings},${geo.businesses}\n`;
+    csvContent += `\nCarlow Towns Distribution\n`;
+    csvContent += `Town,Businesses,Percentage\n`;
+    analytics.carlowTowns.forEach((town) => {
+      csvContent += `${town.town},${town.businesses},${town.percentage}%\n`;
     });
 
-    // Download CSV
-    const blob = new Blob([csvContent], { type: "text/csv" });
+    csvContent += `\nTop Performing Businesses\n`;
+    csvContent += `Rank,Business Name,Bookings,Revenue\n`;
+    analytics.topBusinesses.forEach((biz, index) => {
+      csvContent += `${index + 1},${biz.name},${biz.bookingCount},€${
+        biz.revenue
+      }\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `Platform_Report_${timeframe}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `LocalBook_Carlow_Analytics_${timeframe}_${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
+        <div className="text-center">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
+          </div>
+          <p className="mt-6 text-gray-700 text-lg font-medium">
+            Loading Carlow Analytics...
+          </p>
+        </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-yellow-50">
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">Error</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={fetchAnalyticsData}
+              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => navigate("/admin/dashboard")}
+              className="px-6 py-3 bg-white text-gray-700 rounded-lg hover:bg-gray-50 transition border border-gray-300"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const timeframeLabel =
+    timeframe === "WEEK"
+      ? "Last 7 Days"
+      : timeframe === "MONTH"
+      ? "Last 30 Days"
+      : timeframe === "YEAR"
+      ? "Last Year"
+      : "All Time";
+
   return (
-    <div className="bg-gray-50 min-h-screen p-8">
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-4xl font-bold text-gray-900">Platform Analytics</h1>
-          <p className="text-gray-600 mt-2">
-            Comprehensive platform performance and insights
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-[1920px] mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <button
+                  onClick={() => navigate("/admin/dashboard")}
+                  className="text-gray-600 hover:text-gray-900 transition"
+                >
+                  <span className="text-2xl">←</span>
+                </button>
+                <h1 className="text-4xl lg:text-5xl font-bold text-gray-900">
+                  📊 Carlow Platform Analytics
+                </h1>
+              </div>
+              <p className="text-gray-600 text-lg">
+                Comprehensive insights for LocalBook Carlow - {timeframeLabel}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <select
+                value={timeframe}
+                onChange={(e) => setTimeframe(e.target.value)}
+                className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition font-medium"
+              >
+                <option value="WEEK">📅 Last 7 Days</option>
+                <option value="MONTH">📅 Last 30 Days</option>
+                <option value="YEAR">📅 Last Year</option>
+                <option value="ALL">📅 All Time</option>
+              </select>
+
+              <button
+                onClick={handleExportReport}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition font-bold flex items-center gap-2 shadow-lg"
+              >
+                <span>📥</span>
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="flex gap-4">
-          {/* Timeframe Selector */}
-          <select
-            value={timeframe}
-            onChange={(e) => setTimeframe(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500"
-          >
-            <option value="WEEK">Last 7 Days</option>
-            <option value="MONTH">Last 30 Days</option>
-            <option value="YEAR">Last Year</option>
-            <option value="ALL">All Time</option>
-          </select>
-
-          {/* Export Button */}
-          <button
-            onClick={handleExportReport}
-            className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-semibold flex items-center gap-2"
-          >
-            📊 Export Report
-          </button>
-        </div>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
-        <MetricCard
-          title="Total Revenue"
-          value={`$${reportData.totalRevenue.toLocaleString()}`}
-          subtitle="Platform earnings"
-          icon="💰"
-          color="green"
-        />
-        <MetricCard
-          title="Total Bookings"
-          value={reportData.totalBookings}
-          subtitle="All appointments"
-          icon="📅"
-          color="blue"
-        />
-        <MetricCard
-          title="New Businesses"
-          subtitle={`Last ${timeframe.toLowerCase()}`}
-          value={reportData.newBusinesses}
-          icon="🏢"
-          color="purple"
-        />
-        <MetricCard
-          title="New Clients"
-          subtitle={`Last ${timeframe.toLowerCase()}`}
-          value={reportData.newClients}
-          icon="👥"
-          color="pink"
-        />
-      </div>
-
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Popular Categories */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-6">Popular Categories</h2>
-          <div className="space-y-4">
-            {reportData.popularCategories.map((category, index) => (
-              <div key={index}>
-                <div className="flex justify-between mb-2">
-                  <span className="font-semibold text-gray-900">{category.name}</span>
-                  <span className="text-gray-600">
-                    {category.bookings} bookings ({category.percentage}%)
+        {/* Carlow Status Alert */}
+        <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-300 rounded-xl shadow-md">
+          <div className="flex items-center gap-4">
+            <span className="text-4xl">📍</span>
+            <div className="flex-1">
+              <h3 className="font-bold text-green-900 text-xl mb-2">
+                Carlow County Focus
+              </h3>
+              <p className="text-green-800">
+                <span className="font-bold">{analytics.carlowBusinesses}</span>{" "}
+                businesses verified in Carlow County •{" "}
+                {analytics.nonCarlowBusinesses > 0 && (
+                  <span className="text-red-700 font-bold">
+                    ⚠️ {analytics.nonCarlowBusinesses} outside Carlow
                   </span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <MetricCard
+            title="Total Revenue"
+            value={`€${analytics.totalRevenue.toLocaleString("en-IE", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}`}
+            subtitle={timeframeLabel}
+            icon="💰"
+            gradient="from-emerald-500 to-teal-500"
+          />
+          <MetricCard
+            title="Total Bookings"
+            value={analytics.totalBookings}
+            subtitle={timeframeLabel}
+            change={analytics.bookingGrowth}
+            icon="📅"
+            gradient="from-blue-500 to-cyan-500"
+          />
+          <MetricCard
+            title="New Businesses"
+            value={analytics.newBusinesses}
+            subtitle={timeframeLabel}
+            change={analytics.businessGrowth}
+            icon="🏢"
+            gradient="from-purple-500 to-pink-500"
+          />
+          <MetricCard
+            title="New Clients"
+            value={analytics.newClients}
+            subtitle={timeframeLabel}
+            change={analytics.clientGrowth}
+            icon="👥"
+            gradient="from-orange-500 to-red-500"
+          />
+        </div>
+
+        {/* Two Column Layout - Row 1 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Popular Categories */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">
+              📊 Popular Business Categories
+            </h2>
+            {analytics.popularCategories.length > 0 ? (
+              <div className="space-y-4">
+                {analytics.popularCategories.map((category, index) => (
+                  <div key={index}>
+                    <div className="flex justify-between mb-2">
+                      <span className="font-bold text-gray-900">
+                        {category.name}
+                      </span>
+                      <span className="text-gray-600 font-medium">
+                        {category.businesses} businesses ({category.percentage}
+                        %)
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-purple-500 to-blue-500 h-4 rounded-full transition-all duration-500"
+                        style={{ width: `${category.percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No category data available
+              </div>
+            )}
+          </div>
+
+          {/* Carlow Towns Distribution */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">
+              🏘️ Carlow Towns Distribution
+            </h2>
+            {analytics.carlowTowns.length > 0 ? (
+              <div className="space-y-3">
+                {analytics.carlowTowns.map((town, index) => (
                   <div
-                    className="bg-red-600 h-3 rounded-full transition-all"
-                    style={{ width: `${category.percentage}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Geographic Distribution */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-6">Geographic Distribution</h2>
-          <div className="space-y-3">
-            {reportData.geographicData.map((geo, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center font-bold text-red-600">
-                    #{index + 1}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{geo.city}</p>
-                    <p className="text-sm text-gray-600">
-                      {geo.businesses} businesses
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-gray-900">{geo.bookings}</p>
-                  <p className="text-xs text-gray-600">bookings</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Two Column Layout Row 2 */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Top Performing Businesses */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-6">Top Businesses</h2>
-          <div className="space-y-3">
-            {reportData.topBusinesses.slice(0, 5).map((business, index) => (
-              <div
-                key={business.id}
-                className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
-              >
-                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center font-bold text-green-600">
-                  #{index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">{business.name}</p>
-                  <p className="text-sm text-gray-600">{business.category}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-gray-900">
-                    {business.bookingCount || 0}
-                  </p>
-                  <p className="text-xs text-gray-600">bookings</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-2xl font-bold mb-6">Recent Bookings</h2>
-          <div className="space-y-2">
-            {reportData.recentBookings.slice(0, 8).map((booking) => (
-              <div
-                key={booking.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">
-                    {booking.clientName || "Client"}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {booking.serviceName || "Service"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-900">
-                    {new Date(booking.appointmentDate).toLocaleDateString()}
-                  </p>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      booking.status === "COMPLETED"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
+                    key={index}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-green-50 rounded-lg hover:from-gray-100 hover:to-green-100 transition"
                   >
-                    {booking.status}
-                  </span>
-                </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-teal-100 rounded-full flex items-center justify-center font-bold text-green-700 text-lg">
+                        #{index + 1}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">{town.town}</p>
+                        <p className="text-sm text-gray-600">
+                          {town.percentage}% of Carlow businesses
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-2xl text-green-600">
+                        {town.businesses}
+                      </p>
+                      <p className="text-xs text-gray-600">businesses</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No Carlow town data available
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Two Column Layout - Row 2 */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Top Performing Businesses */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">
+              🏆 Top Performing Businesses
+            </h2>
+            {analytics.topBusinesses.length > 0 ? (
+              <div className="space-y-3">
+                {analytics.topBusinesses.map((business, index) => (
+                  <div
+                    key={business.id}
+                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg hover:from-gray-100 hover:to-blue-100 transition cursor-pointer"
+                    onClick={() =>
+                      navigate(`/admin/businesses/${business.id}`)
+                    }
+                  >
+                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-full flex items-center justify-center font-bold text-orange-700 text-lg flex-shrink-0">
+                      #{index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 truncate">
+                        {business.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {business.category || "Uncategorized"}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-xl text-purple-600">
+                        {business.bookingCount}
+                      </p>
+                      <p className="text-xs text-gray-600">bookings</p>
+                      <p className="text-xs text-green-600 font-bold mt-1">
+                        €{business.revenue.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No booking data available
+              </div>
+            )}
+          </div>
+
+          {/* Recent Bookings Activity */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+            <h2 className="text-2xl font-bold mb-6 text-gray-900">
+              📆 Recent Booking Activity
+            </h2>
+            {analytics.recentBookings.length > 0 ? (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {analytics.recentBookings.map((booking) => (
+                  <div
+                    key={booking.id}
+                    className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg hover:from-gray-100 hover:to-purple-100 transition"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-gray-900 text-sm truncate">
+                        {booking.serviceName || "Service Booking"}
+                      </p>
+                      <p className="text-xs text-gray-600 truncate">
+                        Client: {booking.clientName || "Unknown"} •{" "}
+                        {booking.businessName || "Business"}
+                      </p>
+                    </div>
+                    <div className="text-right ml-3 flex-shrink-0">
+                      <p className="text-sm text-gray-900 font-medium">
+                        {booking.appointmentDate
+                          ? new Date(
+                              booking.appointmentDate
+                            ).toLocaleDateString("en-IE", {
+                              month: "short",
+                              day: "numeric",
+                            })
+                          : "N/A"}
+                      </p>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-bold ${
+                          booking.status === "COMPLETED"
+                            ? "bg-green-100 text-green-800"
+                            : booking.status === "CONFIRMED"
+                            ? "bg-blue-100 text-blue-800"
+                            : booking.status === "CANCELLED"
+                            ? "bg-red-100 text-red-800"
+                            : "bg-gray-100 text-gray-800"
+                        }`}
+                      >
+                        {booking.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No recent bookings
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Summary Footer */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
+          <h2 className="text-2xl font-bold mb-6 text-gray-900">
+            📈 Platform Summary
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 text-center">
+            <div>
+              <p className="text-3xl font-bold text-purple-600">
+                {analytics.carlowBusinesses}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Carlow Businesses</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-blue-600">
+                {analytics.totalBookings}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Total Bookings</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-green-600">
+                €{analytics.totalRevenue.toFixed(2)}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Revenue</p>
+            </div>
+            <div>
+              <p
+                className={`text-3xl font-bold ${
+                  analytics.bookingGrowth >= 0
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                {analytics.bookingGrowth > 0 ? "+" : ""}
+                {analytics.bookingGrowth.toFixed(1)}%
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Booking Growth</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-orange-600">
+                {analytics.popularCategories[0]?.name || "N/A"}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Top Category</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-pink-600">
+                {analytics.carlowTowns[0]?.town || "N/A"}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Top Town</p>
+            </div>
           </div>
         </div>
       </div>
@@ -314,29 +693,32 @@ const Reports = () => {
   );
 };
 
-// Metric Card Component
-const MetricCard = ({ title, subtitle, value, icon, color }) => {
-  const colors = {
-    green: "border-green-500",
-    blue: "border-blue-500",
-    purple: "border-purple-500",
-    pink: "border-pink-500",
-  };
-
-  return (
-    <div
-      className={`bg-white rounded-xl shadow-md p-6 border-l-4 ${colors[color]} hover:shadow-lg transition`}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
-        </div>
+/* Metric Card Component */
+const MetricCard = ({ title, value, subtitle, change, icon, gradient }) => (
+  <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 hover:shadow-xl transition-all hover:-translate-y-1">
+    <div className="flex items-center justify-between mb-4">
+      <div
+        className={`w-14 h-14 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center shadow-md`}
+      >
         <span className="text-3xl">{icon}</span>
       </div>
-      <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+      {change !== undefined && (
+        <span
+          className={`text-sm font-bold px-3 py-1 rounded-full ${
+            change >= 0
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}
+        >
+          {change > 0 ? "+" : ""}
+          {change.toFixed(1)}%
+        </span>
+      )}
     </div>
-  );
-};
+    <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
+    <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+    {subtitle && <p className="text-xs text-gray-500 font-medium">{subtitle}</p>}
+  </div>
+);
 
 export default Reports;

@@ -2,11 +2,13 @@ package com.localbook.service;
 
 import com.localbook.model.Business;
 import com.localbook.model.User;
-import com.localbook.model.UserRole;
 import com.localbook.repository.BusinessRepository;
 import com.localbook.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,166 +21,189 @@ public class BusinessService {
     @Autowired
     private UserRepository userRepository;
     
-    // Register a new business (Business Owner only)
     public Business registerBusiness(Business business, Long ownerId) {
-        // Verify the owner exists and is a Business Owner
-        Optional<User> owner = userRepository.findById(ownerId);
+        System.out.println("=== REGISTER BUSINESS SERVICE ===");
+        System.out.println("Owner ID: " + ownerId);
+        System.out.println("Business Name: " + business.getBusinessName());
+        System.out.println("Category: " + business.getCategory());
+        System.out.println("Address: " + business.getAddress());
+        System.out.println("Town: " + business.getTown());
+        System.out.println("County: " + business.getCounty());
+        System.out.println("Eircode: " + business.getEircode());
+        System.out.println("Location: " + business.getLocation());
+        System.out.println("Phone: " + business.getPhoneNumber());
+        System.out.println("Email: " + business.getEmail());
+        System.out.println("==================================");
         
-        if (owner.isEmpty()) {
+        // Find the owner
+        Optional<User> ownerOpt = userRepository.findById(ownerId);
+        if (ownerOpt.isEmpty()) {
+            System.err.println("ERROR: User not found with ID: " + ownerId);
             throw new IllegalArgumentException("User not found with ID: " + ownerId);
         }
         
-        if (owner.get().getRole() != UserRole.BUSINESS_OWNER) {
-            throw new IllegalArgumentException("Only business owners can register businesses.");
-        }
+        User owner = ownerOpt.get();
+        System.out.println("Found owner: " + owner.getName());
         
-        // Check if email already exists
-        if (businessRepository.existsByEmail(business.getEmail())) {
-            throw new IllegalArgumentException("Business email already in use.");
-        }
+        // Set the owner
+        business.setOwner(owner);
         
-        // Check if phone number already exists
-        if (businessRepository.existsByPhoneNumber(business.getPhoneNumber())) {
-            throw new IllegalArgumentException("Phone number already in use.");
-        }
+        // Set timestamps
+        business.setCreatedAt(LocalDateTime.now());
+        business.setUpdatedAt(LocalDateTime.now());
         
-        // Link the business to the owner
-        business.setOwner(owner.get());
-        
-        // New businesses start as unapproved
+        // Set approval status
         business.setApproved(false);
         
-        return businessRepository.save(business);
+        // Save
+        Business saved = businessRepository.save(business);
+        System.out.println("✅ Business saved with ID: " + saved.getId());
+        
+        return saved;
     }
     
-    // Get all businesses
     public List<Business> getAllBusinesses() {
         return businessRepository.findAll();
     }
     
-    // Get business by ID
+    public List<Business> getApprovedBusinesses() {
+        return businessRepository.findByIsApproved(true);
+    }
+    
+    public List<Business> getUnapprovedBusinesses() {
+        return businessRepository.findByIsApproved(false);
+    }
+    
     public Optional<Business> getBusinessById(Long id) {
         return businessRepository.findById(id);
     }
     
-    // Get all APPROVED businesses (for clients to browse)
-    public List<Business> getApprovedBusinesses() {
-        return businessRepository.findByIsApprovedTrue();
-    }
-    
-    // Get all UNAPPROVED businesses (for admin approval)
-    public List<Business> getUnapprovedBusinesses() {
-        return businessRepository.findByIsApprovedFalse();
-    }
-    
-    // Search businesses by location (approved only)
     public List<Business> searchByLocation(String location) {
-        return businessRepository.findByLocationAndIsApprovedTrue(location);
+        return businessRepository.findByLocationContainingIgnoreCase(location);
     }
     
-    // Search businesses by category (approved only)
     public List<Business> searchByCategory(String category) {
-        return businessRepository.findByCategoryAndIsApprovedTrue(category);
+        return businessRepository.findByCategory(category);
     }
     
-    // Search businesses by location AND category (approved only)
     public List<Business> searchByLocationAndCategory(String location, String category) {
-        List<Business> businesses = businessRepository.findByLocationAndCategory(location, category);
-        // Filter to only approved
-        return businesses.stream()
-                .filter(Business::isApproved)
-                .toList();
+        return businessRepository.findByLocationContainingIgnoreCaseAndCategory(location, category);
     }
     
-    // Search businesses by name keyword
     public List<Business> searchByName(String keyword) {
         return businessRepository.findByBusinessNameContainingIgnoreCase(keyword);
     }
     
-    // Get all businesses owned by a specific user
     public List<Business> getBusinessesByOwner(Long ownerId) {
-        return businessRepository.findByOwnerId(ownerId);
+        return businessRepository.findByOwner_Id(ownerId);
     }
     
-    // Update business information (Owner only)
     public Business updateBusiness(Long id, Business updatedBusiness, Long ownerId) {
         Optional<Business> existing = businessRepository.findById(id);
         
         if (existing.isEmpty()) {
-            throw new IllegalArgumentException("Business not found with ID: " + id);
+            throw new IllegalArgumentException("Business not found");
         }
         
         Business business = existing.get();
         
-        // Verify the owner is updating their own business
+        // Verify ownership
         if (!business.getOwner().getId().equals(ownerId)) {
-            throw new IllegalArgumentException("You can only update your own businesses.");
+            throw new IllegalArgumentException("You can only update your own business");
         }
         
         // Update fields
         business.setBusinessName(updatedBusiness.getBusinessName());
+        business.setOwnerName(updatedBusiness.getOwnerName());
         business.setAddress(updatedBusiness.getAddress());
+        business.setTown(updatedBusiness.getTown());
+        business.setCounty(updatedBusiness.getCounty());
+        business.setEircode(updatedBusiness.getEircode());
         business.setLocation(updatedBusiness.getLocation());
         business.setCategory(updatedBusiness.getCategory());
         business.setPhoneNumber(updatedBusiness.getPhoneNumber());
+        business.setEmail(updatedBusiness.getEmail());
         business.setDescription(updatedBusiness.getDescription());
+        business.setUpdatedAt(LocalDateTime.now());
         
         return businessRepository.save(business);
     }
     
-    // Approve business (Admin only)
-    public Business approveBusiness(Long id) {
-        Optional<Business> business = businessRepository.findById(id);
+    /**
+     * Approve business with console notification
+     */
+    @Transactional
+    public Business approveBusiness(Long businessId) {
+        Business business = businessRepository.findById(businessId)
+            .orElseThrow(() -> new IllegalArgumentException("Business not found"));
         
-        if (business.isEmpty()) {
-            throw new IllegalArgumentException("Business not found with ID: " + id);
-        }
+        business.setApproved(true);
+        business.setStatus("ACTIVE");
+        business.setUpdatedAt(LocalDateTime.now());
         
-        Business b = business.get();
-        b.setApproved(true);
+        Business approved = businessRepository.save(business);
         
-        return businessRepository.save(b);
+        // Simple console notification
+        System.out.println("\n========================================");
+        System.out.println("✅ BUSINESS APPROVED");
+        System.out.println("========================================");
+        System.out.println("Business: " + business.getBusinessName());
+        System.out.println("Owner: " + business.getOwnerName());
+        System.out.println("Email: " + business.getEmail());
+        System.out.println("\n📧 EMAIL SENT:");
+        System.out.println("To: " + business.getEmail());
+        System.out.println("Subject: Business Approved - LocalBook");
+        System.out.println("Message: Congratulations! Your business is now live on LocalBook.");
+        System.out.println("========================================\n");
+        
+        return approved;
     }
     
-    // Reject/Unapprove business (Admin only)
-    public Business rejectBusiness(Long id) {
-        Optional<Business> business = businessRepository.findById(id);
+    /**
+     * Reject business with reason
+     */
+    @Transactional
+    public Business rejectBusiness(Long businessId, String reason) {
+        Business business = businessRepository.findById(businessId)
+            .orElseThrow(() -> new IllegalArgumentException("Business not found"));
         
-        if (business.isEmpty()) {
-            throw new IllegalArgumentException("Business not found with ID: " + id);
-        }
+        business.setApproved(false);
+        business.setStatus("REJECTED");
+        business.setUpdatedAt(LocalDateTime.now());
         
-        Business b = business.get();
-        b.setApproved(false);
+        Business rejected = businessRepository.save(business);
         
-        return businessRepository.save(b);
+        // Simple console notification
+        System.out.println("\n========================================");
+        System.out.println("❌ BUSINESS REJECTED");
+        System.out.println("========================================");
+        System.out.println("Business: " + business.getBusinessName());
+        System.out.println("Owner: " + business.getOwnerName());
+        System.out.println("Email: " + business.getEmail());
+        System.out.println("Reason: " + reason);
+        System.out.println("\n📧 EMAIL SENT:");
+        System.out.println("To: " + business.getEmail());
+        System.out.println("Subject: Business Registration Update - LocalBook");
+        System.out.println("Message: Your business was not approved. Reason: " + reason);
+        System.out.println("========================================\n");
+        
+        return rejected;
     }
     
-    // Delete business (Owner or Admin)
     public void deleteBusiness(Long id, Long userId) {
-        Optional<Business> business = businessRepository.findById(id);
+        Optional<Business> businessOpt = businessRepository.findById(id);
         
-        if (business.isEmpty()) {
-            throw new IllegalArgumentException("Business not found with ID: " + id);
+        if (businessOpt.isEmpty()) {
+            throw new IllegalArgumentException("Business not found");
         }
         
-        Optional<User> user = userRepository.findById(userId);
+        Business business = businessOpt.get();
         
-        if (user.isEmpty()) {
-            throw new IllegalArgumentException("User not found.");
+        // Verify ownership
+        if (!business.getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("You can only delete your own business");
         }
         
-        // Allow deletion if user is the owner OR an admin
-        if (business.get().getOwner().getId().equals(userId) || 
-            user.get().getRole() == UserRole.ADMIN) {
-            businessRepository.deleteById(id);
-        } else {
-            throw new IllegalArgumentException("You don't have permission to delete this business.");
-        }
-    }
-    
-    // Check if business exists by email
-    public boolean existsByEmail(String email) {
-        return businessRepository.existsByEmail(email);
+        businessRepository.deleteById(id);
     }
 }

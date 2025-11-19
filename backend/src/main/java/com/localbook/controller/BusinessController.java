@@ -226,15 +226,27 @@ public class BusinessController {
         }
     }
     
-    @PutMapping("/{id}/reject")
-    public ResponseEntity<Business> rejectBusiness(@PathVariable Long id) {
-        try {
-            Business rejectedBusiness = businessService.rejectBusiness(id);
-            return new ResponseEntity<>(rejectedBusiness, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+   @PutMapping("/{id}/reject")
+public ResponseEntity<?> rejectBusiness(
+        @PathVariable Long id,
+        @RequestBody(required = false) Map<String, String> payload
+) {
+    try {
+        // Get reason from request body
+        String reason = "Did not meet requirements";
+        if (payload != null && payload.containsKey("reason")) {
+            reason = payload.get("reason");
         }
+        
+        // ✅ Pass BOTH id AND reason
+        Business rejectedBusiness = businessService.rejectBusiness(id, reason);
+        
+        return ResponseEntity.ok(rejectedBusiness);
+    } catch (Exception e) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .body(Map.of("error", e.getMessage()));
     }
+}
     
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteBusiness(@PathVariable Long id, @RequestParam Long userId) {
@@ -245,4 +257,53 @@ public class BusinessController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.FORBIDDEN);
         }
     }
+
+
+        @GetMapping("/owner/{ownerId}/status")
+    public ResponseEntity<?> getBusinessStatusByOwner(@PathVariable Long ownerId) {
+        try {
+            System.out.println("=== GET BUSINESS STATUS ===");
+            System.out.println("Owner ID: " + ownerId);
+            
+            List<Business> businesses = businessService.getBusinessesByOwner(ownerId);
+            
+            if (businesses.isEmpty()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("hasBusinesses", false);
+                response.put("isApproved", false);
+                response.put("status", "NO_BUSINESS");
+                response.put("message", "No business registered");
+                return ResponseEntity.ok(response);
+            }
+            
+            // Get the first business (assuming one business per owner)
+            Business business = businesses.get(0);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("hasBusinesses", true);
+            response.put("businessId", business.getId());
+            response.put("businessName", business.getBusinessName());
+            response.put("isApproved", business.isApproved());
+            
+            if (business.isApproved()) {
+                response.put("status", "APPROVED");
+                response.put("message", "Your business is approved and active");
+            } else {
+                response.put("status", "PENDING");
+                response.put("message", "Your business is pending approval");
+            }
+            
+            System.out.println("Business status: " + response.get("status"));
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            System.err.println("Error getting business status: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error: " + e.getMessage());
+        }
+    }
+
+
 }
