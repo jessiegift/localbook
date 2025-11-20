@@ -8,6 +8,7 @@ import ManageService from "./ManageService";
 import Customers from "./Customers";
 import Settings from "./Settings";
 import AccountSettings from './AccountSettings';
+import NotificationsPage from './NotificationPage';
 
 function BusinessOwnerApp() {
     const { user, logout } = useAuth();
@@ -194,6 +195,7 @@ function BusinessOwnerApp() {
                     <Route path="/customers" element={<Customers />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/account-settings" element={<AccountSettings />} />
+                     <Route path="/notifications" element={<NotificationsPage />} />
                 </Routes>
             </main>
         </div>

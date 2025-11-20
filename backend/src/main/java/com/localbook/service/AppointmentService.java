@@ -110,30 +110,51 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
     
+    // ✅ FIXED: Cancel appointment - now checks business OWNER
     @Transactional
     public Appointment cancelAppointment(Long appointmentId, Long userId) {
+        System.out.println("=== CANCEL APPOINTMENT ===");
+        System.out.println("Appointment ID: " + appointmentId);
+        System.out.println("User ID: " + userId);
+        
         Appointment appointment = appointmentRepository.findById(appointmentId)
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
         
-        if (!isUser && !isBusiness) {
+        // ✅ FIXED: Check if user is business OWNER (not business ID)
+        boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
+        
+        System.out.println("Is client? " + isUser);
+        System.out.println("Is business owner? " + isBusinessOwner);
+        
+        if (!isUser && !isBusinessOwner) {
             throw new IllegalArgumentException("Unauthorized: You can only cancel your own appointments");
         }
         
         appointment.setStatus(AppointmentStatus.CANCELED);
         appointment.setUpdatedAt(LocalDateTime.now());
         
+        System.out.println("✅ Appointment cancelled successfully");
+        
         return appointmentRepository.save(appointment);
     }
     
+    // ✅ FIXED: Complete appointment - now uses userId instead of businessId
     @Transactional
-    public Appointment completeAppointment(Long appointmentId, Long businessId) {
+    public Appointment completeAppointment(Long appointmentId, Long userId) {
+        System.out.println("=== COMPLETE APPOINTMENT ===");
+        System.out.println("Appointment ID: " + appointmentId);
+        System.out.println("User ID: " + userId);
+        
         Appointment appointment = appointmentRepository.findById(appointmentId)
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
-        if (!appointment.getBusiness().getId().equals(businessId)) {
+        System.out.println("Appointment Business Owner ID: " + appointment.getBusiness().getOwner().getId());
+        System.out.println("Match? " + appointment.getBusiness().getOwner().getId().equals(userId));
+        
+        // ✅ FIXED: Check if user is the business OWNER
+        if (!appointment.getBusiness().getOwner().getId().equals(userId)) {
             throw new IllegalArgumentException("Unauthorized: You can only complete appointments for your business");
         }
         
@@ -144,6 +165,8 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.COMPLETED);
         appointment.setUpdatedAt(LocalDateTime.now());
         
+        System.out.println("✅ Appointment completed successfully");
+        
         return appointmentRepository.save(appointment);
     }
     
@@ -153,9 +176,11 @@ public class AppointmentService {
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
         
-        if (!isUser && !isBusiness) {
+        // ✅ FIXED: Check business owner correctly
+        boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
+        
+        if (!isUser && !isBusinessOwner) {
             throw new IllegalArgumentException("Unauthorized: You can only reschedule your own appointments");
         }
         
@@ -184,9 +209,11 @@ public class AppointmentService {
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        boolean isBusiness = appointment.getBusiness().getId().equals(userId);
         
-        if (!isUser && !isBusiness) {
+        // ✅ FIXED: Check business owner correctly
+        boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
+        
+        if (!isUser && !isBusinessOwner) {
             throw new IllegalArgumentException("Unauthorized: You can only delete your own appointments");
         }
         

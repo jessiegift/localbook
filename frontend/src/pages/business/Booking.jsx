@@ -6,31 +6,50 @@ const Booking = () => {
   const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [filter, setFilter] = useState("TODAY"); // Changed from "ALL" to "TODAY"
+  const [filter, setFilter] = useState("ALL");
   const [searchTerm, setSearchTerm] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     fetchBookings();
-  }, [filter]); // Re-fetch when filter changes
 
-  const fetchBookings = async () => {
+    // Auto-refresh every 2 minutes
+    const interval = setInterval(() => {
+      fetchBookings(true);
+    }, 120000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchBookings = async (isAutoRefresh = false) => {
     try {
-      setLoading(true);
-      const response = await api.get(`/businesses/${user.businessId}/bookings?filter=${filter.toLowerCase()}`);
+      if (!isAutoRefresh) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      console.log("🔄 Fetching bookings for business:", user.businessId);
+      const response = await api.get(`/appointments/business/${user.businessId}`);
+      console.log("📊 Received bookings:", response.data);
+      
       setBookings(response.data || []);
+      setLastUpdated(new Date());
       setLoading(false);
+      setRefreshing(false);
     } catch (error) {
-      console.error("Error fetching bookings:", error);
+      console.error("❌ Error fetching bookings:", error);
       setBookings([]);
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const updateBookingStatus = async (bookingId, newStatus) => {
     try {
-      // Confirm destructive actions
       if (
         newStatus === "CANCELLED" &&
         !window.confirm(`Are you sure you want to cancel this booking?`)
@@ -45,37 +64,130 @@ const Booking = () => {
         return;
       }
 
-      await api.put(`/appointments/${bookingId}/status`, { status: newStatus });
+      // ✅ DEBUG: Log everything
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔄 UPDATING BOOKING STATUS');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Booking ID:', bookingId);
+      console.log('New Status:', newStatus);
+      console.log('User ID:', user.id);
+      console.log('Business ID:', user.businessId);
+      
+      // Find the booking to see its business ID
+      const booking = bookings.find(b => b.id === bookingId);
+      console.log('Booking Business ID:', booking?.business?.id);
+      console.log('Match?', booking?.business?.id === user.businessId);
 
-      // Update local state
+      // ✅ USE userId for BOTH endpoints (simpler and works!)
+      let response;
+      if (newStatus === "COMPLETED") {
+        const url = `/appointments/${bookingId}/complete?userId=${user.id}`;
+        console.log('📤 Calling:', url);
+        response = await api.put(url);
+      } else if (newStatus === "CANCELLED") {
+        const url = `/appointments/${bookingId}/cancel?userId=${user.id}`;
+        console.log('📤 Calling:', url);
+        response = await api.put(url);
+      }
+
+      console.log('✅ Success!', response.data);
+
       setBookings((prevBookings) =>
         prevBookings.map((booking) =>
           booking.id === bookingId ? { ...booking, status: newStatus } : booking
         )
       );
 
-      // Show temporary success message
       const statusMessage = newStatus === "COMPLETED" ? "completed" : "cancelled";
       setMessage(`Booking ${statusMessage} successfully!`);
       setTimeout(() => setMessage(""), 3000);
+
+      // Refresh immediately
+      fetchBookings();
     } catch (error) {
-      console.error("Error updating booking status:", error);
-      setError("Failed to update booking status");
-      setTimeout(() => setError(""), 3000);
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('❌ ERROR UPDATING STATUS');
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('Error:', error);
+      console.error('Response Data:', error.response?.data);
+      console.error('Status Code:', error.response?.status);
+      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
+      setError(`Failed to update: ${error.response?.data || error.message}`);
+      setTimeout(() => setError(""), 5000);
     }
   };
 
-  // Filter bookings based on search term
-  const filteredBookings = bookings.filter((booking) => {
-    const clientName = booking.clientName?.toLowerCase() || "";
-    const serviceName = booking.serviceName?.toLowerCase() || "";
+  const handleRefresh = () => {
+    fetchBookings(false);
+  };
+
+  const formatDate = (dateTimeString) => {
+    if (!dateTimeString) return "N/A";
+    return new Date(dateTimeString).toLocaleDateString("en-IE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatTime = (dateTimeString) => {
+    if (!dateTimeString) return "N/A";
+    return new Date(dateTimeString).toLocaleTimeString("en-IE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Helper function to check if appointment is today
+  const isToday = (dateTimeString) => {
+    const today = new Date();
+    const date = new Date(dateTimeString);
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
+  };
+
+  // Helper function to check if appointment is upcoming
+  const isUpcoming = (dateTimeString) => {
+    const now = new Date();
+    const date = new Date(dateTimeString);
+    return date > now;
+  };
+
+  // Helper function to check if appointment is past
+  const isPast = (dateTimeString) => {
+    const now = new Date();
+    const date = new Date(dateTimeString);
+    return date < now;
+  };
+
+  // Filter bookings based on selected filter
+  const getFilteredByTime = () => {
+    switch (filter) {
+      case "TODAY":
+        return bookings.filter((b) => isToday(b.appointmentDateTime));
+      case "UPCOMING":
+        return bookings.filter((b) => isUpcoming(b.appointmentDateTime));
+      case "PAST":
+        return bookings.filter((b) => isPast(b.appointmentDateTime));
+      default:
+        return bookings;
+    }
+  };
+
+  // Apply search filter
+  const filteredBookings = getFilteredByTime().filter((booking) => {
+    const clientName = (booking.user?.name || booking.user?.username || "").toLowerCase();
+    const serviceName = (booking.service?.serviceName || "").toLowerCase();
     const searchLower = searchTerm.toLowerCase();
 
     return clientName.includes(searchLower) || serviceName.includes(searchLower);
   });
 
-  // 🌀 Show Spinner while loading
-  if (loading) {
+  if (loading && bookings.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-50">
         <div className="flex flex-col items-center">
@@ -91,12 +203,33 @@ const Booking = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Bookings & Appointments
-          </h1>
-          <p className="text-gray-600">
-            All bookings are auto-confirmed • Manage your schedule
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Bookings & Appointments
+              </h1>
+              <p className="text-gray-600">All bookings are auto-confirmed • Manage your schedule</p>
+              {lastUpdated && (
+                <p className="text-sm text-gray-500 mt-2">
+                  🔴 Live Data • Last updated: {formatDate(lastUpdated)} at {formatTime(lastUpdated)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className={`flex items-center gap-2 px-5 py-3 bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 ${
+                refreshing ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            >
+              <span className={`text-xl ${refreshing ? "animate-spin" : ""}`}>
+                🔄
+              </span>
+              <span className="font-medium text-gray-700">
+                {refreshing ? "Refreshing..." : "Refresh Data"}
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Notifications */}
@@ -116,20 +249,20 @@ const Booking = () => {
         {/* Filters and Search */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex flex-col gap-4">
-            {/* 🔍 Search */}
+            {/* Search */}
             <div>
               <input
                 type="text"
-                placeholder="Search by client name or service..."
+                placeholder="🔍 Search by client name or service..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
 
-            {/* 🔘 Status Filter - UPDATED for auto-confirm */}
+            {/* Status Filter */}
             <div className="flex gap-2 flex-wrap">
-              {["TODAY", "UPCOMING", "PAST"].map((status) => (
+              {["ALL", "TODAY", "UPCOMING", "PAST"].map((status) => (
                 <button
                   key={status}
                   onClick={() => setFilter(status)}
@@ -148,22 +281,22 @@ const Booking = () => {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-lg shadow p-4 transform transition hover:scale-105">
             <p className="text-gray-600 text-sm">Today's Bookings</p>
             <p className="text-2xl font-bold text-gray-900">
-              {bookings.filter((b) => b.status === "CONFIRMED" && isToday(b.date)).length}
+              {bookings.filter((b) => isToday(b.appointmentDateTime)).length}
             </p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
-            <p className="text-gray-600 text-sm">This Week</p>
+          <div className="bg-white rounded-lg shadow p-4 transform transition hover:scale-105">
+            <p className="text-gray-600 text-sm">Total Bookings</p>
             <p className="text-2xl font-bold text-gray-900">
-              {bookings.filter((b) => b.status === "CONFIRMED").length}
+              {bookings.length}
             </p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4">
+          <div className="bg-white rounded-lg shadow p-4 transform transition hover:scale-105">
             <p className="text-gray-600 text-sm">Total Revenue</p>
             <p className="text-2xl font-bold text-green-600">
-              ${bookings.reduce((sum, b) => sum + (b.price || 0), 0).toFixed(2)}
+              €{bookings.reduce((sum, b) => sum + (b.service?.price || 0), 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -181,7 +314,9 @@ const Booking = () => {
                   ? "No appointments scheduled for today"
                   : filter === "UPCOMING"
                   ? "No upcoming appointments"
-                  : "No past appointments"}
+                  : filter === "PAST"
+                  ? "No past appointments"
+                  : "No bookings found"}
               </p>
             </div>
           ) : (
@@ -211,30 +346,30 @@ const Booking = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredBookings.map((booking) => (
-                    <tr key={booking.id} className="hover:bg-gray-50">
+                    <tr key={booking.id} className="hover:bg-gray-50 transition">
                       <td className="px-6 py-4">
                         <div>
                           <p className="font-medium text-gray-900">
-                            {booking.clientName}
+                            {booking.user?.name || booking.user?.username || "Unknown"}
                           </p>
                           <p className="text-sm text-gray-500">
-                            {booking.clientEmail || booking.clientPhone}
+                            {booking.user?.email || booking.user?.phoneNumber || "N/A"}
                           </p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-gray-900">{booking.serviceName}</p>
+                        <p className="text-gray-900">{booking.service?.serviceName || "N/A"}</p>
                         <p className="text-sm text-gray-500">
-                          {booking.duration} min
+                          {booking.service?.duration || 0} min
                         </p>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-gray-900">{booking.date}</p>
-                        <p className="text-sm text-gray-500">{booking.time}</p>
+                        <p className="text-gray-900">{formatDate(booking.appointmentDateTime)}</p>
+                        <p className="text-sm text-gray-500">{formatTime(booking.appointmentDateTime)}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-green-600 font-semibold">
-                          ${booking.price}
+                          €{booking.service?.price?.toFixed(2) || "0.00"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -244,6 +379,8 @@ const Booking = () => {
                               ? "bg-blue-100 text-blue-800"
                               : booking.status === "CONFIRMED"
                               ? "bg-green-100 text-green-800"
+                              : booking.status === "PENDING"
+                              ? "bg-yellow-100 text-yellow-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
@@ -251,22 +388,18 @@ const Booking = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
+                        {/* ✅ FIXED: Shows "Done" for COMPLETED and "Cancelled" for CANCELLED */}
                         <div className="flex gap-2">
-                          {/* CONFIRMED bookings - can complete or cancel */}
                           {booking.status === "CONFIRMED" && (
                             <>
                               <button
-                                onClick={() =>
-                                  updateBookingStatus(booking.id, "COMPLETED")
-                                }
+                                onClick={() => updateBookingStatus(booking.id, "COMPLETED")}
                                 className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition"
                               >
                                 ✓ Complete
                               </button>
                               <button
-                                onClick={() =>
-                                  updateBookingStatus(booking.id, "CANCELLED")
-                                }
+                                onClick={() => updateBookingStatus(booking.id, "CANCELLED")}
                                 className="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 transition"
                               >
                                 ✕ Cancel
@@ -274,12 +407,12 @@ const Booking = () => {
                             </>
                           )}
 
-                          {/* COMPLETED or CANCELLED - no actions */}
-                          {(booking.status === "COMPLETED" ||
-                            booking.status === "CANCELLED") && (
-                            <span className="text-sm text-gray-400 italic">
-                              {booking.status === "COMPLETED" ? "✓ Done" : "✕ Cancelled"}
-                            </span>
+                          {booking.status === "COMPLETED" && (
+                            <span className="text-sm text-gray-400 italic">Done</span>
+                          )}
+
+                          {booking.status === "CANCELLED" && (
+                            <span className="text-sm text-gray-400 italic">Cancelled</span>
                           )}
                         </div>
                       </td>
@@ -292,17 +425,6 @@ const Booking = () => {
         </div>
       </div>
     </div>
-  );
-};
-
-// Helper function to check if date is today
-const isToday = (dateString) => {
-  const today = new Date();
-  const date = new Date(dateString);
-  return (
-    date.getDate() === today.getDate() &&
-    date.getMonth() === today.getMonth() &&
-    date.getFullYear() === today.getFullYear()
   );
 };
 

@@ -15,63 +15,29 @@ const AllUsers = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get("/users");
+      console.log("Users fetched:", response.data);
       setUsers(response.data || []);
       setLoading(false);
     } catch (error) {
       console.error("Error fetching users:", error);
+      setMessage("❌ Failed to load users");
       setLoading(false);
     }
   };
 
-  const handleSuspendUser = async (userId) => {
-    const reason = prompt("Reason for suspending this user:");
-    if (!reason) return;
+  // ✅ REMOVED: Suspend/Activate/Delete functions since endpoints don't exist
+  // These would need to be implemented in your backend first
 
-    try {
-      await api.put(`/users/${userId}/suspend`, { reason });
-      setMessage("✅ User suspended successfully");
-      fetchUsers();
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error suspending user:", error);
-      setMessage("❌ Failed to suspend user");
-    }
-  };
-
-  const handleActivateUser = async (userId) => {
-    try {
-      await api.put(`/users/${userId}/activate`);
-      setMessage("✅ User activated successfully");
-      fetchUsers();
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error activating user:", error);
-      setMessage("❌ Failed to activate user");
-    }
-  };
-
-  const handleDeleteUser = async (userId) => {
-    const confirmed = window.confirm(
-      "⚠️ Are you sure you want to permanently delete this user?\n\nThis action CANNOT be undone!"
-    );
-    if (!confirmed) return;
-
-    try {
-      await api.delete(`/users/${userId}`);
-      setMessage("✅ User deleted successfully");
-      fetchUsers();
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      setMessage("❌ Failed to delete user");
-    }
+  const handleViewUser = (userId) => {
+    alert(`View user details for ID: ${userId}\n\nThis feature requires backend implementation.`);
   };
 
   // Filter users
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.username || '').toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
 
@@ -97,7 +63,7 @@ const AllUsers = () => {
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
         <p className="text-gray-600 mt-2">
-          Manage all users on the platform
+          View all users on the platform
         </p>
       </div>
 
@@ -188,19 +154,22 @@ const AllUsers = () => {
               <thead className="bg-gray-50 border-b-2 border-gray-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Name
+                    ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Name/Username
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                     Email
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
+                    Phone
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                     Role
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                     Joined
-                  </th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
-                    Status
                   </th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">
                     Actions
@@ -210,60 +179,29 @@ const AllUsers = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-gray-700">{user.id}</td>
                     <td className="px-6 py-4">
-                      <p className="font-semibold text-gray-900">{user.name}</p>
+                      <p className="font-semibold text-gray-900">
+                        {user.name || user.username || 'N/A'}
+                      </p>
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{user.email}</td>
+                    <td className="px-6 py-4 text-gray-700">{user.email || 'N/A'}</td>
+                    <td className="px-6 py-4 text-gray-700">{user.phoneNumber || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <RoleBadge role={user.role} />
                     </td>
                     <td className="px-6 py-4 text-gray-700 text-sm">
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      {user.createdAt 
+                        ? new Date(user.createdAt).toLocaleDateString()
+                        : 'N/A'}
                     </td>
                     <td className="px-6 py-4">
-                      <span
-                        className={`px-3 py-1 rounded-full text-sm font-medium ${
-                          user.status === "ACTIVE"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
+                      <button
+                        onClick={() => handleViewUser(user.id)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
                       >
-                        {user.status || "ACTIVE"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        {user.role !== "ADMIN" && (
-                          <>
-                            {user.status !== "SUSPENDED" ? (
-                              <button
-                                onClick={() => handleSuspendUser(user.id)}
-                                className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 text-sm font-medium"
-                              >
-                                Suspend
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleActivateUser(user.id)}
-                                className="px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-medium"
-                              >
-                                Activate
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleDeleteUser(user.id)}
-                              className="px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
-                            >
-                              Delete
-                            </button>
-                          </>
-                        )}
-                        {user.role === "ADMIN" && (
-                          <span className="text-sm text-gray-500 italic">
-                            Protected
-                          </span>
-                        )}
-                      </div>
+                        View Details
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -271,6 +209,28 @@ const AllUsers = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Info Box */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <div className="flex items-start gap-3">
+          <span className="text-2xl">ℹ️</span>
+          <div>
+            <h3 className="font-bold text-blue-900 mb-2">User Management Features</h3>
+            <p className="text-blue-800 text-sm mb-2">
+              Currently, you can view all users and their details. Additional features require backend implementation:
+            </p>
+            <ul className="text-blue-800 text-sm list-disc list-inside space-y-1">
+              <li>Suspend/Unsuspend users</li>
+              <li>Delete users</li>
+              <li>Edit user details</li>
+              <li>Send notifications to users</li>
+            </ul>
+            <p className="text-blue-700 text-xs mt-3">
+              These endpoints need to be added to your UserController.java
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -290,7 +250,7 @@ const RoleBadge = ({ role }) => {
         styles[role] || "bg-gray-100 text-gray-800"
       }`}
     >
-      {role}
+      {role || 'UNKNOWN'}
     </span>
   );
 };

@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import BusinessHours from '../../Components/BusinessHours'; // ← ADD THIS IMPORT
 
 const screenDimensions = Dimensions.get('window');
 const SCREEN_WIDTH = screenDimensions.width;
@@ -668,6 +669,9 @@ function BusinessDetailScreen(props) {
             </View>
           )}
 
+          {/* ⭐ BUSINESS HOURS - ADD THIS HERE! */}
+          <BusinessHours business={business} />
+
           {/* Services Section */}
           <View style={{
             backgroundColor: '#ffffff',
@@ -678,6 +682,7 @@ function BusinessDetailScreen(props) {
             shadowRadius: 8,
             shadowOffset: { width: 0, height: 2 },
             elevation: 2,
+            marginTop: 12,
           }}>
             <View style={{
               flexDirection: 'row',

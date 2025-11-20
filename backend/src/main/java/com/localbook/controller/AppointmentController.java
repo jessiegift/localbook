@@ -21,20 +21,20 @@ public class AppointmentController {
     private AppointmentService appointmentService;
     
     @PostMapping
-public ResponseEntity<Appointment> createAppointment(
-        @RequestParam Long userId,
-        @RequestParam Long businessId,
-        @RequestParam Long serviceId,
-        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
-        @RequestParam(required = false) String notes) {
-    try {
-        Appointment appointment = appointmentService.createAppointment(
-            userId, businessId, serviceId, dateTime, notes);
-        return new ResponseEntity<>(appointment, HttpStatus.CREATED);
-    } catch (IllegalArgumentException e) {
-        return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+    public ResponseEntity<Appointment> createAppointment(
+            @RequestParam Long userId,
+            @RequestParam Long businessId,
+            @RequestParam Long serviceId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
+            @RequestParam(required = false) String notes) {
+        try {
+            Appointment appointment = appointmentService.createAppointment(
+                userId, businessId, serviceId, dateTime, notes);
+            return new ResponseEntity<>(appointment, HttpStatus.CREATED);
+        } catch (IllegalArgumentException e) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
     }
-}
     
     @GetMapping
     public ResponseEntity<List<Appointment>> getAllAppointments() {
@@ -100,6 +100,7 @@ public ResponseEntity<Appointment> createAppointment(
         }
     }
     
+    // ✅ FIXED: Cancel now uses userId (no changes needed, already correct)
     @PutMapping("/{id}/cancel")
     public ResponseEntity<Appointment> cancelAppointment(@PathVariable Long id, 
                                                          @RequestParam Long userId) {
@@ -111,11 +112,12 @@ public ResponseEntity<Appointment> createAppointment(
         }
     }
     
+    // ✅ FIXED: Complete now uses userId instead of businessId
     @PutMapping("/{id}/complete")
     public ResponseEntity<Appointment> completeAppointment(@PathVariable Long id, 
-                                                           @RequestParam Long businessId) {
+                                                           @RequestParam Long userId) {
         try {
-            Appointment completedAppointment = appointmentService.completeAppointment(id, businessId);
+            Appointment completedAppointment = appointmentService.completeAppointment(id, userId);
             return new ResponseEntity<>(completedAppointment, HttpStatus.OK);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);

@@ -13,10 +13,14 @@ const Settings = () => {
     // Business Profile State
     const [profileData, setProfileData] = useState({
         businessName: '',
+        ownerName: '',
         description: '',
         category: '',
         location: '',
         address: '',
+        town: '',
+        county: '',
+        eircode: '',
         phoneNumber: '',
         email: '',
         website: ''
@@ -49,15 +53,29 @@ const Settings = () => {
                 const business = response.data[0];
                 setBusinessId(business.id);
                 setProfileData({
-                    businessName: business.name || '',
+                    businessName: business.businessName || '',
+                    ownerName: business.ownerName || user.name || '',
                     description: business.description || '',
                     category: business.category || '',
                     location: business.location || '',
                     address: business.address || '',
-                    phoneNumber: business.phoneNumber || business.contactNumber || '',
-                    email: business.email || business.businessemail || '',
+                    town: business.town || '',
+                    county: business.county || '',
+                    eircode: business.eircode || '',
+                    phoneNumber: business.phoneNumber || '',
+                    email: business.email || '',
                     website: business.website || ''
                 });
+
+                // Parse business hours if they exist
+                if (business.operatingHours) {
+                    try {
+                        const hours = JSON.parse(business.operatingHours);
+                        setHoursData(hours);
+                    } catch (e) {
+                        console.log('Could not parse operating hours');
+                    }
+                }
             } else {
                 setError('No business found. Please complete business setup first.');
             }
@@ -91,12 +109,13 @@ const Settings = () => {
         setMessage('');
 
         try {
-            await api.put(`/businesses/${businessId}`, profileData);
+            // ✅ FIXED: Add ownerId as query parameter
+            await api.put(`/businesses/${businessId}?ownerId=${user.id}`, profileData);
             setMessage('✅ Business profile updated successfully!');
             setTimeout(() => setMessage(''), 3000);
         } catch (err) {
             console.error('Error updating profile:', err);
-            setError('❌ Failed to update profile. Please try again.');
+            setError('❌ Failed to update profile: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -115,12 +134,19 @@ const Settings = () => {
         setMessage('');
 
         try {
-            await api.put(`/businesses/${businessId}/hours`, { hours: hoursData });
+            // ✅ FIXED: Save hours as part of business profile
+            // Convert hours to JSON string for backend
+            const updatedBusiness = {
+                ...profileData,
+                operatingHours: JSON.stringify(hoursData)
+            };
+
+            await api.put(`/businesses/${businessId}?ownerId=${user.id}`, updatedBusiness);
             setMessage('✅ Business hours updated successfully!');
             setTimeout(() => setMessage(''), 3000);
         } catch (err) {
             console.error('Error updating hours:', err);
-            setError('❌ Failed to update hours. Please try again.');
+            setError('❌ Failed to update hours: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
         }
@@ -192,24 +218,38 @@ const Settings = () => {
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Category *
+                                            Owner Name *
                                         </label>
-                                        <select
-                                            name="category"
-                                            value={profileData.category}
+                                        <input
+                                            type="text"
+                                            name="ownerName"
+                                            value={profileData.ownerName}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                             required
-                                        >
-                                            <option value="">Select category</option>
-                                            <option value="Cafe">Cafe</option>
-                                            <option value="Restaurant">Restaurant</option>
-                                            <option value="Salon">Hair Salon</option>
-                                            <option value="Spa">Spa & Wellness</option>
-                                            <option value="Fitness">Fitness Center</option>
-                                            <option value="Barber">Barber Shop</option>
-                                        </select>
+                                        />
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Category *
+                                    </label>
+                                    <select
+                                        name="category"
+                                        value={profileData.category}
+                                        onChange={handleProfileChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        required
+                                    >
+                                        <option value="">Select category</option>
+                                        <option value="Cafe">Cafe</option>
+                                        <option value="Restaurant">Restaurant</option>
+                                        <option value="Salon">Hair Salon</option>
+                                        <option value="Spa">Spa & Wellness</option>
+                                        <option value="Fitness">Fitness Center</option>
+                                        <option value="Barber">Barber Shop</option>
+                                    </select>
                                 </div>
 
                                 <div>
@@ -227,34 +267,48 @@ const Settings = () => {
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Location/City *
+                                            Town *
                                         </label>
                                         <input
                                             type="text"
-                                            name="location"
-                                            value={profileData.location}
+                                            name="town"
+                                            value={profileData.town}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="e.g., Dublin"
+                                            placeholder="e.g., Carlow"
                                             required
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Phone Number *
+                                            County *
                                         </label>
                                         <input
-                                            type="tel"
-                                            name="phoneNumber"
-                                            value={profileData.phoneNumber}
+                                            type="text"
+                                            name="county"
+                                            value={profileData.county}
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="0851234567"
+                                            placeholder="e.g., Carlow"
                                             required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Eircode
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="eircode"
+                                            value={profileData.eircode}
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            placeholder="R93 X2Y4"
                                         />
                                     </div>
                                 </div>
@@ -269,15 +323,46 @@ const Settings = () => {
                                         value={profileData.address}
                                         onChange={handleProfileChange}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="123 Main Street, Dublin"
+                                        placeholder="123 Main Street"
                                         required
                                     />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Location (for search) *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="location"
+                                        value={profileData.location}
+                                        onChange={handleProfileChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        placeholder="e.g., Carlow Town, Ireland"
+                                        required
+                                    />
+                                    <p className="text-sm text-gray-500 mt-1">This helps customers find your business in search</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email
+                                            Phone Number *
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            name="phoneNumber"
+                                            value={profileData.phoneNumber}
+                                            onChange={handleProfileChange}
+                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                            placeholder="0851234567"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Email *
                                         </label>
                                         <input
                                             type="email"
@@ -286,28 +371,29 @@ const Settings = () => {
                                             onChange={handleProfileChange}
                                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                             placeholder="business@email.com"
+                                            required
                                         />
                                     </div>
+                                </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Website
-                                        </label>
-                                        <input
-                                            type="url"
-                                            name="website"
-                                            value={profileData.website}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="https://yourbusiness.com"
-                                        />
-                                    </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Website
+                                    </label>
+                                    <input
+                                        type="url"
+                                        name="website"
+                                        value={profileData.website}
+                                        onChange={handleProfileChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        placeholder="https://yourbusiness.com"
+                                    />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={loading || !businessId}
-                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400"
+                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Saving...' : 'Save Business Profile'}
                                 </button>
@@ -365,7 +451,7 @@ const Settings = () => {
                                 <button
                                     type="submit"
                                     disabled={loading || !businessId}
-                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400"
+                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 >
                                     {loading ? 'Saving...' : 'Save Business Hours'}
                                 </button>

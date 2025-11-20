@@ -6,91 +6,110 @@ const Dashboard = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState({
         todayAppointments: 0,
-        weekBookings: 0,
+        weekAppointments: 0,
         monthRevenue: 0,
-        totalClients: 0,
-        pendingBookings: 0,
-        completionRate: 0
+        totalCustomers: 0,
     });
 
-    const [recentAppointments, setRecentAppointments] = useState([]);
-    const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+    const [todaySchedule, setTodaySchedule] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState(null);
 
     useEffect(() => {
         fetchDashboardData();
+
+        // Auto-refresh every 2 minutes (120000ms)
+        const interval = setInterval(() => {
+            console.log('⏰ Auto-refresh triggered');
+            fetchDashboardData(true);
+        }, 120000);
+
+        return () => clearInterval(interval);
     }, []);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (isAutoRefresh = false) => {
         try {
-            // Fetch appointments
-            const appointmentsRes = await api.get(`/businesses/${user.businessId}/bookings`);
-            const appointments = appointmentsRes.data || [];
+            if (!isAutoRefresh) {
+                setLoading(true);
+            } else {
+                setRefreshing(true);
+            }
 
-            // Calculate today's date
-            const today = new Date().toISOString().split('T')[0];
-            const todayAppointments = appointments.filter(apt => apt.date === today);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('🔄 FETCHING DASHBOARD DATA');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('👤 Logged in user:', user.name);
+            console.log('🆔 User ID:', user.id);
+            console.log('🏢 Business ID:', user.businessId);
+            console.log('🌐 API Endpoint:', `/businesses/${user.businessId}/dashboard`);
+            console.log('⏰ Time:', new Date().toLocaleTimeString());
 
-            // Calculate this week's bookings
-            const startOfWeek = new Date();
-            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-            const weekBookings = appointments.filter(apt => {
-                const aptDate = new Date(apt.date);
-                return aptDate >= startOfWeek;
-            });
+            // Use the backend dashboard endpoint
+            const response = await api.get(`/businesses/${user.businessId}/dashboard`);
+            const dashboardData = response.data;
 
-            // Calculate month's revenue (assuming price field exists)
-            const startOfMonth = new Date();
-            startOfMonth.setDate(1);
-            const monthRevenue = appointments
-                .filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate >= startOfMonth && apt.status === 'COMPLETED';
-                })
-                .reduce((sum, apt) => sum + (apt.price || 0), 0);
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('✅ RESPONSE RECEIVED');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('📊 Dashboard data:', dashboardData);
+            console.log('📈 Stats:', dashboardData.stats);
+            console.log('📅 Today\'s schedule:', dashboardData.todaySchedule?.length || 0, 'appointments');
 
-            // Get unique clients
-            const uniqueClients = new Set(appointments.map(apt => apt.clientId));
-
-            // Pending bookings
-            const pendingCount = appointments.filter(apt => apt.status === 'PENDING').length;
-
-            // Completion rate
-            const completedCount = appointments.filter(apt => apt.status === 'COMPLETED').length;
-            const completionRate = appointments.length > 0 
-                ? ((completedCount / appointments.length) * 100).toFixed(1)
-                : 0;
-
+            // Set stats from backend
             setStats({
-                todayAppointments: todayAppointments.length,
-                weekBookings: weekBookings.length,
-                monthRevenue: monthRevenue,
-                totalClients: uniqueClients.size,
-                pendingBookings: pendingCount,
-                completionRate: completionRate
+                todayAppointments: dashboardData.stats.todayAppointments || 0,
+                weekAppointments: dashboardData.stats.weekAppointments || 0,
+                monthRevenue: dashboardData.stats.monthRevenue || 0,
+                totalCustomers: dashboardData.stats.totalCustomers || 0,
             });
 
-            // Recent appointments (last 5)
-            const recent = appointments
-                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                .slice(0, 5);
-            setRecentAppointments(recent);
+            // Set today's schedule
+            setTodaySchedule(dashboardData.todaySchedule || []);
 
-            // Upcoming appointments
-            const upcoming = appointments
-                .filter(apt => {
-                    const aptDate = new Date(apt.date);
-                    return aptDate >= new Date() && apt.status !== 'CANCELLED';
-                })
-                .sort((a, b) => new Date(a.date) - new Date(b.date))
-                .slice(0, 5);
-            setUpcomingAppointments(upcoming);
-
+            setLastUpdated(new Date());
             setLoading(false);
+            setRefreshing(false);
+
+            console.log('✅ Dashboard updated successfully');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
         } catch (error) {
-            console.error("Error fetching dashboard data:", error);
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.error('❌ ERROR FETCHING DASHBOARD DATA');
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.error('Error message:', error.message);
+            console.error('Error response:', error.response?.data);
+            console.error('Status code:', error.response?.status);
+            console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+            
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const handleRefresh = () => {
+        console.log('🔄 Manual refresh triggered by user');
+        fetchDashboardData(false);
+    };
+
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString("en-IE", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+        });
+    };
+
+    const formatTime = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleTimeString("en-IE", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
     };
 
     if (loading) {
@@ -109,16 +128,39 @@ const Dashboard = () => {
             <div className="max-w-7xl mx-auto">
                 {/* Welcome Header */}
                 <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Welcome back, {user?.name}! 👋
-                    </h1>
-                    <p className="text-gray-600">Managing your Carlow business</p>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                                Welcome back, {user?.name}! 👋
+                            </h1>
+                            <p className="text-gray-600">Managing your Carlow business</p>
+                            {lastUpdated && (
+                                <p className="text-sm text-gray-500 mt-2">
+                                    🔴 Live Data • Last updated: {formatDate(lastUpdated)} at {formatTime(lastUpdated)}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={handleRefresh}
+                            disabled={refreshing}
+                            className={`flex items-center gap-2 px-5 py-3 bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 ${
+                                refreshing ? "opacity-50 cursor-not-allowed" : ""
+                            }`}
+                        >
+                            <span className={`text-xl ${refreshing ? "animate-spin" : ""}`}>
+                                🔄
+                            </span>
+                            <span className="font-medium text-gray-700">
+                                {refreshing ? "Refreshing..." : "Refresh Data"}
+                            </span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {/* Today's Appointments */}
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg">
+                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
                         <div className="flex items-center justify-between mb-3">
                             <div>
                                 <p className="text-blue-100 text-sm font-medium">Today's Appointments</p>
@@ -128,124 +170,106 @@ const Dashboard = () => {
                         </div>
                         <div className="mt-4 pt-4 border-t border-blue-400">
                             <p className="text-sm text-blue-100">
-                                {stats.pendingBookings} pending confirmation
+                                {todaySchedule.length} on schedule
                             </p>
                         </div>
                     </div>
 
-                    {/* This Week's Bookings */}
-                    <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg">
+                    {/* This Week's Appointments */}
+                    <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
                         <div className="flex items-center justify-between mb-3">
                             <div>
-                                <p className="text-green-100 text-sm font-medium">This Week Bookings</p>
-                                <p className="text-4xl font-bold mt-2">{stats.weekBookings}</p>
+                                <p className="text-green-100 text-sm font-medium">This Week</p>
+                                <p className="text-4xl font-bold mt-2">{stats.weekAppointments}</p>
                             </div>
                             <div className="text-5xl opacity-80">📊</div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-green-400">
                             <p className="text-sm text-green-100">
-                                {stats.completionRate}% completion rate
+                                Total bookings
                             </p>
                         </div>
                     </div>
 
-                    {/* Total Clients */}
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg">
+                    {/* Month Revenue */}
+                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
                         <div className="flex items-center justify-between mb-3">
                             <div>
-                                <p className="text-purple-100 text-sm font-medium">Total Clients</p>
-                                <p className="text-4xl font-bold mt-2">{stats.totalClients}</p>
+                                <p className="text-purple-100 text-sm font-medium">Month Revenue</p>
+                                <p className="text-4xl font-bold mt-2">€{stats.monthRevenue.toFixed(2)}</p>
+                            </div>
+                            <div className="text-5xl opacity-80">💰</div>
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-purple-400">
+                            <p className="text-sm text-purple-100">From completed bookings</p>
+                        </div>
+                    </div>
+
+                    {/* Total Customers */}
+                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="text-orange-100 text-sm font-medium">Total Customers</p>
+                                <p className="text-4xl font-bold mt-2">{stats.totalCustomers}</p>
                             </div>
                             <div className="text-5xl opacity-80">👥</div>
                         </div>
-                        <div className="mt-4 pt-4 border-t border-purple-400">
-                            <p className="text-sm text-purple-100">Active customer base</p>
+                        <div className="mt-4 pt-4 border-t border-orange-400">
+                            <p className="text-sm text-orange-100">Unique clients</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Two Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Upcoming Appointments */}
-                    <div className="bg-white rounded-xl shadow-md p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">Upcoming Appointments</h2>
-                            <span className="text-2xl">🔜</span>
-                        </div>
-                        
-                        {upcomingAppointments.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-gray-500">No upcoming appointments</p>
-                                <p className="text-sm text-gray-400 mt-1">New bookings will appear here</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {upcomingAppointments.map((apt) => (
-                                    <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                                                {apt.clientName?.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <p className="font-semibold text-gray-900">{apt.clientName}</p>
-                                                <p className="text-sm text-gray-600">{apt.service || 'General'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-medium text-gray-900">{apt.date}</p>
-                                            <p className="text-sm text-gray-600">{apt.time}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+                {/* Today's Schedule */}
+                <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-bold text-gray-900">Today's Schedule</h2>
+                        <span className="text-2xl">📅</span>
                     </div>
-
-                    {/* Recent Activity */}
-                    <div className="bg-white rounded-xl shadow-md p-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">Recent Activity</h2>
-                            <span className="text-2xl">📋</span>
+                    
+                    {todaySchedule.length === 0 ? (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500">No appointments scheduled for today</p>
+                            <p className="text-sm text-gray-400 mt-1">Bookings will appear here</p>
                         </div>
-                        
-                        {recentAppointments.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-gray-500">No recent activity</p>
-                                <p className="text-sm text-gray-400 mt-1">Activity will appear here</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                {recentAppointments.map((apt) => (
-                                    <div key={apt.id} className="flex items-center justify-between p-4 border-l-4 rounded-lg"
-                                         style={{
-                                             borderColor: apt.status === 'COMPLETED' ? '#10b981' :
-                                                         apt.status === 'CANCELLED' ? '#ef4444' :
-                                                         apt.status === 'CONFIRMED' ? '#3b82f6' : '#f59e0b',
-                                             backgroundColor: apt.status === 'COMPLETED' ? '#f0fdf4' :
-                                                            apt.status === 'CANCELLED' ? '#fef2f2' :
-                                                            apt.status === 'CONFIRMED' ? '#eff6ff' : '#fffbeb'
-                                         }}>
+                    ) : (
+                        <div className="space-y-4">
+                            {todaySchedule.map((apt) => (
+                                <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition border-l-4 border-blue-500">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                                            {apt.user?.name?.charAt(0) || apt.user?.username?.charAt(0) || 'U'}
+                                        </div>
                                         <div>
-                                            <p className="font-semibold text-gray-900">{apt.clientName}</p>
-                                            <p className="text-sm text-gray-600">{apt.date} at {apt.time}</p>
+                                            <p className="font-semibold text-gray-900">
+                                                {apt.user?.name || apt.user?.username || 'Unknown'}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {apt.service?.serviceName || 'General Service'}
+                                            </p>
                                         </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                            apt.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                            apt.status === 'CANCELLED' ? 'bg-red-100 text-red-800' :
-                                            apt.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
-                                            'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                            {apt.status}
-                                        </span>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                    <div className="text-right">
+                                        <p className="font-medium text-gray-900">{formatTime(apt.appointmentDateTime)}</p>
+                                        <p className="text-sm text-gray-600">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                apt.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                                apt.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                                                apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                'bg-gray-100 text-gray-800'
+                                            }`}>
+                                                {apt.status}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
                 {/* Quick Actions */}
-                <div className="mt-8 bg-white rounded-xl shadow-md p-6">
+                <div className="bg-white rounded-xl shadow-md p-6">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <button
@@ -276,6 +300,20 @@ const Dashboard = () => {
                             <span className="text-4xl mb-2">⚙️</span>
                             <span className="text-sm font-medium text-orange-700">Settings</span>
                         </button>
+                    </div>
+                </div>
+
+                {/* Footer Note */}
+                <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 border border-blue-200">
+                    <div className="flex items-center gap-3">
+                        <span className="text-3xl">ℹ️</span>
+                        <div>
+                            <h3 className="font-bold text-gray-900 mb-1">Real-Time Dashboard</h3>
+                            <p className="text-sm text-gray-700">
+                                Dashboard automatically refreshes every 2 minutes to keep your data current. 
+                                Click "Refresh Data" anytime for immediate updates.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>

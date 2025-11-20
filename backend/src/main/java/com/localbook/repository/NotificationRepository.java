@@ -9,12 +9,18 @@ import java.util.List;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
     
-    // Find all notifications for a user
+    // Get ALL notifications for a user (newest first)
     List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
     
-    // Find unread notifications for a user
+    // Get only UNREAD notifications
     List<Notification> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(Long userId);
+    
+    // Get only READ notifications
+    List<Notification> findByUserIdAndIsReadTrueOrderByCreatedAtDesc(Long userId);
     
     // Count unread notifications
     long countByUserIdAndIsReadFalse(Long userId);
+    
+    // For mark all as read functionality
+    List<Notification> findByUserIdAndIsReadFalse(Long userId);
 }

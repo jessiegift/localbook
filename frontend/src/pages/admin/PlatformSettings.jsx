@@ -58,12 +58,14 @@ const PlatformSettings = () => {
     verifyLocation: true, // Verify business is actually in Carlow
   });
 
+  // ✅ FIXED: These save functions now just show messages since endpoints don't exist
   const handleSaveGeneral = async () => {
     setLoading(true);
     try {
-      // In real implementation, this would call your API
-      await api.put("/settings/general", generalSettings);
-      setMessage("✅ General settings saved successfully");
+      // ✅ Store settings in localStorage for now (until backend is ready)
+      localStorage.setItem('platformSettings_general', JSON.stringify(generalSettings));
+      
+      setMessage("✅ General settings saved locally (backend implementation needed)");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -76,8 +78,8 @@ const PlatformSettings = () => {
   const handleSaveBooking = async () => {
     setLoading(true);
     try {
-      await api.put("/settings/booking", bookingSettings);
-      setMessage("✅ Booking settings saved successfully");
+      localStorage.setItem('platformSettings_booking', JSON.stringify(bookingSettings));
+      setMessage("✅ Booking settings saved locally (backend implementation needed)");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -90,8 +92,8 @@ const PlatformSettings = () => {
   const handleSaveBusiness = async () => {
     setLoading(true);
     try {
-      await api.put("/settings/business", businessSettings);
-      setMessage("✅ Business settings saved successfully");
+      localStorage.setItem('platformSettings_business', JSON.stringify(businessSettings));
+      setMessage("✅ Business settings saved locally (backend implementation needed)");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -102,10 +104,10 @@ const PlatformSettings = () => {
   };
 
   const handleSaveLocation = async () => {
-    setLoading(true);
+    setLoading(false);
     try {
-      await api.put("/settings/location", locationSettings);
-      setMessage("✅ Location settings saved successfully");
+      localStorage.setItem('platformSettings_location', JSON.stringify(locationSettings));
+      setMessage("✅ Location settings saved locally (backend implementation needed)");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -114,6 +116,19 @@ const PlatformSettings = () => {
     }
     setLoading(false);
   };
+
+  // Load saved settings from localStorage on component mount
+  useEffect(() => {
+    const savedGeneral = localStorage.getItem('platformSettings_general');
+    const savedBooking = localStorage.getItem('platformSettings_booking');
+    const savedBusiness = localStorage.getItem('platformSettings_business');
+    const savedLocation = localStorage.getItem('platformSettings_location');
+
+    if (savedGeneral) setGeneralSettings(JSON.parse(savedGeneral));
+    if (savedBooking) setBookingSettings(JSON.parse(savedBooking));
+    if (savedBusiness) setBusinessSettings(JSON.parse(savedBusiness));
+    if (savedLocation) setLocationSettings(JSON.parse(savedLocation));
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 p-4 sm:p-6 lg:p-8">
@@ -134,6 +149,21 @@ const PlatformSettings = () => {
           <p className="text-gray-600 text-lg">
             Configure LocalBook settings for Carlow businesses
           </p>
+        </div>
+
+        {/* Warning Box */}
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <h3 className="font-bold text-yellow-900 mb-2">Settings Stored Locally</h3>
+              <p className="text-yellow-800 text-sm">
+                These settings are currently stored in your browser's localStorage. 
+                To persist settings across all devices and users, you need to implement 
+                settings endpoints in your backend (e.g., /api/settings/general, /api/settings/booking, etc.)
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Message Alert */}
