@@ -58,6 +58,14 @@ public class Business {
     @Column(name = "longitude")
     private Double lng;
     
+    // ✅ Opening hours field
+    @Column(name = "opening_hours", columnDefinition = "TEXT")
+    private String openingHours;
+    
+    // ✅ Status field (moved to correct location)
+    @Column(nullable = true)
+    private String status; // "ACTIVE", "PENDING", "REJECTED", "SUSPENDED"
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
@@ -228,6 +236,30 @@ public class Business {
         this.lng = lng;
     }
     
+    // ✅ Opening hours getter/setter
+    public String getOpeningHours() {
+        return openingHours;
+    }
+
+    public void setOpeningHours(String openingHours) {
+        this.openingHours = openingHours;
+    }
+    
+    // ✅ Status getter/setter
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+        // Sync with isApproved
+        if ("ACTIVE".equals(status) || "APPROVED".equals(status)) {
+            this.isApproved = true;
+        } else {
+            this.isApproved = false;
+        }
+    }
+    
     public User getOwner() {
         return owner;
     }
@@ -264,22 +296,4 @@ public class Business {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-@Column(nullable = true)
-private String status; // "ACTIVE", "PENDING", "REJECTED", "SUSPENDED"
-
-// 2. Add these getter/setter methods with your other getters/setters
-public String getStatus() {
-    return status;
-}
-
-public void setStatus(String status) {
-    this.status = status;
-    // Sync with isApproved
-    if ("ACTIVE".equals(status) || "APPROVED".equals(status)) {
-        this.isApproved = true;
-    } else {
-        this.isApproved = false;
-    }
-}
-
 }

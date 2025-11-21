@@ -30,8 +30,8 @@ public class BusinessController {
     @Autowired
     private AppointmentService appointmentService;
     
-   @GetMapping("/{businessId}/dashboard")
-   public ResponseEntity<?> getBusinessDashboard(@PathVariable Long businessId) {
+    @GetMapping("/{businessId}/dashboard")
+    public ResponseEntity<?> getBusinessDashboard(@PathVariable Long businessId) {
         try {
             System.out.println("=== Dashboard requested for business: " + businessId);
             
@@ -204,15 +204,94 @@ public class BusinessController {
         return new ResponseEntity<>(businesses, HttpStatus.OK);
     }
     
+    // ✅ FIXED: Update Business Method - Now accepts Map instead of Business object
     @PutMapping("/{id}")
-    public ResponseEntity<Business> updateBusiness(@PathVariable Long id, 
-                                                   @RequestBody Business business,
-                                                   @RequestParam Long ownerId) {
+    public ResponseEntity<?> updateBusiness(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> updates,
+            @RequestParam Long ownerId) {
+        
         try {
-            Business updatedBusiness = businessService.updateBusiness(id, business, ownerId);
-            return new ResponseEntity<>(updatedBusiness, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+            System.out.println("📝 Updating business ID: " + id);
+            System.out.println("📦 Updates received: " + updates);
+            System.out.println("👤 Owner ID: " + ownerId);
+            
+            // Find the business
+            Optional<Business> businessOpt = businessService.getBusinessById(id);
+            if (!businessOpt.isPresent()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Business not found"));
+            }
+            
+            Business business = businessOpt.get();
+            
+            // Verify ownership
+            if (!business.getOwner().getId().equals(ownerId)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Unauthorized"));
+            }
+            
+            // Update fields if present in request
+            if (updates.containsKey("businessName")) {
+                business.setBusinessName((String) updates.get("businessName"));
+            }
+            if (updates.containsKey("ownerName")) {
+                business.setOwnerName((String) updates.get("ownerName"));
+            }
+            if (updates.containsKey("description")) {
+                business.setDescription((String) updates.get("description"));
+            }
+            if (updates.containsKey("category")) {
+                business.setCategory((String) updates.get("category"));
+            }
+            if (updates.containsKey("location")) {
+                business.setLocation((String) updates.get("location"));
+            }
+            if (updates.containsKey("address")) {
+                business.setAddress((String) updates.get("address"));
+            }
+            if (updates.containsKey("town")) {
+                business.setTown((String) updates.get("town"));
+            }
+            if (updates.containsKey("county")) {
+                business.setCounty((String) updates.get("county"));
+            }
+            if (updates.containsKey("eircode")) {
+                business.setEircode((String) updates.get("eircode"));
+            }
+            if (updates.containsKey("phoneNumber")) {
+                business.setPhoneNumber((String) updates.get("phoneNumber"));
+            }
+            if (updates.containsKey("email")) {
+                business.setEmail((String) updates.get("email"));
+            }
+            
+            
+            // ✅ Handle opening hours (check both possible field names)
+            if (updates.containsKey("openingHours")) {
+                String hours = (String) updates.get("openingHours");
+                System.out.println("🕐 Setting opening hours: " + hours);
+                business.setOpeningHours(hours);
+            }
+            
+            if (updates.containsKey("operatingHours")) {
+                String hours = (String) updates.get("operatingHours");
+                System.out.println("🕐 Setting operating hours: " + hours);
+                business.setOpeningHours(hours);
+            }
+            
+            // Save
+            business.setUpdatedAt(LocalDateTime.now());
+            Business updated = businessService.saveBusinessDirect(business);
+            
+            System.out.println("✅ Business updated successfully");
+            return ResponseEntity.ok(updated);
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error updating business: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
         }
     }
     
@@ -226,27 +305,25 @@ public class BusinessController {
         }
     }
     
-   @PutMapping("/{id}/reject")
-public ResponseEntity<?> rejectBusiness(
-        @PathVariable Long id,
-        @RequestBody(required = false) Map<String, String> payload
-) {
-    try {
-        // Get reason from request body
-        String reason = "Did not meet requirements";
-        if (payload != null && payload.containsKey("reason")) {
-            reason = payload.get("reason");
+    @PutMapping("/{id}/reject")
+    public ResponseEntity<?> rejectBusiness(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> payload) {
+        try {
+            // Get reason from request body
+            String reason = "Did not meet requirements";
+            if (payload != null && payload.containsKey("reason")) {
+                reason = payload.get("reason");
+            }
+            
+            Business rejectedBusiness = businessService.rejectBusiness(id, reason);
+            
+            return ResponseEntity.ok(rejectedBusiness);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", e.getMessage()));
         }
-        
-        // ✅ Pass BOTH id AND reason
-        Business rejectedBusiness = businessService.rejectBusiness(id, reason);
-        
-        return ResponseEntity.ok(rejectedBusiness);
-    } catch (Exception e) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-            .body(Map.of("error", e.getMessage()));
     }
-}
     
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteBusiness(@PathVariable Long id, @RequestParam Long userId) {
@@ -258,8 +335,7 @@ public ResponseEntity<?> rejectBusiness(
         }
     }
 
-
-        @GetMapping("/owner/{ownerId}/status")
+    @GetMapping("/owner/{ownerId}/status")
     public ResponseEntity<?> getBusinessStatusByOwner(@PathVariable Long ownerId) {
         try {
             System.out.println("=== GET BUSINESS STATUS ===");
@@ -304,6 +380,4 @@ public ResponseEntity<?> rejectBusiness(
                 .body("Error: " + e.getMessage());
         }
     }
-
-
 }

@@ -4,30 +4,13 @@ import api from '../../services/api';
 
 const Settings = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('profile');
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [businessId, setBusinessId] = useState(null);
 
-    // Business Profile State
-    const [profileData, setProfileData] = useState({
-        businessName: '',
-        ownerName: '',
-        description: '',
-        category: '',
-        location: '',
-        address: '',
-        town: '',
-        county: '',
-        eircode: '',
-        phoneNumber: '',
-        email: '',
-        website: ''
-    });
-
-    // Business Hours State
-    const [hoursData, setHoursData] = useState({
+    // Business Hours State - Default values
+    const defaultHours = {
         monday: { enabled: true, open: '09:00', close: '18:00' },
         tuesday: { enabled: true, open: '09:00', close: '18:00' },
         wednesday: { enabled: true, open: '09:00', close: '18:00' },
@@ -35,7 +18,9 @@ const Settings = () => {
         friday: { enabled: true, open: '09:00', close: '18:00' },
         saturday: { enabled: false, open: '10:00', close: '16:00' },
         sunday: { enabled: false, open: '10:00', close: '16:00' }
-    });
+    };
+
+    const [hoursData, setHoursData] = useState(defaultHours);
 
     useEffect(() => {
         if (user?.id) {
@@ -45,48 +30,59 @@ const Settings = () => {
 
     const fetchBusinessData = async () => {
         try {
-            console.log('Fetching business for user:', user.id);
+            console.log('🔍 Fetching business for user:', user.id);
             const response = await api.get(`/businesses/owner/${user.id}`);
-            console.log('Business data response:', response.data);
+            console.log('📦 Full API response:', response.data);
             
             if (response.data && response.data.length > 0) {
                 const business = response.data[0];
+                console.log('✅ Business found:', business);
+                console.log('🕐 Raw openingHours:', business.openingHours);
+                console.log('🕐 Raw operatingHours:', business.operatingHours);
+                
                 setBusinessId(business.id);
-                setProfileData({
-                    businessName: business.businessName || '',
-                    ownerName: business.ownerName || user.name || '',
-                    description: business.description || '',
-                    category: business.category || '',
-                    location: business.location || '',
-                    address: business.address || '',
-                    town: business.town || '',
-                    county: business.county || '',
-                    eircode: business.eircode || '',
-                    phoneNumber: business.phoneNumber || '',
-                    email: business.email || '',
-                    website: business.website || ''
-                });
 
-                // Parse business hours if they exist
-                if (business.operatingHours) {
+                // ✅ Check BOTH possible field names
+                const hoursField = business.openingHours || business.operatingHours;
+                console.log('🕐 Selected hours field:', hoursField);
+                console.log('🕐 Hours field type:', typeof hoursField);
+                
+                if (hoursField) {
                     try {
-                        const hours = JSON.parse(business.operatingHours);
-                        setHoursData(hours);
+                        let parsedHours;
+                        
+                        // If it's already an object, use it directly
+                        if (typeof hoursField === 'object') {
+                            console.log('✅ Hours already parsed as object');
+                            parsedHours = hoursField;
+                        } 
+                        // If it's a string, parse it
+                        else if (typeof hoursField === 'string') {
+                            console.log('📝 Parsing hours from string...');
+                            parsedHours = JSON.parse(hoursField);
+                            console.log('✅ Parsed hours:', parsedHours);
+                        }
+                        
+                        if (parsedHours) {
+                            setHoursData(parsedHours);
+                            console.log('✅ Hours data set successfully!');
+                        }
                     } catch (e) {
-                        console.log('Could not parse operating hours');
+                        console.error('❌ Could not parse operating hours:', e);
+                        console.log('⚠️ Using default hours');
+                        setHoursData(defaultHours);
                     }
+                } else {
+                    console.log('⚠️ No hours found in database, using defaults');
+                    setHoursData(defaultHours);
                 }
             } else {
-                setError('No business found. Please complete business setup first.');
+                setError('No business found. Please complete business registration first.');
             }
         } catch (err) {
-            console.error('Error fetching business data:', err);
+            console.error('❌ Error fetching business data:', err);
             setError('Unable to load business data. Please try again later.');
         }
-    };
-
-    const handleProfileChange = (e) => {
-        setProfileData({ ...profileData, [e.target.name]: e.target.value });
     };
 
     const handleHoursChange = (day, field, value) => {
@@ -96,36 +92,11 @@ const Settings = () => {
         });
     };
 
-    const handleSaveProfile = async (e) => {
-        e.preventDefault();
-        
-        if (!businessId) {
-            setError('No business found. Please complete business setup first.');
-            return;
-        }
-        
-        setLoading(true);
-        setError('');
-        setMessage('');
-
-        try {
-            // ✅ FIXED: Add ownerId as query parameter
-            await api.put(`/businesses/${businessId}?ownerId=${user.id}`, profileData);
-            setMessage('✅ Business profile updated successfully!');
-            setTimeout(() => setMessage(''), 3000);
-        } catch (err) {
-            console.error('Error updating profile:', err);
-            setError('❌ Failed to update profile: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleSaveHours = async (e) => {
         e.preventDefault();
         
         if (!businessId) {
-            setError('No business found. Please complete business setup first.');
+            setError('No business found. Please complete business registration first.');
             return;
         }
         
@@ -134,18 +105,38 @@ const Settings = () => {
         setMessage('');
 
         try {
-            // ✅ FIXED: Save hours as part of business profile
-            // Convert hours to JSON string for backend
-            const updatedBusiness = {
-                ...profileData,
-                operatingHours: JSON.stringify(hoursData)
+            console.log('💾 Saving hours for business ID:', businessId);
+            console.log('🕐 Hours data to save:', hoursData);
+            
+            // Convert hours to JSON string
+            const hoursString = JSON.stringify(hoursData);
+            console.log('📝 Hours as JSON string:', hoursString);
+            
+            // ✅ Send ONLY the hours field
+            const payload = {
+                openingHours: hoursString
             };
 
-            await api.put(`/businesses/${businessId}?ownerId=${user.id}`, updatedBusiness);
+            console.log('📦 Sending payload:', payload);
+            
+            const response = await api.put(
+                `/businesses/${businessId}?ownerId=${user.id}`,
+                payload
+            );
+            
+            console.log('✅ Save response:', response.data);
+            
             setMessage('✅ Business hours updated successfully!');
-            setTimeout(() => setMessage(''), 3000);
+            
+            // ✅ Reload data after 1 second to confirm save
+            setTimeout(async () => {
+                setMessage('');
+                await fetchBusinessData();
+            }, 1500);
+            
         } catch (err) {
-            console.error('Error updating hours:', err);
+            console.error('❌ Error updating hours:', err);
+            console.error('❌ Error response:', err.response?.data);
             setError('❌ Failed to update hours: ' + (err.response?.data?.message || err.message));
         } finally {
             setLoading(false);
@@ -154,310 +145,120 @@ const Settings = () => {
 
     return (
         <div className="w-full bg-gray-50 min-h-screen">
-            <div className="max-w-6xl mx-auto p-8">
-                <h1 className="text-3xl font-bold mb-8">Business Settings</h1>
+            <div className="max-w-4xl mx-auto p-8">
+                {/* Header */}
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold mb-2">Business Hours</h1>
+                    <p className="text-gray-600">Set your operating hours and availability</p>
+                </div>
 
-                {/* Tabs */}
+                {/* Messages */}
+                {message && (
+                    <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+                        {message}
+                    </div>
+                )}
+                {error && (
+                    <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                        {error}
+                    </div>
+                )}
+
+                {/* Business Hours Form */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div className="flex border-b">
-                        <button
-                            onClick={() => setActiveTab('profile')}
-                            className={`flex-1 px-6 py-4 font-medium transition ${
-                                activeTab === 'profile'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                            }`}
-                        >
-                            🏢 Business Profile
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('hours')}
-                            className={`flex-1 px-6 py-4 font-medium transition ${
-                                activeTab === 'hours'
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                            }`}
-                        >
-                            🕐 Business Hours
-                        </button>
+                    <div className="bg-purple-600 px-6 py-4">
+                        <h2 className="text-xl font-semibold text-white flex items-center">
+                            <span className="mr-2">🕐</span>
+                            Operating Hours
+                        </h2>
                     </div>
 
-                    {/* Messages */}
-                    {message && (
-                        <div className="m-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
-                            {message}
+                    <form onSubmit={handleSaveHours} className="p-6 space-y-4">
+                        {Object.keys(hoursData).map((day) => (
+                            <div 
+                                key={day} 
+                                className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                            >
+                                {/* Day Name */}
+                                <div className="w-32">
+                                    <span className="font-semibold capitalize text-gray-800">
+                                        {day}
+                                    </span>
+                                </div>
+
+                                {/* Open/Closed Toggle */}
+                                <label className="flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={hoursData[day].enabled}
+                                        onChange={(e) => handleHoursChange(day, 'enabled', e.target.checked)}
+                                        className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500 cursor-pointer"
+                                    />
+                                    <span className="ml-2 text-sm font-medium text-gray-700">
+                                        Open
+                                    </span>
+                                </label>
+
+                                {/* Time Inputs (only if enabled) */}
+                                {hoursData[day].enabled ? (
+                                    <div className="flex items-center gap-3 flex-1">
+                                        <input
+                                            type="time"
+                                            value={hoursData[day].open}
+                                            onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        />
+                                        <span className="text-gray-600 font-medium">to</span>
+                                        <input
+                                            type="time"
+                                            value={hoursData[day].close}
+                                            onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="flex-1">
+                                        <span className="text-gray-500 italic">Closed all day</span>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+
+                        {/* Save Button */}
+                        <div className="pt-4">
+                            <button
+                                type="submit"
+                                disabled={loading || !businessId}
+                                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md"
+                            >
+                                {loading ? (
+                                    <span className="flex items-center justify-center">
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Saving...
+                                    </span>
+                                ) : (
+                                    'Save Business Hours'
+                                )}
+                            </button>
                         </div>
-                    )}
-                    {error && (
-                        <div className="m-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                            {error}
+
+                        {/* Info Box */}
+                        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex">
+                                <span className="text-blue-500 text-xl mr-3">ℹ️</span>
+                                <div>
+                                    <h3 className="font-semibold text-blue-900 mb-1">About Business Hours</h3>
+                                    <p className="text-sm text-blue-800">
+                                        These hours will be displayed to customers on your business profile. 
+                                        Make sure to keep them updated so customers know when you're available for bookings.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
-                    )}
-
-                    {/* Tab Content */}
-                    <div className="p-8">
-                        {/* Business Profile Tab */}
-                        {activeTab === 'profile' && (
-                            <form onSubmit={handleSaveProfile} className="space-y-6">
-                                <h2 className="text-2xl font-semibold mb-4">Business Information</h2>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Business Name *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="businessName"
-                                            value={profileData.businessName}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Owner Name *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="ownerName"
-                                            value={profileData.ownerName}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Category *
-                                    </label>
-                                    <select
-                                        name="category"
-                                        value={profileData.category}
-                                        onChange={handleProfileChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        required
-                                    >
-                                        <option value="">Select category</option>
-                                        <option value="Cafe">Cafe</option>
-                                        <option value="Restaurant">Restaurant</option>
-                                        <option value="Salon">Hair Salon</option>
-                                        <option value="Spa">Spa & Wellness</option>
-                                        <option value="Fitness">Fitness Center</option>
-                                        <option value="Barber">Barber Shop</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Description *
-                                    </label>
-                                    <textarea
-                                        name="description"
-                                        value={profileData.description}
-                                        onChange={handleProfileChange}
-                                        rows="4"
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="Describe your business..."
-                                        required
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Town *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="town"
-                                            value={profileData.town}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="e.g., Carlow"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            County *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="county"
-                                            value={profileData.county}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="e.g., Carlow"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Eircode
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="eircode"
-                                            value={profileData.eircode}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="R93 X2Y4"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Full Address *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="address"
-                                        value={profileData.address}
-                                        onChange={handleProfileChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="123 Main Street"
-                                        required
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Location (for search) *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="location"
-                                        value={profileData.location}
-                                        onChange={handleProfileChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="e.g., Carlow Town, Ireland"
-                                        required
-                                    />
-                                    <p className="text-sm text-gray-500 mt-1">This helps customers find your business in search</p>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Phone Number *
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            name="phoneNumber"
-                                            value={profileData.phoneNumber}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="0851234567"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email *
-                                        </label>
-                                        <input
-                                            type="email"
-                                            name="email"
-                                            value={profileData.email}
-                                            onChange={handleProfileChange}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                            placeholder="business@email.com"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Website
-                                    </label>
-                                    <input
-                                        type="url"
-                                        name="website"
-                                        value={profileData.website}
-                                        onChange={handleProfileChange}
-                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="https://yourbusiness.com"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={loading || !businessId}
-                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                >
-                                    {loading ? 'Saving...' : 'Save Business Profile'}
-                                </button>
-                            </form>
-                        )}
-
-                        {/* Business Hours Tab */}
-                        {activeTab === 'hours' && (
-                            <form onSubmit={handleSaveHours} className="space-y-6">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-2xl font-semibold">Operating Hours</h2>
-                                    <p className="text-sm text-gray-600">Set your operating hours and availability</p>
-                                </div>
-
-                                {Object.keys(hoursData).map((day) => (
-                                    <div key={day} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                                        <div className="w-32">
-                                            <span className="font-medium capitalize">{day}</span>
-                                        </div>
-
-                                        <label className="flex items-center">
-                                            <input
-                                                type="checkbox"
-                                                checked={hoursData[day].enabled}
-                                                onChange={(e) => handleHoursChange(day, 'enabled', e.target.checked)}
-                                                className="w-5 h-5 text-purple-600 rounded focus:ring-purple-500"
-                                            />
-                                            <span className="ml-2 text-sm">Open</span>
-                                        </label>
-
-                                        {hoursData[day].enabled && (
-                                            <>
-                                                <input
-                                                    type="time"
-                                                    value={hoursData[day].open}
-                                                    onChange={(e) => handleHoursChange(day, 'open', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                                />
-                                                <span className="text-gray-600">to</span>
-                                                <input
-                                                    type="time"
-                                                    value={hoursData[day].close}
-                                                    onChange={(e) => handleHoursChange(day, 'close', e.target.value)}
-                                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                                />
-                                            </>
-                                        )}
-
-                                        {!hoursData[day].enabled && (
-                                            <span className="text-gray-500 italic">Closed</span>
-                                        )}
-                                    </div>
-                                ))}
-
-                                <button
-                                    type="submit"
-                                    disabled={loading || !businessId}
-                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                >
-                                    {loading ? 'Saving...' : 'Save Business Hours'}
-                                </button>
-                            </form>
-                        )}
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>

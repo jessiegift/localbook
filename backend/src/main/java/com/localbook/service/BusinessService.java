@@ -219,4 +219,11 @@ public Business rejectBusiness(Long businessId, String reason) {
     
     return rejected;
 }
+    @Transactional
+public Business saveBusinessDirect(Business business) {
+    business.setUpdatedAt(LocalDateTime.now());
+    return businessRepository.save(business);
+}
+
+
 }
