@@ -1,16 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   ScrollView, 
   Alert, 
   TouchableOpacity, 
-  TextInput,
-  RefreshControl,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
+  Switch,
   ActivityIndicator
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -18,134 +13,46 @@ import { useAuth } from '../../context/AuthContext';
 function BusinessProfileScreen() {
   const authContext = useAuth();
   const user = authContext.user;
-  const token = authContext.token;
   const logout = authContext.logout;
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  
-  const [business, setBusiness] = useState({
-    businessName: '',
-    description: '',
-    category: '',
-    location: '',
-    town: '',
-    county: '',
-    address: '',
-    eircode: '',
-    phoneNumber: '',
-    email: '',
-    ownerName: '',
+  const [notifications, setNotifications] = useState({
+    newBookings: true,
+    bookingReminders: true,
+    cancellations: true,
+    reviews: true,
+    promotions: false,
   });
 
-  useEffect(() => {
-    console.log('=== BUSINESS PROFILE SCREEN ===');
-    console.log('User businessId:', user ? user.businessId : 'N/A');
-    fetchBusinessInfo();
-  }, []);
+  const [preferences, setPreferences] = useState({
+    autoAcceptBookings: false,
+    showBusinessHours: true,
+    allowCancellations: true,
+  });
 
-  async function fetchBusinessInfo() {
-    try {
-      if (!user || !user.businessId) {
-        console.error('No businessId found');
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
+  const [loading, setLoading] = useState(false);
 
-      const url = `http://192.168.1.15:8080/api/businesses/${user.businessId}`;
-      console.log('Fetching business from:', url);
+  function toggleNotification(key) {
+    setNotifications(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  }
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+  function togglePreference(key) {
+    setPreferences(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  }
 
-      console.log('Response status:', response.status);
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Business data:', JSON.stringify(data, null, 2));
-        
-        setBusiness({
-          businessName: data.businessName || '',
-          description: data.description || '',
-          category: data.category || '',
-          location: data.location || '',
-          town: data.town || '',
-          county: data.county || '',
-          address: data.address || '',
-          eircode: data.eircode || '',
-          phoneNumber: data.phoneNumber || '',
-          email: data.email || '',
-          ownerName: data.ownerName || user.name || '',
-        });
-      } else {
-        const errorText = await response.text();
-        console.error('Failed to load business:', errorText);
-        Alert.alert('Error', 'Failed to load business information');
-      }
-    } catch (error) {
-      console.error('Error fetching business:', error);
-      Alert.alert('Error', 'Network error: ' + error.message);
-    } finally {
+  function handleSaveSettings() {
+    setLoading(true);
+    
+    // Simulate API call
+    setTimeout(() => {
       setLoading(false);
-      setRefreshing(false);
-    }
-  }
-
-  function onRefresh() {
-    setRefreshing(true);
-    fetchBusinessInfo();
-  }
-
-  async function handleSave() {
-    Keyboard.dismiss();
-
-    if (!business.businessName || !business.category || !business.location) {
-      Alert.alert('Error', 'Please fill in required fields (Business Name, Category, Location)');
-      return;
-    }
-
-    if (!business.phoneNumber) {
-      Alert.alert('Error', 'Phone number is required');
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      const url = `http://192.168.1.15:8080/api/businesses/${user.businessId}`;
-      console.log('Updating business:', url);
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(business),
-      });
-
-      console.log('Update response status:', response.status);
-
-      if (response.ok) {
-        Alert.alert('Success', 'Business information updated!');
-        fetchBusinessInfo();
-      } else {
-        const errorText = await response.text();
-        console.error('Update failed:', errorText);
-        Alert.alert('Error', 'Failed to update business information');
-      }
-    } catch (error) {
-      console.error('Error updating business:', error);
-      Alert.alert('Error', 'Network error: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
+      Alert.alert('Success', 'Settings saved successfully!');
+    }, 1000);
   }
 
   function handleLogout() {
@@ -163,339 +70,387 @@ function BusinessProfileScreen() {
     );
   }
 
-  function updateField(field, value) {
-    setBusiness({ ...business, [field]: value });
+  function handleManageBusiness() {
+    Alert.alert(
+      'Edit Business Info',
+      'To update your business details (name, address, description), please visit our website at localbook.ie',
+      [
+        { text: 'OK' }
+      ]
+    );
   }
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
-        <ActivityIndicator size="large" color="#22c55e" />
-        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 16 }}>Loading profile...</Text>
-      </View>
+  function handleViewWebsite() {
+    Alert.alert(
+      'Visit Website',
+      'Open localbook.ie in your browser to manage full business settings',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Open', onPress: () => {
+          // In a real app, use Linking.openURL('https://localbook.ie')
+          console.log('Opening website...');
+        }}
+      ]
+    );
+  }
+
+  function handleHelp() {
+    Alert.alert(
+      'Help & Support',
+      'Need help?\n\n📧 Email: support@localbook.ie\n📞 Phone: +353 1 234 5678\n\nOr visit our Help Center on localbook.ie',
+      [{ text: 'OK' }]
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1, backgroundColor: '#f9fafb' }}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={{ flex: 1 }}>
-          <ScrollView
-            style={{ flex: 1 }}
-            keyboardShouldPersistTaps="handled"
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          >
-            {/* Header Card */}
-            <View style={{ backgroundColor: '#22c55e', paddingTop: 56, paddingBottom: 32, paddingHorizontal: 20, marginBottom: 16 }}>
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ 
-                  backgroundColor: '#ffffff', 
-                  width: 80, 
-                  height: 80, 
-                  borderRadius: 40, 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  marginBottom: 12,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.1,
-                  shadowRadius: 8,
-                }}>
-                  <Text style={{ fontSize: 40 }}>🏪</Text>
-                </View>
-                <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '700', marginBottom: 4 }}>
-                  {business.businessName || 'My Business'}
-                </Text>
-                <Text style={{ color: '#bbf7d0', fontSize: 14 }}>
-                  {user?.email}
-                </Text>
-              </View>
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      <ScrollView style={{ flex: 1 }}>
+        {/* Header */}
+        <View style={{ backgroundColor: '#22c55e', paddingTop: 56, paddingBottom: 32, paddingHorizontal: 20, marginBottom: 16 }}>
+          <View style={{ alignItems: 'center' }}>
+            <View style={{ 
+              backgroundColor: '#ffffff', 
+              width: 80, 
+              height: 80, 
+              borderRadius: 40, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              marginBottom: 12,
+              shadowColor: '#000',
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+            }}>
+              <Text style={{ fontSize: 40 }}>🏪</Text>
             </View>
-
-            {/* Form */}
-            <View style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
-              
-              {/* Business Information */}
-              <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
-                  Business Information
-                </Text>
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Business Name *
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="Enter business name"
-                  value={business.businessName}
-                  onChangeText={(text) => updateField('businessName', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Category *
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., Salon, Spa, Fitness"
-                  value={business.category}
-                  onChangeText={(text) => updateField('category', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Owner Name
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="Owner's name"
-                  value={business.ownerName}
-                  onChangeText={(text) => updateField('ownerName', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Description
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    height: 100,
-                    textAlignVertical: 'top'
-                  }}
-                  placeholder="Brief description of your business"
-                  value={business.description}
-                  onChangeText={(text) => updateField('description', text)}
-                  multiline={true}
-                  numberOfLines={4}
-                  returnKeyType="done"
-                />
-              </View>
-
-              {/* Location & Contact */}
-              <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
-                  Location & Contact
-                </Text>
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Location *
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., Carlow Town"
-                  value={business.location}
-                  onChangeText={(text) => updateField('location', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Town
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., Carlow"
-                  value={business.town}
-                  onChangeText={(text) => updateField('town', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  County
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., County Carlow"
-                  value={business.county}
-                  onChangeText={(text) => updateField('county', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Full Address
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="Street address"
-                  value={business.address}
-                  onChangeText={(text) => updateField('address', text)}
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Eircode
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., R93 X2F7"
-                  value={business.eircode}
-                  onChangeText={(text) => updateField('eircode', text)}
-                  autoCapitalize="characters"
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Phone Number *
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16,
-                    marginBottom: 16 
-                  }}
-                  placeholder="e.g., 0851234567"
-                  value={business.phoneNumber}
-                  onChangeText={(text) => updateField('phoneNumber', text)}
-                  keyboardType="phone-pad"
-                  returnKeyType="next"
-                />
-
-                <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-                  Email
-                </Text>
-                <TextInput
-                  style={{ 
-                    backgroundColor: '#f9fafb', 
-                    borderRadius: 8, 
-                    borderWidth: 1, 
-                    borderColor: '#e5e7eb', 
-                    padding: 12, 
-                    fontSize: 16
-                  }}
-                  placeholder="business@example.com"
-                  value={business.email}
-                  onChangeText={(text) => updateField('email', text)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  returnKeyType="done"
-                />
-              </View>
-
-              {/* Save Button */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: saving ? '#9ca3af' : '#22c55e',
-                  borderRadius: 12,
-                  padding: 16,
-                  alignItems: 'center',
-                  marginBottom: 12,
-                }}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                    Save Changes
-                  </Text>
-                )}
-              </TouchableOpacity>
-
-              {/* Logout Button */}
-              <TouchableOpacity
-                style={{
-                  backgroundColor: '#ef4444',
-                  borderRadius: 12,
-                  padding: 16,
-                  alignItems: 'center',
-                  marginBottom: 24,
-                }}
-                onPress={handleLogout}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                  Logout
-                </Text>
-              </TouchableOpacity>
-
-              {/* App Info */}
-              <View style={{ alignItems: 'center' }}>
-                <Text style={{ color: '#9ca3af', fontSize: 12 }}>
-                  LocalBook Business v1.0.0
-                </Text>
-              </View>
-            </View>
-          </ScrollView>
+            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '700', marginBottom: 4 }}>
+              {user?.name || 'My Business'}
+            </Text>
+            <Text style={{ color: '#bbf7d0', fontSize: 14 }}>
+              {user?.email}
+            </Text>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+
+        <View style={{ paddingHorizontal: 20, paddingBottom: 24 }}>
+          
+          {/* Business Management */}
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
+              Business Management
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: '#f3f4f6',
+              }}
+              onPress={handleManageBusiness}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  backgroundColor: '#f0fdf4', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginRight: 12
+                }}>
+                  <Text style={{ fontSize: 20 }}>✏️</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                    Edit Business Info
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                    Update on website
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+              }}
+              onPress={handleViewWebsite}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  backgroundColor: '#f0fdf4', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginRight: 12
+                }}>
+                  <Text style={{ fontSize: 20 }}>🌐</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                    Visit Website
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                    localbook.ie
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Notifications */}
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
+              Notifications
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  New Bookings
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Get notified of new appointments
+                </Text>
+              </View>
+              <Switch
+                value={notifications.newBookings}
+                onValueChange={() => toggleNotification('newBookings')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={notifications.newBookings ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Booking Reminders
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Upcoming appointment alerts
+                </Text>
+              </View>
+              <Switch
+                value={notifications.bookingReminders}
+                onValueChange={() => toggleNotification('bookingReminders')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={notifications.bookingReminders ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Cancellations
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Alert when bookings are cancelled
+                </Text>
+              </View>
+              <Switch
+                value={notifications.cancellations}
+                onValueChange={() => toggleNotification('cancellations')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={notifications.cancellations ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Reviews
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  New customer reviews
+                </Text>
+              </View>
+              <Switch
+                value={notifications.reviews}
+                onValueChange={() => toggleNotification('reviews')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={notifications.reviews ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Promotions
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Tips and marketing updates
+                </Text>
+              </View>
+              <Switch
+                value={notifications.promotions}
+                onValueChange={() => toggleNotification('promotions')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={notifications.promotions ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+          </View>
+
+          {/* Booking Preferences */}
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
+              Booking Preferences
+            </Text>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Auto-Accept Bookings
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Automatically confirm appointments
+                </Text>
+              </View>
+              <Switch
+                value={preferences.autoAcceptBookings}
+                onValueChange={() => togglePreference('autoAcceptBookings')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={preferences.autoAcceptBookings ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Show Business Hours
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Display opening times to clients
+                </Text>
+              </View>
+              <Switch
+                value={preferences.showBusinessHours}
+                onValueChange={() => togglePreference('showBusinessHours')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={preferences.showBusinessHours ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                  Allow Cancellations
+                </Text>
+                <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                  Let clients cancel bookings
+                </Text>
+              </View>
+              <Switch
+                value={preferences.allowCancellations}
+                onValueChange={() => togglePreference('allowCancellations')}
+                trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                thumbColor={preferences.allowCancellations ? '#22c55e' : '#f4f4f5'}
+              />
+            </View>
+          </View>
+
+          {/* Help & Support */}
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 3 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 16 }}>
+              Help & Support
+            </Text>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+              }}
+              onPress={handleHelp}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ 
+                  width: 40, 
+                  height: 40, 
+                  borderRadius: 20, 
+                  backgroundColor: '#fef3c7', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  marginRight: 12
+                }}>
+                  <Text style={{ fontSize: 20 }}>💬</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 }}>
+                    Get Help
+                  </Text>
+                  <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                    Contact support team
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: loading ? '#9ca3af' : '#22c55e',
+              borderRadius: 12,
+              padding: 16,
+              alignItems: 'center',
+              marginBottom: 12,
+              shadowColor: '#22c55e',
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              shadowOffset: { width: 0, height: 4 },
+            }}
+            onPress={handleSaveSettings}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
+                Save Settings
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Logout Button */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#ef4444',
+              borderRadius: 12,
+              padding: 16,
+              alignItems: 'center',
+              marginBottom: 24,
+            }}
+            onPress={handleLogout}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
+              Logout
+            </Text>
+          </TouchableOpacity>
+
+          {/* App Info */}
+          <View style={{ alignItems: 'center', marginBottom: 20 }}>
+            <Text style={{ color: '#9ca3af', fontSize: 12, marginBottom: 4 }}>
+              LocalBook Business
+            </Text>
+            <Text style={{ color: '#d1d5db', fontSize: 11 }}>
+              Version 1.0.0
+            </Text>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 

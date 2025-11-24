@@ -14,11 +14,13 @@ import BusinessDetailsScreen from './src/screens/client/BusinessDetailScreen';
 import BookAppointmentScreen from './src/screens/client/BookAppointment';
 import MyBookingsScreen from './src/screens/client/MyBookingsScreen';
 import ClientProfileScreen from './src/screens/client/ClientProfileScreen';
+import RateBusinessScreen from './src/screens/client/RateBusinessScreen'; // ✅ ADD THIS IMPORT
 
 import BusinessHomeScreen from './src/screens/business/BusinessHomeScreen';
 import ManageAppointmentsScreen from './src/screens/business/ManageAppointmentScreen';
 import ManageServicesScreen from './src/screens/business/ManageServiceScreen';
 import BusinessProfileScreen from './src/screens/business/BusinessProfileScreen';
+import BusinessRatingsScreen from './src/screens/business/BusinessRatingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -69,6 +71,7 @@ function ClientTabNavigator() {
           },
         }}
       />
+      {/* ❌ REMOVED - RateBusiness should NOT be in Tab Navigator */}
       <Tab.Screen
         name="Profile"
         component={ClientProfileScreen}
@@ -123,6 +126,7 @@ function BusinessTabNavigator() {
         component={ManageAppointmentsScreen}
         options={{
           title: 'Appointments',
+          headerShown: false,
           tabBarIcon: function(props) {
             return <Text style={{ fontSize: 18 }}>📋</Text>;
           },
@@ -133,8 +137,20 @@ function BusinessTabNavigator() {
         component={ManageServicesScreen}
         options={{
           title: 'Services',
+          headerShown: false,
           tabBarIcon: function(props) {
             return <Text style={{ fontSize: 18 }}>⚙️</Text>;
+          },
+        }}
+      />
+      <Tab.Screen
+        name="BusinessRatings"
+        component={BusinessRatingsScreen}
+        options={{
+          title: 'Ratings',
+          headerShown: false,
+          tabBarIcon: function(props) {
+            return <Text style={{ fontSize: 18 }}>⭐</Text>;
           },
         }}
       />
@@ -143,6 +159,7 @@ function BusinessTabNavigator() {
         component={BusinessProfileScreen}
         options={{
           title: 'Profile',
+          headerShown: false,
           tabBarIcon: function(props) {
             return <Text style={{ fontSize: 18 }}>🏪</Text>;
           },
@@ -169,20 +186,16 @@ function Navigation() {
   return (
     <Stack.Navigator>
       {!user ? (
-        <React.Fragment>
+        <>
           <Stack.Screen
             name="RoleSelection"
             component={RoleSelectionScreen}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="Login"
             component={LoginScreen}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="Register"
@@ -192,46 +205,54 @@ function Navigation() {
               headerBackTitle: 'Back',
             }}
           />
-        </React.Fragment>
+        </>
       ) : user.role === 'CLIENT' ? (
-        <React.Fragment>
+        <>
           <Stack.Screen
             name="MainTabs"
             component={ClientTabNavigator}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="BusinessDetails"
             component={BusinessDetailsScreen}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="BookAppointment"
             component={BookAppointmentScreen}
+            options={{ headerShown: false }}
+          />
+          {/* ✅ CORRECT LOCATION - RateBusiness in Stack Navigator */}
+          <Stack.Screen
+            name="RateBusiness"
+            component={RateBusinessScreen}
             options={{
-              headerShown: false,
+              title: 'Rate Business',
+              headerShown: true,
+              headerStyle: {
+                backgroundColor: '#7c3aed',
+              },
+              headerTintColor: '#ffffff',
+              headerTitleStyle: {
+                fontWeight: 'bold',
+              },
             }}
           />
-        </React.Fragment>
+        </>
       ) : user.role === 'BUSINESS_OWNER' ? (
-        <React.Fragment>
+        <>
           <Stack.Screen
             name="BusinessTabs"
             component={BusinessTabNavigator}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
-        </React.Fragment>
+        </>
       ) : (
-        <React.Fragment>
+        <>
           <Stack.Screen
             name="Error"
-            component={function() {
+            component={function ErrorScreen() {
               return (
                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffffff', paddingHorizontal: 24 }}>
                   <Text style={{ fontSize: 48, marginBottom: 16 }}>⚠️</Text>
@@ -244,11 +265,9 @@ function Navigation() {
                 </View>
               );
             }}
-            options={{
-              headerShown: false,
-            }}
+            options={{ headerShown: false }}
           />
-        </React.Fragment>
+        </>
       )}
     </Stack.Navigator>
   );

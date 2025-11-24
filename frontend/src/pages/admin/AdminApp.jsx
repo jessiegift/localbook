@@ -6,10 +6,9 @@ import AllBusinesses from "./AllBusinesses";
 import BusinessDetails from "./BusinessDetails";
 import AllUsers from "./AllUsers";
 import Reports from "./Reports";
-
 import Categories from "./Categories";
 import PlatformSettings from "./PlatformSettings";
-import Pending from "./Pending"; // ✅ updated import name and file path
+import Pending from "./Pending";
 
 function AdminApp() {
   const { user, logout } = useAuth();
@@ -20,6 +19,53 @@ function AdminApp() {
     logout();
     navigate("/login");
   };
+
+  const toggleDropdown = () => {
+    setShowDropdown(!showDropdown);
+  };
+
+  const closeDropdown = () => {
+    setShowDropdown(false);
+  };
+
+  let userName = "Admin User";
+  if (user && user.name) {
+    userName = user.name;
+  }
+
+  let userInitial = "A";
+  if (user && user.name) {
+    userInitial = user.name.charAt(0);
+  }
+
+  let userEmail = "admin@localbook.com";
+  if (user && user.email) {
+    userEmail = user.email;
+  }
+
+  let dropdownMenu = null;
+  if (showDropdown) {
+    dropdownMenu = (
+      <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
+        <button
+          onClick={handleLogout}
+          className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition font-medium flex items-center gap-2"
+        >
+          🚪 Logout
+        </button>
+      </div>
+    );
+  }
+
+  let dropdownOverlay = null;
+  if (showDropdown) {
+    dropdownOverlay = (
+      <div
+        className="fixed inset-0 z-40"
+        onClick={closeDropdown}
+      ></div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -40,93 +86,91 @@ function AdminApp() {
               <NavLink
                 to="/admin"
                 end
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 📊 Dashboard
               </NavLink>
 
               <NavLink
                 to="/admin/businesses"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 🏢 Businesses
               </NavLink>
 
               <NavLink
                 to="/admin/pending"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 ⏳ Pending
               </NavLink>
 
               <NavLink
                 to="/admin/users"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 👥 Users
               </NavLink>
 
-             
-
               <NavLink
                 to="/admin/categories"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 🏷️ Categories
               </NavLink>
 
               <NavLink
                 to="/admin/reports"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 📈 Analytics
               </NavLink>
 
               <NavLink
                 to="/admin/settings"
-                className={({ isActive }) =>
-                  `flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition ${
-                    isActive
-                      ? "bg-red-100 text-red-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`
-                }
+                className={({ isActive }) => {
+                  if (isActive) {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition bg-red-100 text-red-600";
+                  } else {
+                    return "flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition text-gray-700 hover:bg-gray-100";
+                  }
+                }}
               >
                 ⚙️ Settings
               </NavLink>
@@ -135,31 +179,22 @@ function AdminApp() {
             {/* Right: User Menu */}
             <div className="relative">
               <button
-                onClick={() => setShowDropdown(!showDropdown)}
+                onClick={toggleDropdown}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-gray-100 transition"
               >
                 <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {user?.name?.charAt(0) || "A"}
+                  {userInitial}
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-gray-900">
-                    {user?.name || "Admin User"}
+                    {userName}
                   </p>
                   <p className="text-xs text-red-600">Administrator</p>
                 </div>
                 <span className="text-gray-400 text-sm">▼</span>
               </button>
 
-              {showDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                  <button
-                    onClick={handleLogout}
-                    className="w-full px-4 py-3 text-left text-red-600 hover:bg-red-50 transition font-medium flex items-center gap-2"
-                  >
-                    🚪 Logout
-                  </button>
-                </div>
-              )}
+              {dropdownMenu}
             </div>
           </div>
         </div>
@@ -171,9 +206,8 @@ function AdminApp() {
           <Route path="/" element={<AdminDashboard />} />
           <Route path="/businesses" element={<AllBusinesses />} />
           <Route path="/businesses/:id" element={<BusinessDetails />} />
-          <Route path="/pending" element={<Pending />} /> {/* ✅ updated route */}
+          <Route path="/pending" element={<Pending />} />
           <Route path="/users" element={<AllUsers />} />
-         
           <Route path="/categories" element={<Categories />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<PlatformSettings />} />
@@ -181,12 +215,7 @@ function AdminApp() {
       </main>
 
       {/* Overlay to close dropdown */}
-      {showDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowDropdown(false)}
-        ></div>
-      )}
+      {dropdownOverlay}
     </div>
   );
 }

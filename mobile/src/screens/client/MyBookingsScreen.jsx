@@ -261,6 +261,24 @@ function MyBookingsScreen(props) {
     }
   }
 
+  // ⭐ NEW: Handle navigate to review screen
+  function handleLeaveReview(booking) {
+    console.log('⭐ Navigating to review screen for booking:', booking.id);
+    
+    const business = booking.business;
+    const businessId = business.id;
+    const businessName = business.businessName;
+    const appointmentId = booking.id;
+    const userId = user.id;
+    
+    navigation.navigate('RateBusiness', {
+      businessId: businessId,
+      businessName: businessName,
+      appointmentId: appointmentId,
+      userId: userId,
+    });
+  }
+
   function handleOpenRescheduleModal(booking) {
     const bookingId = booking.id;
     console.log('📅 Opening reschedule modal for booking:', bookingId);
@@ -636,6 +654,12 @@ function MyBookingsScreen(props) {
     const isConfirmed = itemStatus === 'CONFIRMED';
     const showActionButtons = isUpcoming === true && isConfirmed === true;
 
+    // ⭐ NEW: Check if completed and not reviewed
+    const isCompleted = itemStatus === 'COMPLETED';
+    const hasReviewed = item.hasReviewed || false; // This comes from backend
+    const showReviewButton = isCompleted === true && hasReviewed === false;
+    const showReviewedBadge = isCompleted === true && hasReviewed === true;
+
     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const month = appointmentDate.getMonth();
     const monthName = monthNames[month];
@@ -783,6 +807,29 @@ function MyBookingsScreen(props) {
                   </View>
                 )}
 
+                {/* ⭐ NEW: Show "Reviewed" badge if already reviewed */}
+                {showReviewedBadge === true && (
+                  <View style={{
+                    backgroundColor: '#d1fae5',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    alignSelf: 'flex-start',
+                    marginTop: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 14, marginRight: 4 }}>✅</Text>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '700',
+                      color: '#059669',
+                    }}>
+                      Reviewed
+                    </Text>
+                  </View>
+                )}
+
                 <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={{ fontSize: 16, marginRight: 4 }}>⏱️</Text>
@@ -800,6 +847,7 @@ function MyBookingsScreen(props) {
               </View>
             </View>
 
+            {/* ⭐ UPDATED: Action buttons - show reschedule/cancel OR review button */}
             {showActionButtons === true && (
               <View style={{
                 flexDirection: 'row',
@@ -844,6 +892,33 @@ function MyBookingsScreen(props) {
                   <Text style={{ fontSize: 16, marginRight: 6 }}>✕</Text>
                   <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>
                     Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* ⭐ NEW: Review button for completed appointments */}
+            {showReviewButton === true && (
+              <View style={{
+                borderTopWidth: 1,
+                borderTopColor: '#f3f4f6',
+              }}>
+                <TouchableOpacity
+                  style={{
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    backgroundColor: '#faf5ff',
+                  }}
+                  onPress={function() {
+                    handleLeaveReview(item);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 8 }}>⭐</Text>
+                  <Text style={{ color: '#7c3aed', fontSize: 16, fontWeight: '700' }}>
+                    Leave Review
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1045,12 +1120,14 @@ function MyBookingsScreen(props) {
         </View>
       )}
 
+      {/* Reschedule Modal - keeping your existing modal code */}
       <Modal
         visible={showRescheduleModal}
         transparent={true}
         animationType="slide"
         onRequestClose={handleCloseRescheduleModal}
       >
+        {/* Your existing reschedule modal code here - keeping it the same */}
         <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
           <View style={{
             flex: 1,
@@ -1089,6 +1166,7 @@ function MyBookingsScreen(props) {
               contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}
               showsVerticalScrollIndicator={false}
             >
+              {/* Your existing modal content */}
               {selectedBooking && (
                 <View style={{
                   backgroundColor: '#f9fafb',
@@ -1144,6 +1222,7 @@ function MyBookingsScreen(props) {
                 </View>
               )}
 
+              {/* Rest of your reschedule modal UI - keep as is */}
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
                 Select New Date
               </Text>

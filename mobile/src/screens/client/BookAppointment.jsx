@@ -57,8 +57,196 @@ function BookAppointment(props) {
   const setSubmitting = submittingState[1];
 
   useEffect(function() {
+    console.log('📅 Booking screen loaded');
+    console.log('🏢 Business:', business.businessName);
+    console.log('🕐 Opening hours:', business.openingHours);
     generateTimeSlots();
   }, [selectedDate]);
+
+  function isBusinessOpen(dateTime, businessHours) {
+    if (businessHours === null) {
+      return true;
+    }
+    if (businessHours === undefined) {
+      return true;
+    }
+    
+    if (dateTime === null) {
+      return true;
+    }
+    if (dateTime === undefined) {
+      return true;
+    }
+
+    const date = new Date(dateTime);
+    const dayOfWeek = date.getDay();
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const timeInMinutes = hours * 60 + minutes;
+
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayName = dayNames[dayOfWeek];
+    const dayHours = businessHours[dayName];
+
+    if (dayHours === null) {
+      return true;
+    }
+    if (dayHours === undefined) {
+      return true;
+    }
+
+    const isClosedField = dayHours.isClosed;
+    if (isClosedField === true) {
+      return false;
+    }
+
+    const openTime = dayHours.openTime;
+    const closeTime = dayHours.closeTime;
+
+    if (openTime === null) {
+      return true;
+    }
+    if (openTime === undefined) {
+      return true;
+    }
+    if (closeTime === null) {
+      return true;
+    }
+    if (closeTime === undefined) {
+      return true;
+    }
+
+    const openParts = openTime.split(':');
+    const openHour = parseInt(openParts[0]);
+    const openMinute = parseInt(openParts[1]);
+    const openMinutes = openHour * 60 + openMinute;
+
+    const closeParts = closeTime.split(':');
+    const closeHour = parseInt(closeParts[0]);
+    const closeMinute = parseInt(closeParts[1]);
+    const closeMinutes = closeHour * 60 + closeMinute;
+
+    const isAfterOpen = timeInMinutes >= openMinutes;
+    const isBeforeClose = timeInMinutes < closeMinutes;
+    const isWithinHours = isAfterOpen && isBeforeClose;
+    
+    return isWithinHours;
+  }
+
+  function getBusinessStatusForTime(timeSlot) {
+    const hasOpeningHours = business.openingHours !== null && business.openingHours !== undefined;
+    if (hasOpeningHours === false) {
+      return { isOpen: true, message: '' };
+    }
+
+    const slotDate = new Date(selectedDate);
+    const timeParts = timeSlot.split(':');
+    const hour = parseInt(timeParts[0]);
+    const minute = parseInt(timeParts[1]);
+    slotDate.setHours(hour);
+    slotDate.setMinutes(minute);
+    slotDate.setSeconds(0);
+    slotDate.setMilliseconds(0);
+
+    const dayOfWeek = slotDate.getDay();
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayName = dayNames[dayOfWeek];
+    const dayKey = dayName.toLowerCase();
+
+    const dayHours = business.openingHours[dayKey];
+
+    if (dayHours === null) {
+      return { isOpen: true, message: '' };
+    }
+    if (dayHours === undefined) {
+      return { isOpen: true, message: '' };
+    }
+
+    if (dayHours.isClosed === true) {
+      return {
+        isOpen: false,
+        message: 'Closed on ' + dayName + 's'
+      };
+    }
+
+    const isOpen = isBusinessOpen(slotDate, business.openingHours);
+
+    if (isOpen === false) {
+      const openTime = dayHours.openTime;
+      const closeTime = dayHours.closeTime;
+      const openTimeFormatted = formatTime12Hour(openTime);
+      const closeTimeFormatted = formatTime12Hour(closeTime);
+      return {
+        isOpen: false,
+        message: 'Closed. Open: ' + openTimeFormatted + ' - ' + closeTimeFormatted
+      };
+    }
+
+    return {
+      isOpen: true,
+      message: 'Open'
+    };
+  }
+
+  function getTodayStatus() {
+    const hasOpeningHours = business.openingHours !== null && business.openingHours !== undefined;
+    if (hasOpeningHours === false) {
+      return { isOpen: true, message: '' };
+    }
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayKey = dayNames[dayOfWeek];
+    const dayHours = business.openingHours[dayKey];
+
+    if (dayHours === null) {
+      return { isOpen: true, message: '' };
+    }
+    if (dayHours === undefined) {
+      return { isOpen: true, message: '' };
+    }
+
+    if (dayHours.isClosed === true) {
+      const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayLabel = dayLabels[dayOfWeek];
+      return {
+        isOpen: false,
+        message: 'Closed on ' + todayLabel + 's'
+      };
+    }
+
+    const isCurrentlyOpen = isBusinessOpen(now, business.openingHours);
+    const openTime = dayHours.openTime;
+    const closeTime = dayHours.closeTime;
+
+    if (openTime === null) {
+      return { isOpen: true, message: '' };
+    }
+    if (openTime === undefined) {
+      return { isOpen: true, message: '' };
+    }
+    if (closeTime === null) {
+      return { isOpen: true, message: '' };
+    }
+    if (closeTime === undefined) {
+      return { isOpen: true, message: '' };
+    }
+
+    if (isCurrentlyOpen === true) {
+      const closeTimeFormatted = formatTime12Hour(closeTime);
+      return {
+        isOpen: true,
+        message: 'Open now • Closes at ' + closeTimeFormatted
+      };
+    } else {
+      const openTimeFormatted = formatTime12Hour(openTime);
+      return {
+        isOpen: false,
+        message: 'Closed now • Opens at ' + openTimeFormatted
+      };
+    }
+  }
 
   function generateTimeSlots() {
     const slots = [];
@@ -151,12 +339,10 @@ function BookAppointment(props) {
   }
 
   async function handleBooking() {
-    console.log('🎯 === BOOKING PROCESS STARTED ===');
+    console.log('🎯 Booking process started');
     
     const hasUser = user !== null && user !== undefined;
     if (hasUser === false) {
-      console.log('❌ User is not logged in');
-      
       const alertButtons = [
         {
           text: 'Cancel',
@@ -180,11 +366,6 @@ function BookAppointment(props) {
 
     const hasToken = token !== null && token !== undefined;
     if (hasToken === false) {
-      console.log('❌ Token is undefined');
-      const error = new Error();
-      const errorStack = error.stack;
-      console.log('Error Stack:', errorStack);
-      
       const alertButtons = [
         {
           text: 'OK',
@@ -203,14 +384,6 @@ function BookAppointment(props) {
     }
 
     const userId = user.id;
-    console.log('✅ User ID:', userId);
-    
-    let tokenExists = 'No';
-    if (hasToken === true) {
-      tokenExists = 'Yes';
-    }
-    console.log('✅ Token exists:', tokenExists);
-    console.log('📋 User data:', user);
 
     const hasSelectedDate = selectedDate !== null && selectedDate !== undefined;
     const hasSelectedTime = selectedTime !== null && selectedTime !== undefined;
@@ -221,17 +394,16 @@ function BookAppointment(props) {
       return;
     }
 
-    const userName = user.name;
-    const userEmail = user.email;
-    const hasTokenBool = token !== null && token !== undefined;
-    
-    const userInfo = {
-      userId: userId,
-      userName: userName,
-      userEmail: userEmail,
-      hasToken: hasTokenBool
-    };
-    console.log('🔍 DEBUG - User info:', userInfo);
+    const status = getBusinessStatusForTime(selectedTime);
+    if (status.isOpen === false) {
+      const alertMessage = 'Sorry, this business is closed at the selected time. ' + status.message;
+      Alert.alert(
+        'Business Closed',
+        alertMessage,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
     let businessName = business.name;
     const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
@@ -240,11 +412,6 @@ function BookAppointment(props) {
     }
 
     const businessId = business.id;
-    const businessInfo = {
-      businessId: businessId,
-      businessName: businessName
-    };
-    console.log('🔍 DEBUG - Business info:', businessInfo);
 
     let serviceName = service.name;
     const hasServiceName = service.serviceName !== null && service.serviceName !== undefined;
@@ -253,13 +420,6 @@ function BookAppointment(props) {
     }
 
     const serviceId = service.id;
-    const servicePrice = service.price;
-    const serviceInfo = {
-      serviceId: serviceId,
-      serviceName: serviceName,
-      servicePrice: servicePrice
-    };
-    console.log('🔍 DEBUG - Service info:', serviceInfo);
 
     setSubmitting(true);
 
@@ -268,10 +428,6 @@ function BookAppointment(props) {
       const dateParts = dateISOString.split('T');
       const dateStr = dateParts[0];
       const appointmentDateTime = dateStr + 'T' + selectedTime + ':00';
-
-      console.log('🔍 DEBUG - DateTime:', appointmentDateTime);
-      console.log('🔍 DEBUG - Selected Date Object:', selectedDate);
-      console.log('🔍 DEBUG - Selected Time String:', selectedTime);
 
       const baseUrl = 'http://192.168.1.15:8080/api/appointments';
       
@@ -299,23 +455,12 @@ function BookAppointment(props) {
 
       const paramsString = params.join('&');
       const url = baseUrl + '?' + paramsString;
-      
-      console.log('📤 FULL URL:', url);
-      console.log('📤 Individual params:');
-      
-      let paramIndex = 0;
-      while (paramIndex < params.length) {
-        const param = params[paramIndex];
-        console.log('   -', param);
-        paramIndex = paramIndex + 1;
-      }
 
       const authHeader = 'Bearer ' + token;
       const requestHeaders = {
         'Authorization': authHeader,
         'Content-Type': 'application/json',
       };
-      console.log('📤 Sending request with headers:', requestHeaders);
 
       const requestOptions = {
         method: 'POST',
@@ -325,29 +470,12 @@ function BookAppointment(props) {
       const response = await fetch(url, requestOptions);
 
       const responseStatus = response.status;
-      const responseStatusText = response.statusText;
       const isResponseOk = response.ok;
-      
-      console.log('📥 Response status:', responseStatus);
-      console.log('📥 Response statusText:', responseStatusText);
-      console.log('📥 Response ok:', isResponseOk);
 
       const responseText = await response.text();
-      const responseTextLength = responseText.length;
-      
-      console.log('📥 Response text:', responseText);
-      console.log('📥 Response text length:', responseTextLength);
 
       if (isResponseOk === true) {
-        let data;
-        try {
-          data = JSON.parse(responseText);
-          console.log('✅ Booking successful! Data:', data);
-        } catch (parseError) {
-          const parseErrorMessage = parseError.message;
-          console.log('✅ Booking successful! (no JSON response)');
-          console.log('Parse error:', parseErrorMessage);
-        }
+        console.log('✅ Booking successful');
         
         const formattedDate = formatDate(selectedDate);
         const formattedTime = formatTime12Hour(selectedTime);
@@ -369,33 +497,17 @@ function BookAppointment(props) {
         
         Alert.alert('Success! ✅', successMessage, alertButtons);
       } else {
-        console.error('❌ Booking failed with status:', responseStatus);
-        console.error('❌ Response text:', responseText);
-        
-        const responseHeaders = response.headers;
-        console.error('❌ Response headers:', responseHeaders);
+        console.error('❌ Booking failed');
         
         let errorMessage = 'Failed to book appointment';
         
-        const isEmpty = responseTextLength === 0;
-        if (isEmpty === true) {
-          const statusString = responseStatus.toString();
-          errorMessage = 'Server error (' + statusString + '): Empty response. Please check server logs.';
-          console.error('❌ Empty response body from server');
-        } else {
+        const isEmpty = responseText.length === 0;
+        if (isEmpty === false) {
           try {
             const errorData = JSON.parse(responseText);
-            console.log('❌ Parsed error data:', errorData);
             
             const message = errorData.message;
             const error = errorData.error;
-            const timestamp = errorData.timestamp;
-            const path = errorData.path;
-            
-            console.log('❌ Error message:', message);
-            console.log('❌ Error type:', error);
-            console.log('❌ Error timestamp:', timestamp);
-            console.log('❌ Error path:', path);
             
             const hasMessage = message !== null && message !== undefined;
             const hasError = error !== null && error !== undefined;
@@ -406,16 +518,7 @@ function BookAppointment(props) {
               errorMessage = error;
             }
           } catch (parseError) {
-            const parseErrorMessage = parseError.message;
-            console.error('❌ Failed to parse error response:', parseErrorMessage);
-            
-            const hasResponseText = responseText !== null && responseText !== undefined;
-            const responseTextNotEmpty = responseText.length > 0;
-            const hasValidResponseText = hasResponseText === true && responseTextNotEmpty === true;
-            
-            if (hasValidResponseText === true) {
-              errorMessage = responseText;
-            }
+            // Use default error message
           }
         }
         
@@ -423,11 +526,7 @@ function BookAppointment(props) {
       }
     } catch (error) {
       const errorMessage = error.message;
-      const errorStack = error.stack;
-      
-      console.error('❌ Network Error:', error);
-      console.error('❌ Error details:', errorMessage);
-      console.error('❌ Error stack:', errorStack);
+      console.error('❌ Network Error:', errorMessage);
       
       const alertMessage = 'Network error: ' + errorMessage;
       Alert.alert('Error', alertMessage);
@@ -467,6 +566,9 @@ function BookAppointment(props) {
 
   const platformOS = Platform.OS;
   const isIOS = platformOS === 'ios';
+
+  const todayStatus = getTodayStatus();
+  const showStatusBadge = business.openingHours !== null && business.openingHours !== undefined;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
@@ -544,6 +646,75 @@ function BookAppointment(props) {
           paddingHorizontal: 20,
           paddingVertical: 20,
         }}>
+          {showStatusBadge === true && (
+            <View>
+              {todayStatus.isOpen === true && (
+                <View style={{
+                  backgroundColor: '#d1fae5',
+                  borderWidth: 2,
+                  borderColor: '#6ee7b7',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 24,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 24, marginRight: 12 }}>
+                    🟢
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: '#065f46',
+                      marginBottom: 4,
+                    }}>
+                      Open Now
+                    </Text>
+                    <Text style={{
+                      fontSize: 14,
+                      color: '#047857',
+                    }}>
+                      {todayStatus.message}
+                    </Text>
+                  </View>
+                </View>
+              )}
+              {todayStatus.isOpen === false && (
+                <View style={{
+                  backgroundColor: '#fee2e2',
+                  borderWidth: 2,
+                  borderColor: '#fecaca',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginBottom: 24,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontSize: 24, marginRight: 12 }}>
+                    🔴
+                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: '#991b1b',
+                      marginBottom: 4,
+                    }}>
+                      Closed Now
+                    </Text>
+                    <Text style={{
+                      fontSize: 14,
+                      color: '#b91c1c',
+                    }}>
+                      {todayStatus.message}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -634,14 +805,16 @@ function BookAppointment(props) {
             </Text>
           </View>
 
-          {loading === true ? (
+          {loading === true && (
             <View style={{
               paddingVertical: 32,
               alignItems: 'center',
             }}>
               <ActivityIndicator size="large" color="#7c3aed" />
             </View>
-          ) : (
+          )}
+
+          {loading === false && (
             <View style={{
               backgroundColor: '#ffffff',
               borderRadius: 12,
@@ -656,6 +829,8 @@ function BookAppointment(props) {
                 flexWrap: 'wrap',
               }}>
                 {availableSlots.map(function(time, index) {
+                  const status = getBusinessStatusForTime(time);
+                  const isOpen = status.isOpen;
                   const isSelected = selectedTime === time;
                   const indexPlusOne = index + 1;
                   const remainder = indexPlusOne % 3;
@@ -664,8 +839,16 @@ function BookAppointment(props) {
                   let buttonBgColor = '#ffffff';
                   let buttonBorderColor = '#d1d5db';
                   let textColor = '#374151';
+                  let isDisabled = false;
 
-                  if (isSelected === true) {
+                  if (isOpen === false) {
+                    buttonBgColor = '#f3f4f6';
+                    buttonBorderColor = '#e5e7eb';
+                    textColor = '#9ca3af';
+                    isDisabled = true;
+                  }
+                  
+                  if (isSelected === true && isOpen === true) {
                     buttonBgColor = '#7c3aed';
                     buttonBorderColor = '#7c3aed';
                     textColor = '#ffffff';
@@ -674,6 +857,11 @@ function BookAppointment(props) {
                   let marginRight = 8;
                   if (isLastInRow === true) {
                     marginRight = 0;
+                  }
+
+                  let opacity = 1;
+                  if (isDisabled === true) {
+                    opacity = 0.5;
                   }
 
                   const buttonStyle = {
@@ -685,26 +873,43 @@ function BookAppointment(props) {
                     backgroundColor: buttonBgColor,
                     borderColor: buttonBorderColor,
                     marginRight: marginRight,
+                    opacity: opacity,
                   };
 
                   const textStyle = {
                     textAlign: 'center',
                     fontWeight: '600',
                     color: textColor,
+                    fontSize: 14,
                   };
+
+                  function handleTimePress() {
+                    if (isDisabled === false) {
+                      setSelectedTime(time);
+                    }
+                  }
 
                   return (
                     <TouchableOpacity
                       key={index}
                       style={buttonStyle}
-                      onPress={function() {
-                        setSelectedTime(time);
-                      }}
+                      onPress={handleTimePress}
+                      disabled={isDisabled}
                       activeOpacity={0.7}
                     >
                       <Text style={textStyle}>
                         {formatTime12Hour(time)}
                       </Text>
+                      {isDisabled === true && (
+                        <Text style={{
+                          textAlign: 'center',
+                          fontSize: 10,
+                          color: '#9ca3af',
+                          marginTop: 2,
+                        }}>
+                          Closed
+                        </Text>
+                      )}
                     </TouchableOpacity>
                   );
                 })}
@@ -952,7 +1157,7 @@ function BookAppointment(props) {
             disabled={submitting}
             activeOpacity={0.7}
           >
-            {submitting === true ? (
+            {submitting === true && (
               <View style={{
                 flexDirection: 'row',
                 justifyContent: 'center',
@@ -968,7 +1173,8 @@ function BookAppointment(props) {
                   Booking...
                 </Text>
               </View>
-            ) : (
+            )}
+            {submitting === false && (
               <Text style={{
                 color: '#ffffff',
                 textAlign: 'center',
@@ -982,7 +1188,7 @@ function BookAppointment(props) {
         </View>
       )}
 
-      {isIOS === true ? (
+      {isIOS === true && (
         <Modal
           visible={showDatePicker}
           transparent={true}
@@ -1046,17 +1252,17 @@ function BookAppointment(props) {
             </View>
           </View>
         </Modal>
-      ) : (
-        showDatePicker === true && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display="default"
-            onChange={handleDateChange}
-            minimumDate={minDate}
-            maximumDate={maxDate}
-          />
-        )
+      )}
+
+      {isIOS === false && showDatePicker === true && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          minimumDate={minDate}
+          maximumDate={maxDate}
+        />
       )}
     </View>
   );

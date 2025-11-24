@@ -22,13 +22,19 @@ const Login = () => {
             console.log("=== LOGIN DEBUG INFO ===");
             console.log("Full response:", JSON.stringify(data, null, 2));
             console.log("User object:", data.user);
+            
+            let userRole = null;
+            
+            if (data.user && data.user.role) {
+                userRole = data.user.role;
+            } else if (data.role) {
+                userRole = data.role;
+            }
+            
             console.log("Role from data.user?.role:", data.user?.role);
             console.log("Role from data.role:", data.role);
             console.log("Token:", data.token);
             console.log("========================");
-            
-            // Check user role and navigate accordingly
-            const userRole = data.user?.role || data.role;
             
             if (!userRole) {
                 console.error("❌ No role found in response");
@@ -42,32 +48,43 @@ const Login = () => {
             // Handle different roles
             if (userRole === 'ADMIN') {
                 console.log("📍 Navigating to admin dashboard");
-                navigate('/admin/dashboard');
+                navigate('/admin');
             } else if (userRole === 'BUSINESS_OWNER') {
                 console.log("📍 Navigating to business dashboard");
-                navigate('/business/dashboard');
+                navigate('/business');
             } else if (userRole === 'CLIENT') {
                 console.error("❌ CLIENT role detected");
                 setError('Client accounts must use the mobile app. This portal is for business owners only.');
                 console.log("CLIENT role detected - access denied");
             } else {
                 console.error("❌ Unknown role:", userRole);
-                setError(`Unauthorized role: ${userRole}. Only ADMIN and BUSINESS_OWNER roles can access this portal.`);
+                setError('Unauthorized role: ' + userRole + '. Only ADMIN and BUSINESS_OWNER roles can access this portal.');
                 console.log("Unknown role detected:", userRole);
             }
         } catch (err) {
             console.error("❌ Login error:", err);
             console.error("Error response:", err.response);
-            console.error("Error status:", err.response?.status);
-            console.error("Error data:", err.response?.data);
+            
+            let errorStatus = null;
+            let errorDataMessage = null;
+            
+            if (err.response) {
+                errorStatus = err.response.status;
+                console.error("Error status:", errorStatus);
+                console.error("Error data:", err.response.data);
+                
+                if (err.response.data && err.response.data.message) {
+                    errorDataMessage = err.response.data.message;
+                }
+            }
             
             // Handle specific error messages
-            if (err.response?.status === 401) {
+            if (errorStatus === 401) {
                 setError('Invalid email or password. Please try again.');
-            } else if (err.response?.status === 403) {
+            } else if (errorStatus === 403) {
                 setError('Your account has been suspended. Please contact support.');
-            } else if (err.response?.data?.message) {
-                setError(err.response.data.message);
+            } else if (errorDataMessage) {
+                setError(errorDataMessage);
             } else {
                 setError('Login failed. Please check your credentials and try again.');
             }
@@ -75,6 +92,54 @@ const Login = () => {
             setLoading(false);
         }
     };
+
+    const handleEmailChange = (e) => {
+        setEmail(e.target.value);
+    };
+
+    const handlePasswordChange = (e) => {
+        setPassword(e.target.value);
+    };
+
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
+    };
+
+    let passwordInputType = "password";
+    if (showPassword) {
+        passwordInputType = "text";
+    }
+
+    let passwordToggleIcon = null;
+    if (showPassword) {
+        passwordToggleIcon = <span className="text-xl">🙈</span>;
+    } else {
+        passwordToggleIcon = <span className="text-xl">👁️</span>;
+    }
+
+    let submitButtonContent = null;
+    if (loading) {
+        submitButtonContent = (
+            <span className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Logging in...
+            </span>
+        );
+    } else {
+        submitButtonContent = "Login";
+    }
+
+    let errorMessageDisplay = null;
+    if (error) {
+        errorMessageDisplay = (
+            <div className="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg mb-4 flex items-start gap-2">
+                <span className="text-xl flex-shrink-0">⚠️</span>
+                <div className="flex-1">
+                    <p className="text-sm font-medium">{error}</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center justify-center min-h-screen w-screen bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 overflow-hidden">
@@ -87,14 +152,7 @@ const Login = () => {
                 </div>
                 
                 {/* Error Message */}
-                {error && (
-                    <div className="bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg mb-4 flex items-start gap-2">
-                        <span className="text-xl flex-shrink-0">⚠️</span>
-                        <div className="flex-1">
-                            <p className="text-sm font-medium">{error}</p>
-                        </div>
-                    </div>
-                )}
+                {errorMessageDisplay}
                 
                 {/* Login Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -108,7 +166,7 @@ const Login = () => {
                             id="email"
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={handleEmailChange}
                             placeholder="your.email@example.com"
                             required
                             disabled={loading}
@@ -122,26 +180,22 @@ const Login = () => {
                         </label>
                         <div className="relative">
                             <input  
-                                type={showPassword ? "text" : "password"}
+                                type={passwordInputType}
                                 id="password"
                                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition pr-12"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                onChange={handlePasswordChange}
                                 placeholder="Enter your password"
                                 required
                                 disabled={loading}
                             />
                             <button
                                 type="button"
-                                onClick={() => setShowPassword(!showPassword)}
+                                onClick={togglePasswordVisibility}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
                                 tabIndex="-1"
                             >
-                                {showPassword ? (
-                                    <span className="text-xl">🙈</span>
-                                ) : (
-                                    <span className="text-xl">👁️</span>
-                                )}
+                                {passwordToggleIcon}
                             </button>
                         </div>
                     </div>
@@ -166,14 +220,7 @@ const Login = () => {
                         className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg hover:from-purple-700 hover:to-blue-700 transition disabled:from-gray-400 disabled:to-gray-400 font-semibold shadow-md hover:shadow-lg mt-6"
                         disabled={loading}
                     >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Logging in...
-                            </span>
-                        ) : (
-                            "Login"
-                        )}
+                        {submitButtonContent}
                     </button>
                 </form>
 

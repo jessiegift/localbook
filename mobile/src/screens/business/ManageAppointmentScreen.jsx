@@ -1,5 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  View, 
+  Text, 
+  FlatList, 
+  TouchableOpacity, 
+  RefreshControl, 
+  Alert, 
+  ActivityIndicator,
+} from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
 const ManageAppointmentScreen = function(props) {
@@ -8,572 +16,579 @@ const ManageAppointmentScreen = function(props) {
   const user = authContext.user;
   const token = authContext.token;
   
-  const activeTabState = useState('today');
-  const activeTab = activeTabState[0];
-  const setActiveTab = activeTabState[1];
-  
-  const appointmentsState = useState([]);
-  const appointments = appointmentsState[0];
-  const setAppointments = appointmentsState[1];
-  
-  const loadingState = useState(true);
-  const loading = loadingState[0];
-  const setLoading = loadingState[1];
-  
-  const refreshingState = useState(false);
-  const refreshing = refreshingState[0];
-  const setRefreshing = refreshingState[1];
-
-  const businessIdState = useState(null);
-  const businessId = businessIdState[0];
-  const setBusinessId = businessIdState[1];
+  const [activeTab, setActiveTab] = useState('today');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [businessId, setBusinessId] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [stats, setStats] = useState({
+    today: 0,
+    upcoming: 0,
+    completed: 0,
+    cancelled: 0
+  });
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
+  // Update current time every minute
+  useEffect(function() {
+    const timer = setInterval(function() {
+      setCurrentTime(new Date());
+    }, 60000);
+    
+    return function() {
+      clearInterval(timer);
+    };
+  }, []);
+
+  // Fetch business ID once on mount
   useEffect(function() {
     fetchBusinessId();
   }, []);
 
+  // Fetch appointments when tab or businessId changes
   useEffect(function() {
-    const hasBusinessId = businessId !== null && businessId !== undefined;
-    if (hasBusinessId === true) {
+    if (businessId !== null && businessId !== undefined) {
       fetchAppointments();
     }
   }, [activeTab, businessId]);
 
-  const fetchBusinessId = async function() {
+  const fetchBusinessId = useCallback(async function() {
     try {
-      const hasUser = user !== null && user !== undefined;
-      if (hasUser === false) {
+      if (!user?.id) {
         console.log('❌ No user found');
         setLoading(false);
         return;
       }
 
-      const userId = user.id;
-      const userIdString = userId.toString();
-      const url = API_BASE_URL + '/businesses/owner/' + userIdString;
-      
+      const url = `${API_BASE_URL}/businesses/owner/${user.id}`;
       console.log('🔍 Fetching business for user:', url);
 
-      const authHeader = 'Bearer ' + token;
-      const requestHeaders = {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      };
-
-      const requestOptions = {
+      const response = await fetch(url, {
         method: 'GET',
-        headers: requestHeaders,
-      };
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      const response = await fetch(url, requestOptions);
-      const isResponseOk = response.ok;
-
-      if (isResponseOk === true) {
+      if (response.ok) {
         const data = await response.json();
         console.log('✅ Business data:', data);
         
-        let foundBusinessId = null;
-        const isArray = Array.isArray(data);
-        
-        if (isArray === true) {
-          const dataLength = data.length;
-          const hasBusinesses = dataLength > 0;
-          if (hasBusinesses === true) {
-            const firstBusiness = data[0];
-            foundBusinessId = firstBusiness.id;
-          }
-        } else {
-          const hasId = data.id !== null && data.id !== undefined;
-          if (hasId === true) {
-            foundBusinessId = data.id;
-          }
-        }
+        const foundBusinessId = Array.isArray(data) ? data[0]?.id : data?.id;
 
-        const foundBusiness = foundBusinessId !== null && foundBusinessId !== undefined;
-        if (foundBusiness === true) {
+        if (foundBusinessId) {
           console.log('🏢 Business ID found:', foundBusinessId);
           setBusinessId(foundBusinessId);
         } else {
           console.log('❌ No business found for this user');
-          Alert.alert('No Business', 'You need to create a business first.');
+          Alert.alert('No Business', 'You need to create a business profile first.');
           setLoading(false);
         }
       } else {
         const errorText = await response.text();
         console.error('❌ Failed to fetch business:', errorText);
-        Alert.alert('Error', 'You are not a business owner.');
+        Alert.alert('Error', 'Failed to load business information.');
         setLoading(false);
       }
-    } catch (errorObject) {
-      console.error('❌ Error fetching business:', errorObject);
+    } catch (error) {
+      console.error('❌ Error fetching business:', error);
       Alert.alert('Error', 'Failed to load business information');
       setLoading(false);
     }
-  };
+  }, [user, token]);
 
-  const fetchAppointments = async function() {
+  const fetchAppointments = useCallback(async function() {
     try {
       console.log('📥 Fetching appointments for business...');
       
-      const hasBusinessId = businessId !== null && businessId !== undefined;
-      if (hasBusinessId === false) {
+      if (!businessId) {
         console.log('❌ No business ID');
         setLoading(false);
         return;
       }
 
-      const businessIdString = businessId.toString();
-      const url = API_BASE_URL + '/appointments/business/' + businessIdString;
-      
+      const url = `${API_BASE_URL}/appointments/business/${businessId}`;
       console.log('🔗 Fetching from:', url);
-      console.log('📋 Filter:', activeTab);
 
-      const authHeader = 'Bearer ' + token;
-      const requestHeaders = {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      };
-
-      const requestOptions = {
+      const response = await fetch(url, {
         method: 'GET',
-        headers: requestHeaders,
-      };
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-      const response = await fetch(url, requestOptions);
-      const responseStatus = response.status;
-      
-      console.log('📡 Response status:', responseStatus);
-
-      const isResponseOk = response.ok;
-      if (isResponseOk === true) {
+      if (response.ok) {
         const data = await response.json();
-        const dataLength = data.length;
-        console.log('✅ Appointments received:', dataLength);
+        console.log('✅ Appointments received:', data.length);
 
         const now = new Date();
-        const nowYear = now.getFullYear();
-        const nowMonth = now.getMonth();
-        const nowDate = now.getDate();
-        
-        const todayStart = new Date(nowYear, nowMonth, nowDate, 0, 0, 0);
-        const todayEnd = new Date(nowYear, nowMonth, nowDate, 23, 59, 59);
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-        const filteredAppointments = [];
-        
-        let appointmentIndex = 0;
-        while (appointmentIndex < dataLength) {
-          const appointment = data[appointmentIndex];
-          const appointmentDateTimeString = appointment.appointmentDateTime;
-          const appointmentDate = new Date(appointmentDateTimeString);
-          
-          const isToday = activeTab === 'today';
-          const isUpcoming = activeTab === 'upcoming';
-          const isPast = activeTab === 'past';
-          
-          let shouldInclude = false;
-          
-          if (isToday === true) {
-            const isAfterTodayStart = appointmentDate >= todayStart;
-            const isBeforeTodayEnd = appointmentDate <= todayEnd;
-            const isTodayAppointment = isAfterTodayStart === true && isBeforeTodayEnd === true;
-            
-            const appointmentStatus = appointment.status;
-            const isConfirmed = appointmentStatus === 'CONFIRMED';
-            
-            const bothConditions = isTodayAppointment === true && isConfirmed === true;
-            shouldInclude = bothConditions;
-          } else if (isUpcoming === true) {
-            const isFutureAppointment = appointmentDate > todayEnd;
-            const appointmentStatus = appointment.status;
-            const isConfirmed = appointmentStatus === 'CONFIRMED';
-            
-            const bothConditions = isFutureAppointment === true && isConfirmed === true;
-            shouldInclude = bothConditions;
-          } else if (isPast === true) {
-            const isPastAppointment = appointmentDate < todayStart;
-            const appointmentStatus = appointment.status;
-            const isCancelled = appointmentStatus === 'CANCELLED';
-            const isCompleted = appointmentStatus === 'COMPLETED';
-            
-            const eitherCondition = isCancelled === true || isCompleted === true;
-            const finalCondition = isPastAppointment === true || eitherCondition === true;
-            shouldInclude = finalCondition;
-          }
-          
-          if (shouldInclude === true) {
-            filteredAppointments.push(appointment);
-          }
-          
-          appointmentIndex = appointmentIndex + 1;
-        }
+        const newStats = {
+          today: 0,
+          upcoming: 0,
+          completed: 0,
+          cancelled: 0
+        };
 
-        const sortedAppointments = filteredAppointments.sort(function(a, b) {
-          const dateAString = a.appointmentDateTime;
-          const dateBString = b.appointmentDateTime;
-          const dateA = new Date(dateAString);
-          const dateB = new Date(dateBString);
-          
-          const isPastTab = activeTab === 'past';
-          if (isPastTab === true) {
-            const dateATime = dateA.getTime();
-            const dateBTime = dateB.getTime();
-            const difference = dateBTime - dateATime;
-            return difference;
-          } else {
-            const dateATime = dateA.getTime();
-            const dateBTime = dateB.getTime();
-            const difference = dateATime - dateBTime;
-            return difference;
+        const filtered = data.filter(appointment => {
+          const appointmentDate = new Date(appointment.appointmentDateTime);
+          const status = appointment.status;
+
+          // Update stats
+          if (status === 'COMPLETED') newStats.completed++;
+          if (status === 'CANCELLED') newStats.cancelled++;
+          if (appointmentDate >= todayStart && appointmentDate <= todayEnd && status === 'CONFIRMED') {
+            newStats.today++;
           }
+          if (appointmentDate > todayEnd && status === 'CONFIRMED') {
+            newStats.upcoming++;
+          }
+
+          // Filter based on active tab
+          if (activeTab === 'today') {
+            return appointmentDate >= todayStart && 
+                   appointmentDate <= todayEnd && 
+                   status === 'CONFIRMED';
+          } else if (activeTab === 'upcoming') {
+            return appointmentDate > todayEnd && status === 'CONFIRMED';
+          } else if (activeTab === 'past') {
+            return appointmentDate < todayStart || 
+                   status === 'CANCELLED' || 
+                   status === 'COMPLETED';
+          }
+          return false;
         });
 
-        const sortedLength = sortedAppointments.length;
-        console.log('✅ Filtered appointments:', sortedLength);
-        
-        setAppointments(sortedAppointments);
+        setStats(newStats);
+
+        const sorted = filtered.sort((a, b) => {
+          const dateA = new Date(a.appointmentDateTime);
+          const dateB = new Date(b.appointmentDateTime);
+          return activeTab === 'past' ? dateB - dateA : dateA - dateB;
+        });
+
+        console.log('✅ Filtered appointments:', sorted.length);
+        setAppointments(sorted);
       } else {
         const errorText = await response.text();
         console.error('❌ Failed to fetch:', errorText);
         Alert.alert('Error', 'Failed to load appointments');
       }
-    } catch (errorObject) {
-      const errorMessage = errorObject.message;
-      console.error('❌ Error fetching appointments:', errorObject);
-      Alert.alert('Error', 'Network error: ' + errorMessage);
+    } catch (error) {
+      console.error('❌ Error fetching appointments:', error);
+      Alert.alert('Error', `Network error: ${error.message}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [businessId, activeTab, token]);
 
-  const handleComplete = function(appointmentId) {
-    const alertButtons = [
-      { 
-        text: 'No', 
-        style: 'cancel' 
-      },
-      {
-        text: 'Yes, Complete',
-        onPress: async function() {
-          try {
-            const appointmentIdString = appointmentId.toString();
-            const businessIdString = businessId.toString();
-            const url = API_BASE_URL + '/appointments/' + appointmentIdString + '/complete?businessId=' + businessIdString;
-            
-            console.log('✅ Completing appointment:', url);
-
-            const authHeader = 'Bearer ' + token;
-            const requestHeaders = {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-            };
-
-            const requestOptions = {
-              method: 'PUT',
-              headers: requestHeaders,
-            };
-
-            const response = await fetch(url, requestOptions);
-            const isResponseOk = response.ok;
-
-            if (isResponseOk === true) {
-              Alert.alert('Success', 'Appointment completed!');
-              fetchAppointments();
-            } else {
-              const errorText = await response.text();
-              console.error('❌ Failed to complete:', errorText);
-              Alert.alert('Error', 'Failed to complete appointment');
-            }
-          } catch (errorObject) {
-            console.error('❌ Error:', errorObject);
-            Alert.alert('Error', 'Network error');
-          }
-        },
-      },
-    ];
-
+  const handleComplete = useCallback(function(appointmentId) {
     Alert.alert(
       'Complete Appointment',
       'Mark this appointment as completed?',
-      alertButtons
-    );
-  };
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete',
+          style: 'default',
+          onPress: async function() {
+            try {
+              // ✅ FIXED: Changed businessId to user.id to match backend expectation
+              const url = `${API_BASE_URL}/appointments/${appointmentId}/complete?userId=${user.id}`;
+              console.log('✅ Completing appointment:', url);
 
-  const handleCancel = function(appointmentId) {
-    const alertButtons = [
-      { 
-        text: 'No', 
-        style: 'cancel' 
-      },
-      {
-        text: 'Yes, Cancel',
-        style: 'destructive',
-        onPress: async function() {
-          try {
-            const userId = user.id;
-            const appointmentIdString = appointmentId.toString();
-            const userIdString = userId.toString();
-            const url = API_BASE_URL + '/appointments/' + appointmentIdString + '/cancel?userId=' + userIdString;
-            
-            console.log('❌ Cancelling appointment:', url);
+              const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
 
-            const authHeader = 'Bearer ' + token;
-            const requestHeaders = {
-              'Authorization': authHeader,
-              'Content-Type': 'application/json',
-            };
-
-            const requestOptions = {
-              method: 'PUT',
-              headers: requestHeaders,
-            };
-
-            const response = await fetch(url, requestOptions);
-            const isResponseOk = response.ok;
-
-            if (isResponseOk === true) {
-              Alert.alert('Success', 'Appointment cancelled');
-              fetchAppointments();
-            } else {
-              const errorText = await response.text();
-              console.error('❌ Failed to cancel:', errorText);
-              Alert.alert('Error', 'Failed to cancel appointment');
+              if (response.ok) {
+                Alert.alert('Success', 'Appointment completed! ✅');
+                fetchAppointments();
+              } else {
+                const errorText = await response.text();
+                console.error('❌ Failed to complete:', errorText);
+                Alert.alert('Error', 'Failed to complete appointment');
+              }
+            } catch (error) {
+              console.error('❌ Error:', error);
+              Alert.alert('Error', 'Network error');
             }
-          } catch (errorObject) {
-            console.error('❌ Error:', errorObject);
-            Alert.alert('Error', 'Network error');
-          }
+          },
         },
-      },
-    ];
+      ]
+    );
+  }, [user, token, fetchAppointments]);
 
+  const handleCancel = useCallback(function(appointmentId) {
     Alert.alert(
       'Cancel Appointment',
       'Are you sure you want to cancel this appointment?',
-      alertButtons
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async function() {
+            try {
+              const url = `${API_BASE_URL}/appointments/${appointmentId}/cancel?userId=${user.id}`;
+              console.log('❌ Cancelling appointment:', url);
+
+              const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (response.ok) {
+                Alert.alert('Success', 'Appointment cancelled');
+                fetchAppointments();
+              } else {
+                const errorText = await response.text();
+                console.error('❌ Failed to cancel:', errorText);
+                Alert.alert('Error', 'Failed to cancel appointment');
+              }
+            } catch (error) {
+              console.error('❌ Error:', error);
+              Alert.alert('Error', 'Network error');
+            }
+          },
+        },
+      ]
     );
-  };
+  }, [user, token, fetchAppointments]);
 
-  const formatDateTime = function(dateTimeString) {
-    const date = new Date(dateTimeString);
-    
-    const dateOptions = { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    };
-    const formattedDate = date.toLocaleDateString('en-US', dateOptions);
-    
-    const timeOptions = { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    };
-    const formattedTime = date.toLocaleTimeString('en-US', timeOptions);
-    
-    const result = {
-      date: formattedDate,
-      time: formattedTime
-    };
-    
-    return result;
-  };
+  function formatDateShort(date) {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[date.getMonth()];
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${month} ${day}, ${year}`;
+  }
 
-  const getStatusColor = function(status) {
-    let color = 'bg-gray-100 text-gray-800';
-    
-    const hasStatus = status !== null && status !== undefined;
-    if (hasStatus === false) {
-      return color;
-    }
-    
-    const upperStatus = status.toUpperCase();
-    
-    const isConfirmed = upperStatus === 'CONFIRMED';
-    const isCancelled = upperStatus === 'CANCELLED';
-    const isCompleted = upperStatus === 'COMPLETED';
-    
-    if (isConfirmed === true) {
-      color = 'bg-green-100 text-green-800';
-    } else if (isCancelled === true) {
-      color = 'bg-red-100 text-red-800';
-    } else if (isCompleted === true) {
-      color = 'bg-blue-100 text-blue-800';
-    }
-    
-    return color;
-  };
+  function isAppointmentNow(appointment) {
+    const appointmentDateTime = new Date(appointment.appointmentDateTime);
+    const appointmentEnd = new Date(appointmentDateTime.getTime() + 60 * 60000);
+    return currentTime >= appointmentDateTime && currentTime <= appointmentEnd;
+  }
 
-  const renderAppointment = function(renderProps) {
-    const item = renderProps.item;
+  function isAppointmentSoon(appointment) {
+    const appointmentDateTime = new Date(appointment.appointmentDateTime);
+    const timeDiff = appointmentDateTime - currentTime;
+    const minutesDiff = timeDiff / 60000;
+    return minutesDiff > 0 && minutesDiff <= 30;
+  }
+
+  function getRelativeTime(appointment) {
+    const appointmentDateTime = new Date(appointment.appointmentDateTime);
+    const timeDiff = appointmentDateTime - currentTime;
+    const minutesDiff = Math.floor(timeDiff / 60000);
+    const hoursDiff = Math.floor(minutesDiff / 60);
+    const daysDiff = Math.floor(hoursDiff / 24);
+
+    if (isAppointmentNow(appointment)) return 'Now';
+    if (isAppointmentSoon(appointment)) return `${minutesDiff}m`;
+    if (daysDiff > 0) return `${daysDiff}d`;
+    if (hoursDiff > 0) return `${hoursDiff}h`;
+    return 'Soon';
+  }
+
+  function getStatusConfig(status) {
+    const upperStatus = status?.toUpperCase() || '';
+    const configs = {
+      'CONFIRMED': { bgColor: '#10b981', textColor: '#ffffff', label: 'Confirmed' },
+      'CANCELLED': { bgColor: '#ef4444', textColor: '#ffffff', label: 'Cancelled' },
+      'COMPLETED': { bgColor: '#8b5cf6', textColor: '#ffffff', label: 'Completed' },
+      'NO_SHOW': { bgColor: '#6b7280', textColor: '#ffffff', label: 'No Show' },
+    };
+    return configs[upperStatus] || { bgColor: '#3b82f6', textColor: '#ffffff', label: status || 'Unknown' };
+  }
+
+  function renderAppointmentCard({ item }) {
+    const appointmentDateTime = new Date(item.appointmentDateTime);
+    const statusConfig = getStatusConfig(item.status);
+    const appointmentNow = isAppointmentNow(item);
+    const appointmentSoon = isAppointmentSoon(item);
     
-    const appointmentDateTime = item.appointmentDateTime;
-    const dateTimeFormatted = formatDateTime(appointmentDateTime);
-    const dateFormatted = dateTimeFormatted.date;
-    const timeFormatted = dateTimeFormatted.time;
-    
-    const appointmentStatus = item.status;
-    let statusUpper = '';
-    const hasStatus = appointmentStatus !== null && appointmentStatus !== undefined;
-    if (hasStatus === true) {
-      statusUpper = appointmentStatus.toUpperCase();
-    }
-    
-    const isCompleted = statusUpper === 'COMPLETED';
-    const isCancelled = statusUpper === 'CANCELLED';
-    const isConfirmed = statusUpper === 'CONFIRMED';
-    
-    let clientName = 'Client';
-    const hasUser = item.user !== null && item.user !== undefined;
-    if (hasUser === true) {
-      const userName = item.user.name;
-      const hasUserName = userName !== null && userName !== undefined;
-      if (hasUserName === true) {
-        clientName = userName;
-      }
-    }
-    
-    let serviceName = 'Service';
-    const hasService = item.service !== null && item.service !== undefined;
-    if (hasService === true) {
-      const serviceNameValue = item.service.serviceName;
-      const hasServiceName = serviceNameValue !== null && serviceNameValue !== undefined;
-      if (hasServiceName === true) {
-        serviceName = serviceNameValue;
-      }
-    }
-    
-    let servicePrice = 0;
-    if (hasService === true) {
-      const priceValue = item.service.price;
-      const hasPrice = priceValue !== null && priceValue !== undefined;
-      if (hasPrice === true) {
-        servicePrice = priceValue;
-      }
-    }
-    const formattedPrice = servicePrice.toFixed(2);
-    
-    let serviceDuration = null;
-    if (hasService === true) {
-      const durationValue = item.service.durationMinutes;
-      const hasDuration = durationValue !== null && durationValue !== undefined;
-      if (hasDuration === true) {
-        serviceDuration = durationValue;
-      }
-    }
-    
-    const statusColorClass = getStatusColor(appointmentStatus);
-    
-    const hasDuration = serviceDuration !== null;
-    const hasNotes = item.notes !== null && item.notes !== undefined;
-    
+    const clientName = item.user?.name || 'Unknown Client';
+    const serviceName = item.service?.serviceName || 'Service';
+    const servicePrice = (item.service?.price || 0).toFixed(2);
+    const serviceDuration = item.service?.durationMinutes || 60;
+
+    const isUpcoming = activeTab === 'today' || activeTab === 'upcoming';
+    const isConfirmed = item.status === 'CONFIRMED';
+    const showActionButtons = isUpcoming && isConfirmed;
+
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const monthName = monthNames[appointmentDateTime.getMonth()];
+    const day = appointmentDateTime.getDate();
+
+    const hours = appointmentDateTime.getHours();
+    const minutes = appointmentDateTime.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    const timeString = `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+    let accentColor = '#22c55e';
+    if (appointmentNow) accentColor = '#ef4444';
+    else if (appointmentSoon) accentColor = '#f59e0b';
+
+    const showTimeIndicator = isUpcoming && isConfirmed;
+
     return (
-      <View className="bg-white rounded-xl p-4 shadow-sm mb-3 mx-4">
-        <View className="flex-row justify-between items-start mb-3">
-          <View className={'px-3 py-1 rounded-full ' + statusColorClass}>
-            <Text className="text-xs font-bold uppercase">
-              {appointmentStatus}
-            </Text>
+      <View style={{
+        backgroundColor: '#ffffff',
+        borderRadius: 20,
+        marginBottom: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3,
+      }}>
+        <View style={{ flexDirection: 'row' }}>
+          <View style={{
+            width: 4,
+            backgroundColor: accentColor,
+          }} />
+          
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', padding: 16 }}>
+              {/* Date Box */}
+              <View style={{
+                width: 70,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: '#f9fafb',
+                borderRadius: 12,
+                paddingVertical: 12,
+                marginRight: 16,
+              }}>
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#6b7280',
+                  letterSpacing: 1,
+                }}>
+                  {monthName}
+                </Text>
+                <Text style={{
+                  fontSize: 32,
+                  fontWeight: '800',
+                  color: '#111827',
+                  lineHeight: 36,
+                }}>
+                  {day}
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '700',
+                  color: accentColor,
+                  marginTop: 4,
+                }}>
+                  {timeString}
+                </Text>
+              </View>
+
+              {/* Details */}
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: '#111827',
+                    flex: 1,
+                    marginRight: 8,
+                  }}>
+                    {clientName}
+                  </Text>
+                  
+                  <View style={{
+                    backgroundColor: statusConfig.bgColor,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                  }}>
+                    <Text style={{
+                      color: statusConfig.textColor,
+                      fontSize: 11,
+                      fontWeight: '700',
+                    }}>
+                      {statusConfig.label}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={{
+                  fontSize: 15,
+                  color: '#374151',
+                  marginBottom: 12,
+                  fontWeight: '500',
+                }}>
+                  {serviceName}
+                </Text>
+
+                {showTimeIndicator && (
+                  <View style={{
+                    backgroundColor: appointmentNow ? '#fee2e2' : appointmentSoon ? '#fef3c7' : '#f3f4f6',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    alignSelf: 'flex-start',
+                  }}>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '700',
+                      color: appointmentNow ? '#991b1b' : appointmentSoon ? '#92400e' : '#374151',
+                    }}>
+                      {appointmentNow && '🔴 '}
+                      {appointmentSoon && '⏰ '}
+                      {getRelativeTime(item)}
+                    </Text>
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', marginTop: 12, gap: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, marginRight: 4 }}>⏱️</Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '600' }}>
+                      {serviceDuration}min
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16, marginRight: 4 }}>💰</Text>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#22c55e' }}>
+                      €{servicePrice}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Notes */}
+            {item.notes && (
+              <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+                <View style={{ 
+                  backgroundColor: '#eff6ff', 
+                  borderRadius: 12, 
+                  padding: 12,
+                  borderWidth: 1,
+                  borderColor: '#bfdbfe'
+                }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#1e3a8a', marginBottom: 4 }}>
+                    📝 NOTES
+                  </Text>
+                  <Text style={{ fontSize: 14, color: '#374151', lineHeight: 20 }}>
+                    {item.notes}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            {showActionButtons && (
+              <View style={{
+                flexDirection: 'row',
+                borderTopWidth: 1,
+                borderTopColor: '#f3f4f6',
+              }}>
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                    borderRightWidth: 1,
+                    borderRightColor: '#f3f4f6',
+                  }}
+                  onPress={() => handleComplete(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16, marginRight: 6 }}>✅</Text>
+                  <Text style={{ color: '#22c55e', fontSize: 15, fontWeight: '700' }}>
+                    Complete
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    flexDirection: 'row',
+                    justifyContent: 'center',
+                  }}
+                  onPress={() => handleCancel(item.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16, marginRight: 6 }}>✕</Text>
+                  <Text style={{ color: '#ef4444', fontSize: 15, fontWeight: '700' }}>
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-          <Text className="text-sm font-bold text-green-600">
-            €{formattedPrice}
-          </Text>
         </View>
-
-        <Text className="text-lg font-bold text-gray-900 mb-1">
-          {clientName}
-        </Text>
-
-        <View className="flex-row items-center mb-2">
-          <Text className="text-sm text-gray-600">
-            📋 {serviceName}
-          </Text>
-        </View>
-
-        <View className="flex-row items-center mb-2">
-          <Text className="text-sm text-gray-600">
-            📅 {dateFormatted} • ⏰ {timeFormatted}
-          </Text>
-        </View>
-
-        {hasDuration === true && (
-          <Text className="text-sm text-gray-600 mb-3">
-            ⏱️ {serviceDuration} min
-          </Text>
-        )}
-
-        {hasNotes === true && (
-          <View className="bg-blue-50 rounded-lg p-3 mb-3 border border-blue-200">
-            <Text className="text-xs text-blue-900 font-semibold mb-1">
-              📝 Notes:
-            </Text>
-            <Text className="text-sm text-gray-700">
-              {item.notes}
-            </Text>
-          </View>
-        )}
-
-        {isConfirmed === true && (
-          <View className="flex-row mt-3 pt-3 border-t border-gray-100">
-            <TouchableOpacity
-              className="flex-1 bg-green-500 py-3 rounded-lg mr-2 active:bg-green-600"
-              onPress={function() {
-                const appointmentId = item.id;
-                handleComplete(appointmentId);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white text-center font-semibold">
-                ✅ Complete
-              </Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              className="flex-1 bg-red-500 py-3 rounded-lg active:bg-red-600"
-              onPress={function() {
-                const appointmentId = item.id;
-                handleCancel(appointmentId);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text className="text-white text-center font-semibold">
-                ❌ Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {(isCompleted === true || isCancelled === true) && (
-          <View className="mt-3 pt-3 border-t border-gray-100">
-            <Text className="text-xs text-gray-500 text-center">
-              {isCompleted === true ? '✅ This appointment is completed' : '❌ This appointment was cancelled'}
-            </Text>
-          </View>
-        )}
       </View>
     );
-  };
+  }
 
-  const renderEmpty = function() {
+  function renderEmpty() {
+    const emptyMessages = {
+      today: { emoji: '📅', title: 'No appointments today', subtitle: 'Enjoy your free time!' },
+      upcoming: { emoji: '🗓️', title: 'No upcoming appointments', subtitle: 'New bookings will appear here' },
+      past: { emoji: '📋', title: 'No past appointments', subtitle: 'Completed appointments will appear here' },
+    };
+
+    const message = emptyMessages[activeTab];
+
     return (
-      <View className="items-center justify-center py-20">
-        <Text className="text-6xl mb-4">📅</Text>
-        <Text className="text-gray-500 text-lg font-semibold mb-2">
-          No {activeTab} appointments
+      <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 100, paddingHorizontal: 32 }}>
+        <View style={{
+          width: 100,
+          height: 100,
+          borderRadius: 50,
+          backgroundColor: '#f3f4f6',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 24,
+        }}>
+          <Text style={{ fontSize: 50 }}>
+            {message.emoji}
+          </Text>
+        </View>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' }}>
+          {message.title}
         </Text>
-        <Text className="text-gray-400 text-sm">
-          Appointments will appear here
+        <Text style={{ fontSize: 15, color: '#6b7280', textAlign: 'center', lineHeight: 22 }}>
+          {message.subtitle}
         </Text>
       </View>
     );
-  };
+  }
 
-  if (loading === true) {
+  if (loading) {
     return (
-      <View className="flex-1 justify-center items-center bg-gray-50">
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
         <ActivityIndicator size="large" color="#22c55e" />
-        <Text className="mt-4 text-gray-600">Loading appointments...</Text>
+        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 15 }}>
+          Loading appointments...
+        </Text>
       </View>
     );
   }
@@ -582,97 +597,121 @@ const ManageAppointmentScreen = function(props) {
   const isUpcomingTab = activeTab === 'upcoming';
   const isPastTab = activeTab === 'past';
 
-  let todayBorderClass = 'border-transparent';
-  if (isTodayTab === true) {
-    todayBorderClass = 'border-green-500';
-  }
-  
-  let todayTextClass = 'text-gray-500';
-  if (isTodayTab === true) {
-    todayTextClass = 'text-green-600';
-  }
-  
-  let upcomingBorderClass = 'border-transparent';
-  if (isUpcomingTab === true) {
-    upcomingBorderClass = 'border-green-500';
-  }
-  
-  let upcomingTextClass = 'text-gray-500';
-  if (isUpcomingTab === true) {
-    upcomingTextClass = 'text-green-600';
-  }
-  
-  let pastBorderClass = 'border-transparent';
-  if (isPastTab === true) {
-    pastBorderClass = 'border-green-500';
-  }
-  
-  let pastTextClass = 'text-gray-500';
-  if (isPastTab === true) {
-    pastTextClass = 'text-green-600';
-  }
-
-  const todayTabClassName = 'flex-1 py-4 items-center border-b-2 ' + todayBorderClass;
-  const todayTextClassName = 'font-semibold ' + todayTextClass;
-  
-  const upcomingTabClassName = 'flex-1 py-4 items-center border-b-2 ' + upcomingBorderClass;
-  const upcomingTextClassName = 'font-semibold ' + upcomingTextClass;
-  
-  const pastTabClassName = 'flex-1 py-4 items-center border-b-2 ' + pastBorderClass;
-  const pastTextClassName = 'font-semibold ' + pastTextClass;
-
-  const listContentStyle = { paddingVertical: 16 };
-
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="bg-white flex-row border-b border-gray-200">
-        <TouchableOpacity
-          onPress={function() {
-            setActiveTab('today');
-          }}
-          className={todayTabClassName}
-        >
-          <Text className={todayTextClassName}>
-            Today
+    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+      {/* Header */}
+      <View style={{
+        backgroundColor: '#22c55e',
+        paddingTop: 48,
+        paddingBottom: 0,
+      }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 20 }}>
+          <Text style={{ fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 }}>
+            Appointments
           </Text>
-        </TouchableOpacity>
+          <Text style={{ fontSize: 14, color: '#d1fae5' }}>
+            Manage your business bookings
+          </Text>
+        </View>
 
-        <TouchableOpacity
-          onPress={function() {
-            setActiveTab('upcoming');
-          }}
-          className={upcomingTabClassName}
-        >
-          <Text className={upcomingTextClassName}>
-            Upcoming
-          </Text>
-        </TouchableOpacity>
+        {/* Tabs */}
+        <View style={{
+          flexDirection: 'row',
+          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+          marginHorizontal: 20,
+          borderRadius: 12,
+          padding: 4,
+          marginBottom: 16,
+        }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: isTodayTab ? '#ffffff' : 'transparent',
+            }}
+            onPress={() => setActiveTab('today')}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 15,
+              fontWeight: '700',
+              color: isTodayTab ? '#22c55e' : '#d1fae5',
+            }}>
+              Today
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={function() {
-            setActiveTab('past');
-          }}
-          className={pastTabClassName}
-        >
-          <Text className={pastTextClassName}>
-            Past
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: isUpcomingTab ? '#ffffff' : 'transparent',
+            }}
+            onPress={() => setActiveTab('upcoming')}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 15,
+              fontWeight: '700',
+              color: isUpcomingTab ? '#22c55e' : '#d1fae5',
+            }}>
+              Upcoming
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              paddingVertical: 10,
+              borderRadius: 8,
+              backgroundColor: isPastTab ? '#ffffff' : 'transparent',
+            }}
+            onPress={() => setActiveTab('past')}
+            activeOpacity={0.8}
+          >
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 15,
+              fontWeight: '700',
+              color: isPastTab ? '#22c55e' : '#d1fae5',
+            }}>
+              Past
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={{
+          height: 20,
+          backgroundColor: '#f9fafb',
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+        }} />
       </View>
 
+      {/* Appointments Count */}
+      {appointments.length > 0 && (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+          <Text style={{ fontSize: 14, color: '#6b7280', fontWeight: '600' }}>
+            {appointments.length} {appointments.length === 1 ? 'appointment' : 'appointments'}
+          </Text>
+        </View>
+      )}
+
+      {/* Appointments List */}
       <FlatList
         data={appointments}
-        renderItem={renderAppointment}
-        keyExtractor={function(item) {
-          const itemId = item.id;
-          const itemIdString = itemId.toString();
-          return itemIdString;
-        }}
-        contentContainerStyle={listContentStyle}
+        renderItem={renderAppointmentCard}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
             refreshing={refreshing} 
-            onRefresh={function() {
+            onRefresh={() => {
               setRefreshing(true);
               fetchAppointments();
             }}

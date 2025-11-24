@@ -1,16 +1,97 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
 
-const BusinessCard = ({ business, userLocation, onPress }) => {
-  // Calculate distance if user location is available
-  const distance = userLocation && business.lat && business.lng
-    ? calculateDistance(userLocation.lat, userLocation.lng, business.lat, business.lng)
-    : null;
+function BusinessCard(props) {
+  const business = props.business;
+  const userLocation = props.userLocation;
+  const onPress = props.onPress;
+
+  // ⭐ GET RATING DATA
+  const ratingSummary = business.ratingSummary;
+  const hasRatingSummary = ratingSummary !== null && ratingSummary !== undefined;
+
+  let averageRating = 0.0;
+  let totalRatings = 0;
+  let displayRating = '0.0';
+  let hasRealRating = false;
+
+  if (hasRatingSummary === true) {
+    averageRating = ratingSummary.averageRating;
+    totalRatings = ratingSummary.totalRatings;
+    
+    const hasRatings = totalRatings > 0;
+    if (hasRatings === true) {
+      hasRealRating = true;
+      displayRating = averageRating.toFixed(1);
+    }
+  }
+
+  // Get business name
+  let businessName = 'Unnamed Business';
+  const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
+  const hasName = business.name !== null && business.name !== undefined;
+  
+  if (hasBusinessName === true) {
+    businessName = business.businessName;
+  } else if (hasName === true) {
+    businessName = business.name;
+  }
+
+  // Get category
+  let category = 'General';
+  const hasCategory = business.category !== null && business.category !== undefined;
+  if (hasCategory === true) {
+    category = business.category;
+  }
+
+  // Get location
+  let locationText = 'Location not set';
+  const hasAddress = business.address !== null && business.address !== undefined;
+  const hasLocation = business.location !== null && business.location !== undefined;
+  
+  if (hasAddress === true) {
+    locationText = business.address + ', Carlow';
+  } else if (hasLocation === true) {
+    locationText = business.location + ', Carlow';
+  }
+
+  // Get phone
+  const phoneNumber = business.phoneNumber;
+  const hasPhone = phoneNumber !== null && phoneNumber !== undefined;
+
+  // Get image
+  const imageUrl = business.imageUrl;
+  const hasImage = imageUrl !== null && imageUrl !== undefined;
+
+  // Get status
+  const status = business.status;
+  const isActive = status === 'ACTIVE';
+
+  // Calculate distance
+  let distance = null;
+  const hasUserLocation = userLocation !== null && userLocation !== undefined;
+  const hasBusinessLat = business.lat !== null && business.lat !== undefined;
+  const hasBusinessLng = business.lng !== null && business.lng !== undefined;
+  const canCalculateDistance = hasUserLocation === true && hasBusinessLat === true && hasBusinessLng === true;
+  
+  if (canCalculateDistance === true) {
+    distance = calculateDistance(userLocation.lat, userLocation.lng, business.lat, business.lng);
+  }
+
+  const hasDistance = distance !== null;
+
+  // Get category icon
+  const categoryIcon = getCategoryIcon(category);
+
+  function handlePress() {
+    onPress(business);
+  }
 
   return (
     <TouchableOpacity 
-      onPress={() => onPress(business)}
-      className="bg-white rounded-lg mb-3 overflow-hidden active:opacity-70"
+      onPress={handlePress}
+      activeOpacity={0.7}
+      className="bg-white rounded-lg mb-3 overflow-hidden"
       style={{
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
@@ -19,41 +100,41 @@ const BusinessCard = ({ business, userLocation, onPress }) => {
         elevation: 2,
       }}
     >
-      {/* Image - Only show if business has image */}
-      {business.imageUrl ? (
+      {/* Image or Fallback */}
+      {hasImage === true && (
         <Image
-          source={{ uri: business.imageUrl }}
+          source={{ uri: imageUrl }}
           className="w-full h-36 bg-gray-200"
           resizeMode="cover"
         />
-      ) : (
-        /* Fallback gradient background if no image */
+      )}
+      
+      {hasImage === false && (
         <View className="w-full h-36 bg-gradient-to-br from-purple-400 to-blue-500 items-center justify-center">
-          <Text className="text-6xl">{getCategoryIcon(business.category)}</Text>
+          <Text className="text-6xl">{categoryIcon}</Text>
         </View>
       )}
 
       {/* Category Badge - Top right corner */}
       <View className="absolute top-2 right-2 bg-blue-500/90 px-2 py-0.5 rounded">
         <Text className="text-white text-xs font-bold uppercase">
-          {business.category}
+          {category}
         </Text>
       </View>
 
-      {/* Info - Compact layout */}
+      {/* Info Section */}
       <View className="p-2.5">
         {/* Business Name */}
-       <Text className="text-sm font-bold text-gray-900 mb-1" numberOfLines={1}>
-  {business.businessName || business.name}
-</Text>
+        <Text className="text-sm font-bold text-gray-900 mb-1" numberOfLines={1}>
+          {businessName}
+        </Text>
 
-
-        {/* Location & Distance */}
+        {/* Location & Distance Row */}
         <View className="flex-row items-center mb-1.5">
           <Text className="text-xs text-gray-600 flex-1" numberOfLines={1}>
-            📍 {business.address || business.location}, Carlow
+            📍 {locationText}
           </Text>
-          {distance && (
+          {hasDistance === true && (
             <Text className="text-xs font-semibold text-blue-600 ml-2">
               🚶 {distance} km
             </Text>
@@ -66,67 +147,73 @@ const BusinessCard = ({ business, userLocation, onPress }) => {
           <View className="flex-row items-center">
             <Text className="text-xs mr-0.5">⭐</Text>
             <Text className="text-xs font-bold text-gray-900 mr-1">
-              {business.rating || '4.5'}
+              {displayRating}
             </Text>
             <Text className="text-xs text-gray-500">
-              ({business.reviewCount || 0})
+              ({totalRatings})
             </Text>
           </View>
 
-          {/* Business Status Indicator */}
-          {business.status === 'ACTIVE' && (
+          {/* Status Badge */}
+          {isActive === true && (
             <View className="bg-green-100 px-2 py-0.5 rounded">
               <Text className="text-xs text-green-700 font-semibold">Open</Text>
             </View>
           )}
         </View>
 
-        {/* Phone number if available */}
-        {business.phoneNumber && (
+        {/* Phone number */}
+        {hasPhone === true && (
           <Text className="text-xs text-gray-500 mt-1">
-            📞 {business.phoneNumber}
+            📞 {phoneNumber}
           </Text>
         )}
       </View>
     </TouchableOpacity>
   );
-};
+}
 
-// Calculate distance in km using Haversine formula
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth's radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+// Calculate distance using Haversine formula
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const lat1Rad = lat1 * Math.PI / 180;
+  const lat2Rad = lat2 * Math.PI / 180;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
   
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const cosLat1 = Math.cos(lat1Rad);
+  const cosLat2 = Math.cos(lat2Rad);
   
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const a = sinDLat * sinDLat + cosLat1 * cosLat2 * sinDLon * sinDLon;
+  const sqrtA = Math.sqrt(a);
+  const sqrt1MinusA = Math.sqrt(1 - a);
+  const c = 2 * Math.atan2(sqrtA, sqrt1MinusA);
   const distance = R * c;
   
-  return distance.toFixed(1);
-};
+  const distanceFixed = distance.toFixed(1);
+  return distanceFixed;
+}
 
-// Get emoji icon for category
-const getCategoryIcon = (category) => {
+// Get category icon
+function getCategoryIcon(category) {
   const icons = {
     'Hair': '💇',
     'Hair Salon': '💇',
     'Salon': '💇',
-
     'Beauty': '💅',
     'Beauty Salon': '💅',
     'Spa': '💆',
     'Barber': '✂️',
-    
   };
   
-  return icons[category] || '🏪';
-};
-
+  const hasIcon = icons[category] !== null && icons[category] !== undefined;
+  if (hasIcon === true) {
+    return icons[category];
+  }
+  
+  return '🏪';
+}
 
 export default BusinessCard;

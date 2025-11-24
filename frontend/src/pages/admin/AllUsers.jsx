@@ -7,49 +7,161 @@ const AllUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [message, setMessage] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const fetchUsers = async () => {
+  async function fetchUsers() {
     try {
       const response = await api.get("/users");
       console.log("Users fetched:", response.data);
-      setUsers(response.data || []);
+      
+      const usersData = response.data;
+      const hasData = usersData !== null && usersData !== undefined;
+      
+      if (hasData === true) {
+        setUsers(usersData);
+      } else {
+        setUsers([]);
+      }
+      
       setLoading(false);
     } catch (error) {
       console.error("Error fetching users:", error);
       setMessage("❌ Failed to load users");
+      setUsers([]);
       setLoading(false);
     }
-  };
+  }
 
-  // ✅ REMOVED: Suspend/Activate/Delete functions since endpoints don't exist
-  // These would need to be implemented in your backend first
+  function handleViewUser(user) {
+    console.log("📋 Viewing user:", user.id);
+    setSelectedUser(user);
+    setShowUserModal(true);
+  }
 
-  const handleViewUser = (userId) => {
-    alert(`View user details for ID: ${userId}\n\nThis feature requires backend implementation.`);
-  };
+  function handleCloseModal() {
+    setShowUserModal(false);
+    setSelectedUser(null);
+  }
 
-  // Filter users
-  const filteredUsers = users.filter((user) => {
-    const matchesSearch =
-      (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.username || '').toLowerCase().includes(searchTerm.toLowerCase());
+  async function handleDeleteUser(userId) {
+    const confirmed = window.confirm(
+      "⚠️ Are you sure you want to delete this user?\n\nThis action cannot be undone!"
+    );
+    
+    if (confirmed === false) {
+      return;
+    }
 
-    const matchesRole = roleFilter === "ALL" || user.role === roleFilter;
+    try {
+      const userIdString = userId.toString();
+      const endpoint = "/users/" + userIdString;
+      await api.delete(endpoint);
+      
+      setMessage("✅ User deleted successfully");
+      
+      setTimeout(function() {
+        setMessage("");
+      }, 3000);
+      
+      fetchUsers();
+      
+      const isModalOpen = showUserModal === true;
+      if (isModalOpen === true) {
+        handleCloseModal();
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      setMessage("❌ Failed to delete user");
+      
+      setTimeout(function() {
+        setMessage("");
+      }, 3000);
+    }
+  }
 
-    return matchesSearch && matchesRole;
-  });
+  function handleSearchChange(event) {
+    const value = event.target.value;
+    setSearchTerm(value);
+  }
 
-  // Calculate stats
-  const totalClients = users.filter((u) => u.role === "CLIENT").length;
-  const totalBusinessOwners = users.filter((u) => u.role === "BUSINESS_OWNER").length;
-  const totalAdmins = users.filter((u) => u.role === "ADMIN").length;
+  function handleRoleFilterChange(event) {
+    const value = event.target.value;
+    setRoleFilter(value);
+  }
 
-  if (loading) {
+  const filteredUsers = [];
+  let userIndex = 0;
+  
+  while (userIndex < users.length) {
+    const user = users[userIndex];
+    
+    let userName = '';
+    const hasName = user.name !== null && user.name !== undefined;
+    if (hasName === true) {
+      userName = user.name.toLowerCase();
+    }
+    
+    let userEmail = '';
+    const hasEmail = user.email !== null && user.email !== undefined;
+    if (hasEmail === true) {
+      userEmail = user.email.toLowerCase();
+    }
+    
+    let userUsername = '';
+    const hasUsername = user.username !== null && user.username !== undefined;
+    if (hasUsername === true) {
+      userUsername = user.username.toLowerCase();
+    }
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    const nameMatches = userName.includes(searchLower);
+    const emailMatches = userEmail.includes(searchLower);
+    const usernameMatches = userUsername.includes(searchLower);
+    const matchesSearch = nameMatches === true || emailMatches === true || usernameMatches === true;
+    
+    const isAllRoles = roleFilter === "ALL";
+    const userRole = user.role;
+    const roleMatches = userRole === roleFilter;
+    const matchesRole = isAllRoles === true || roleMatches === true;
+    
+    const shouldInclude = matchesSearch === true && matchesRole === true;
+    
+    if (shouldInclude === true) {
+      filteredUsers.push(user);
+    }
+    
+    userIndex = userIndex + 1;
+  }
+
+  let totalClients = 0;
+  let totalBusinessOwners = 0;
+  let totalAdmins = 0;
+  
+  let countIndex = 0;
+  while (countIndex < users.length) {
+    const user = users[countIndex];
+    const userRole = user.role;
+    
+    if (userRole === "CLIENT") {
+      totalClients = totalClients + 1;
+    }
+    if (userRole === "BUSINESS_OWNER") {
+      totalBusinessOwners = totalBusinessOwners + 1;
+    }
+    if (userRole === "ADMIN") {
+      totalAdmins = totalAdmins + 1;
+    }
+    
+    countIndex = countIndex + 1;
+  }
+
+  if (loading === true) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
@@ -57,21 +169,25 @@ const AllUsers = () => {
     );
   }
 
+  const usersCount = users.length;
+  const filteredUsersCount = filteredUsers.length;
+  const hasMessage = message !== null && message !== undefined && message.length > 0;
+  const isSuccessMessage = hasMessage === true && message.includes("✅");
+  const hasFilteredUsers = filteredUsersCount > 0;
+
   return (
     <div className="bg-gray-50 min-h-screen p-8">
-      {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-gray-900">User Management</h1>
         <p className="text-gray-600 mt-2">
-          View all users on the platform
+          View and manage all platform users
         </p>
       </div>
 
-      {/* Message */}
-      {message && (
+      {hasMessage === true && (
         <div
           className={`mb-6 p-4 rounded-lg ${
-            message.includes("✅")
+            isSuccessMessage === true
               ? "bg-green-100 text-green-800"
               : "bg-red-100 text-red-800"
           }`}
@@ -80,11 +196,10 @@ const AllUsers = () => {
         </div>
       )}
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
           <p className="text-sm text-gray-600 mb-1">Total Users</p>
-          <p className="text-3xl font-bold text-gray-900">{users.length}</p>
+          <p className="text-3xl font-bold text-gray-900">{usersCount}</p>
         </div>
         <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-500">
           <p className="text-sm text-gray-600 mb-1">Clients</p>
@@ -100,10 +215,8 @@ const AllUsers = () => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <div className="grid grid-cols-2 gap-4">
-          {/* Search */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               🔍 Search Users
@@ -112,19 +225,18 @@ const AllUsers = () => {
               type="text"
               placeholder="Search by name or email..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             />
           </div>
 
-          {/* Role Filter */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               👥 Filter by Role
             </label>
             <select
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
+              onChange={handleRoleFilterChange}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
             >
               <option value="ALL">All Roles</option>
@@ -136,14 +248,13 @@ const AllUsers = () => {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          Showing <span className="font-semibold">{filteredUsers.length}</span> of{" "}
-          <span className="font-semibold">{users.length}</span> users
+          Showing <span className="font-semibold">{filteredUsersCount}</span> of{" "}
+          <span className="font-semibold">{usersCount}</span> users
         </div>
       </div>
 
-      {/* Users Table */}
       <div className="bg-white rounded-xl shadow-md overflow-hidden">
-        {filteredUsers.length === 0 ? (
+        {hasFilteredUsers === false ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">👥</div>
             <p className="text-gray-500 text-lg">No users found</p>
@@ -177,82 +288,196 @@ const AllUsers = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-gray-700">{user.id}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-gray-900">
-                        {user.name || user.username || 'N/A'}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">{user.email || 'N/A'}</td>
-                    <td className="px-6 py-4 text-gray-700">{user.phoneNumber || 'N/A'}</td>
-                    <td className="px-6 py-4">
-                      <RoleBadge role={user.role} />
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 text-sm">
-                      {user.createdAt 
-                        ? new Date(user.createdAt).toLocaleDateString()
-                        : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleViewUser(user.id)}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredUsers.map((user) => {
+                  const userId = user.id;
+                  
+                  let displayName = 'N/A';
+                  const hasName = user.name !== null && user.name !== undefined;
+                  const hasUsername = user.username !== null && user.username !== undefined;
+                  
+                  if (hasName === true) {
+                    displayName = user.name;
+                  } else if (hasUsername === true) {
+                    displayName = user.username;
+                  }
+                  
+                  let displayEmail = 'N/A';
+                  const hasEmail = user.email !== null && user.email !== undefined;
+                  if (hasEmail === true) {
+                    displayEmail = user.email;
+                  }
+                  
+                  let displayPhone = 'N/A';
+                  const hasPhone = user.phoneNumber !== null && user.phoneNumber !== undefined;
+                  if (hasPhone === true) {
+                    displayPhone = user.phoneNumber;
+                  }
+                  
+                  const userRole = user.role;
+                  
+                  let joinedDate = 'N/A';
+                  const hasCreatedAt = user.createdAt !== null && user.createdAt !== undefined;
+                  if (hasCreatedAt === true) {
+                    const dateObj = new Date(user.createdAt);
+                    joinedDate = dateObj.toLocaleDateString();
+                  }
+                  
+                  function handleViewClick() {
+                    handleViewUser(user);
+                  }
+                  
+                  return (
+                    <tr key={userId} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-gray-700">{userId}</td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-gray-900">
+                          {displayName}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">{displayEmail}</td>
+                      <td className="px-6 py-4 text-gray-700">{displayPhone}</td>
+                      <td className="px-6 py-4">
+                        <RoleBadge role={userRole} />
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 text-sm">
+                        {joinedDate}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={handleViewClick}
+                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Info Box */}
-      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">ℹ️</span>
-          <div>
-            <h3 className="font-bold text-blue-900 mb-2">User Management Features</h3>
-            <p className="text-blue-800 text-sm mb-2">
-              Currently, you can view all users and their details. Additional features require backend implementation:
-            </p>
-            <ul className="text-blue-800 text-sm list-disc list-inside space-y-1">
-              <li>Suspend/Unsuspend users</li>
-              <li>Delete users</li>
-              <li>Edit user details</li>
-              <li>Send notifications to users</li>
-            </ul>
-            <p className="text-blue-700 text-xs mt-3">
-              These endpoints need to be added to your UserController.java
-            </p>
+      {/* User Details Modal */}
+      {showUserModal === true && selectedUser !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold">User Details</h2>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-white hover:text-gray-200 text-2xl font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">User ID:</span>
+                  <span className="text-gray-900 font-semibold">{selectedUser.id}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">Name:</span>
+                  <span className="text-gray-900 font-semibold">
+                    {selectedUser.name || selectedUser.username || 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">Email:</span>
+                  <span className="text-gray-900">{selectedUser.email || 'N/A'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">Phone:</span>
+                  <span className="text-gray-900">{selectedUser.phoneNumber || 'N/A'}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">Role:</span>
+                  <RoleBadge role={selectedUser.role} />
+                </div>
+
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-gray-600 font-medium">Joined:</span>
+                  <span className="text-gray-900">
+                    {selectedUser.createdAt
+                      ? new Date(selectedUser.createdAt).toLocaleDateString('en-IE', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })
+                      : 'N/A'}
+                  </span>
+                </div>
+
+                {selectedUser.businessId && (
+                  <div className="flex items-center justify-between py-3 border-b">
+                    <span className="text-gray-600 font-medium">Business ID:</span>
+                    <span className="text-gray-900 font-semibold">{selectedUser.businessId}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-8 flex gap-3">
+                <button
+                  onClick={() => handleDeleteUser(selectedUser.id)}
+                  className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition font-semibold"
+                >
+                  🗑️ Delete User
+                </button>
+                <button
+                  onClick={handleCloseModal}
+                  className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
-// Role Badge Component
-const RoleBadge = ({ role }) => {
-  const styles = {
-    CLIENT: "bg-purple-100 text-purple-800",
-    BUSINESS_OWNER: "bg-green-100 text-green-800",
-    ADMIN: "bg-red-100 text-red-800",
-  };
-
+function RoleBadge(props) {
+  const role = props.role;
+  
+  let badgeClass = "bg-gray-100 text-gray-800";
+  
+  if (role === "CLIENT") {
+    badgeClass = "bg-purple-100 text-purple-800";
+  }
+  if (role === "BUSINESS_OWNER") {
+    badgeClass = "bg-green-100 text-green-800";
+  }
+  if (role === "ADMIN") {
+    badgeClass = "bg-red-100 text-red-800";
+  }
+  
+  let displayRole = role;
+  const hasRole = role !== null && role !== undefined;
+  if (hasRole === false) {
+    displayRole = 'UNKNOWN';
+  }
+  
+  const className = "px-3 py-1 rounded-full text-sm font-medium " + badgeClass;
+  
   return (
-    <span
-      className={`px-3 py-1 rounded-full text-sm font-medium ${
-        styles[role] || "bg-gray-100 text-gray-800"
-      }`}
-    >
-      {role || 'UNKNOWN'}
+    <span className={className}>
+      {displayRole}
     </span>
   );
-};
+}
 
 export default AllUsers;

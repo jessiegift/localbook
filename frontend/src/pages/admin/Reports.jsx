@@ -9,19 +9,18 @@ const Reports = () => {
   const [error, setError] = useState(null);
 
   const [analytics, setAnalytics] = useState({
-    totalRevenue: 0,
     totalBookings: 0,
     newBusinesses: 0,
     newClients: 0,
     carlowBusinesses: 0,
     nonCarlowBusinesses: 0,
     popularCategories: [],
-    topBusinesses: [],
-    recentBookings: [],
     carlowTowns: [],
     businessGrowth: 0,
     clientGrowth: 0,
     bookingGrowth: 0,
+    activeBusinesses: 0,
+    pendingBusinesses: 0,
   });
 
   useEffect(() => {
@@ -97,10 +96,13 @@ const Reports = () => {
       const carlowBusinesses = allBusinesses.filter((b) => isInCarlow(b));
       const nonCarlowBusinesses = allBusinesses.filter((b) => !isInCarlow(b));
 
-      // Calculate revenue (completed bookings only)
-      const totalRevenue = periodBookings
-        .filter((b) => b.status === "COMPLETED" || b.status === "CONFIRMED")
-        .reduce((sum, b) => sum + (b.price || b.amount || 25), 0);
+      // Business status counts
+      const activeBusinesses = allBusinesses.filter(
+        (b) => b.status === "ACTIVE" || b.isApproved === true
+      ).length;
+      const pendingBusinesses = allBusinesses.filter(
+        (b) => b.status === "PENDING" || b.isApproved === false
+      ).length;
 
       // New businesses in period
       const newBusinesses = allBusinesses.filter((b) => {
@@ -116,9 +118,7 @@ const Reports = () => {
       // New clients in period
       const newClients = allUsers.filter((u) => {
         const date = new Date(u.createdAt);
-        return (
-          u.role === "CLIENT" && date >= startDate && date <= now
-        );
+        return u.role === "CLIENT" && date >= startDate && date <= now;
       }).length;
 
       const previousNewClients = allUsers.filter((u) => {
@@ -171,10 +171,12 @@ const Reports = () => {
         .sort((a, b) => b.businesses - a.businesses)
         .slice(0, 6);
 
-      // Carlow towns distribution
+      // Carlow towns distribution - FIXED: Normalize town names
       const townCount = {};
       carlowBusinesses.forEach((b) => {
-        const town = b.town || b.location || "Unknown";
+        // Normalize town name (capitalize first letter)
+        let town = (b.town || b.location || "Unknown").trim();
+        town = town.charAt(0).toUpperCase() + town.slice(1).toLowerCase();
         townCount[town] = (townCount[town] || 0) + 1;
       });
 
@@ -186,56 +188,19 @@ const Reports = () => {
         }))
         .sort((a, b) => b.businesses - a.businesses);
 
-      // Top performing businesses
-      const businessBookingCounts = {};
-      allBookings.forEach((b) => {
-        const bizId = b.businessId;
-        if (bizId) {
-          businessBookingCounts[bizId] = (businessBookingCounts[bizId] || 0) + 1;
-        }
-      });
-
-      const topBusinesses = allBusinesses
-        .map((b) => ({
-          ...b,
-          bookingCount: businessBookingCounts[b.id] || 0,
-          revenue:
-            allBookings
-              .filter(
-                (booking) =>
-                  booking.businessId === b.id &&
-                  (booking.status === "COMPLETED" ||
-                    booking.status === "CONFIRMED")
-              )
-              .reduce(
-                (sum, booking) => sum + (booking.price || booking.amount || 25),
-                0
-              ),
-        }))
-        .filter((b) => b.bookingCount > 0)
-        .sort((a, b) => b.bookingCount - a.bookingCount)
-        .slice(0, 10);
-
       setAnalytics({
-        totalRevenue,
         totalBookings: periodBookings.length,
         newBusinesses,
         newClients,
         carlowBusinesses: carlowBusinesses.length,
         nonCarlowBusinesses: nonCarlowBusinesses.length,
         popularCategories,
-        topBusinesses,
-        recentBookings: allBookings
-          .sort((a, b) => {
-            const dateA = new Date(a.createdAt || a.appointmentDate);
-            const dateB = new Date(b.createdAt || b.appointmentDate);
-            return dateB - dateA;
-          })
-          .slice(0, 10),
         carlowTowns,
         businessGrowth,
         clientGrowth,
         bookingGrowth,
+        activeBusinesses,
+        pendingBusinesses,
       });
 
       setLoading(false);
@@ -261,12 +226,13 @@ const Reports = () => {
     csvContent += `Timeframe: ${timeframeLabel}\n\n`;
 
     csvContent += `Key Metrics\n`;
-    csvContent += `Total Revenue,€${analytics.totalRevenue.toFixed(2)}\n`;
     csvContent += `Total Bookings,${analytics.totalBookings}\n`;
     csvContent += `New Businesses,${analytics.newBusinesses}\n`;
     csvContent += `New Clients,${analytics.newClients}\n`;
     csvContent += `Carlow Businesses,${analytics.carlowBusinesses}\n`;
     csvContent += `Non-Carlow Businesses,${analytics.nonCarlowBusinesses}\n`;
+    csvContent += `Active Businesses,${analytics.activeBusinesses}\n`;
+    csvContent += `Pending Businesses,${analytics.pendingBusinesses}\n`;
     csvContent += `Business Growth,${analytics.businessGrowth.toFixed(1)}%\n`;
     csvContent += `Client Growth,${analytics.clientGrowth.toFixed(1)}%\n`;
     csvContent += `Booking Growth,${analytics.bookingGrowth.toFixed(1)}%\n\n`;
@@ -281,14 +247,6 @@ const Reports = () => {
     csvContent += `Town,Businesses,Percentage\n`;
     analytics.carlowTowns.forEach((town) => {
       csvContent += `${town.town},${town.businesses},${town.percentage}%\n`;
-    });
-
-    csvContent += `\nTop Performing Businesses\n`;
-    csvContent += `Rank,Business Name,Bookings,Revenue\n`;
-    analytics.topBusinesses.forEach((biz, index) => {
-      csvContent += `${index + 1},${biz.name},${biz.bookingCount},€${
-        biz.revenue
-      }\n`;
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -310,7 +268,7 @@ const Reports = () => {
             <div className="w-20 h-20 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto"></div>
           </div>
           <p className="mt-6 text-gray-700 text-lg font-medium">
-            Loading Carlow Analytics...
+            Loading Analytics...
           </p>
         </div>
       </div>
@@ -367,7 +325,7 @@ const Reports = () => {
                   <span className="text-2xl">←</span>
                 </button>
                 <h1 className="text-4xl lg:text-5xl font-bold text-gray-900">
-                  📊 Carlow Platform Analytics
+                  📊 Platform Analytics
                 </h1>
               </div>
               <p className="text-gray-600 text-lg">
@@ -398,39 +356,8 @@ const Reports = () => {
           </div>
         </div>
 
-        {/* Carlow Status Alert */}
-        <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-teal-50 border-2 border-green-300 rounded-xl shadow-md">
-          <div className="flex items-center gap-4">
-            <span className="text-4xl">📍</span>
-            <div className="flex-1">
-              <h3 className="font-bold text-green-900 text-xl mb-2">
-                Carlow County Focus
-              </h3>
-              <p className="text-green-800">
-                <span className="font-bold">{analytics.carlowBusinesses}</span>{" "}
-                businesses verified in Carlow County •{" "}
-                {analytics.nonCarlowBusinesses > 0 && (
-                  <span className="text-red-700 font-bold">
-                    ⚠️ {analytics.nonCarlowBusinesses} outside Carlow
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <MetricCard
-            title="Total Revenue"
-            value={`€${analytics.totalRevenue.toLocaleString("en-IE", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
-            subtitle={timeframeLabel}
-            icon="💰"
-            gradient="from-emerald-500 to-teal-500"
-          />
           <MetricCard
             title="Total Bookings"
             value={analytics.totalBookings}
@@ -455,9 +382,16 @@ const Reports = () => {
             icon="👥"
             gradient="from-orange-500 to-red-500"
           />
+          <MetricCard
+            title="Active Businesses"
+            value={analytics.activeBusinesses}
+            subtitle="Total approved"
+            icon="✅"
+            gradient="from-emerald-500 to-teal-500"
+          />
         </div>
 
-        {/* Two Column Layout - Row 1 */}
+        {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Popular Categories */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
@@ -533,116 +467,12 @@ const Reports = () => {
           </div>
         </div>
 
-        {/* Two Column Layout - Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Top Performing Businesses */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">
-              🏆 Top Performing Businesses
-            </h2>
-            {analytics.topBusinesses.length > 0 ? (
-              <div className="space-y-3">
-                {analytics.topBusinesses.map((business, index) => (
-                  <div
-                    key={business.id}
-                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg hover:from-gray-100 hover:to-blue-100 transition cursor-pointer"
-                    onClick={() =>
-                      navigate(`/admin/businesses/${business.id}`)
-                    }
-                  >
-                    <div className="w-12 h-12 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-full flex items-center justify-center font-bold text-orange-700 text-lg flex-shrink-0">
-                      #{index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 truncate">
-                        {business.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {business.category || "Uncategorized"}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-xl text-purple-600">
-                        {business.bookingCount}
-                      </p>
-                      <p className="text-xs text-gray-600">bookings</p>
-                      <p className="text-xs text-green-600 font-bold mt-1">
-                        €{business.revenue.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No booking data available
-              </div>
-            )}
-          </div>
-
-          {/* Recent Bookings Activity */}
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h2 className="text-2xl font-bold mb-6 text-gray-900">
-              📆 Recent Booking Activity
-            </h2>
-            {analytics.recentBookings.length > 0 ? (
-              <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                {analytics.recentBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-purple-50 rounded-lg hover:from-gray-100 hover:to-purple-100 transition"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-bold text-gray-900 text-sm truncate">
-                        {booking.serviceName || "Service Booking"}
-                      </p>
-                      <p className="text-xs text-gray-600 truncate">
-                        Client: {booking.clientName || "Unknown"} •{" "}
-                        {booking.businessName || "Business"}
-                      </p>
-                    </div>
-                    <div className="text-right ml-3 flex-shrink-0">
-                      <p className="text-sm text-gray-900 font-medium">
-                        {booking.appointmentDate
-                          ? new Date(
-                              booking.appointmentDate
-                            ).toLocaleDateString("en-IE", {
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "N/A"}
-                      </p>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-bold ${
-                          booking.status === "COMPLETED"
-                            ? "bg-green-100 text-green-800"
-                            : booking.status === "CONFIRMED"
-                            ? "bg-blue-100 text-blue-800"
-                            : booking.status === "CANCELLED"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {booking.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No recent bookings
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Summary Footer */}
         <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
           <h2 className="text-2xl font-bold mb-6 text-gray-900">
             📈 Platform Summary
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 text-center">
             <div>
               <p className="text-3xl font-bold text-purple-600">
                 {analytics.carlowBusinesses}
@@ -651,37 +481,30 @@ const Reports = () => {
             </div>
             <div>
               <p className="text-3xl font-bold text-blue-600">
+                {analytics.activeBusinesses}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Active</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-orange-600">
+                {analytics.pendingBusinesses}
+              </p>
+              <p className="text-sm text-gray-600 mt-1">Pending</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-green-600">
                 {analytics.totalBookings}
               </p>
               <p className="text-sm text-gray-600 mt-1">Total Bookings</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-green-600">
-                €{analytics.totalRevenue.toFixed(2)}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">Revenue</p>
-            </div>
-            <div>
-              <p
-                className={`text-3xl font-bold ${
-                  analytics.bookingGrowth >= 0
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {analytics.bookingGrowth > 0 ? "+" : ""}
-                {analytics.bookingGrowth.toFixed(1)}%
-              </p>
-              <p className="text-sm text-gray-600 mt-1">Booking Growth</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-orange-600">
+              <p className="text-3xl font-bold text-pink-600">
                 {analytics.popularCategories[0]?.name || "N/A"}
               </p>
               <p className="text-sm text-gray-600 mt-1">Top Category</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-pink-600">
+              <p className="text-3xl font-bold text-teal-600">
                 {analytics.carlowTowns[0]?.town || "N/A"}
               </p>
               <p className="text-sm text-gray-600 mt-1">Top Town</p>

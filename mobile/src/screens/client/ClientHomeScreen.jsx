@@ -31,6 +31,7 @@ function ClientHomeScreen(props) {
   
   const [businesses, setBusinesses] = useState([]);
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+  const [businessRatings, setBusinessRatings] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +126,10 @@ function ClientHomeScreen(props) {
       
       setBusinesses(businessesArray);
       setFilteredBusinesses(businessesArray);
+      
+      // ⭐ Fetch ratings for all businesses
+      await fetchAllBusinessRatings(businessesArray);
+      
     } catch (errorObject) {
       const errorMessage = errorObject.message;
       console.error('❌ Fetch error:', errorObject);
@@ -137,6 +142,49 @@ function ClientHomeScreen(props) {
       setLoading(false);
       setRefreshing(false);
     }
+  }
+
+  // ⭐ NEW: Fetch ratings for all businesses
+  async function fetchAllBusinessRatings(businessesArray) {
+    const ratingsMap = {};
+    
+    let businessIndex = 0;
+    while (businessIndex < businessesArray.length) {
+      const business = businessesArray[businessIndex];
+      const businessId = business.id;
+      
+      try {
+        const businessIdString = businessId.toString();
+        const url = API_BASE_URL + '/ratings/business/' + businessIdString + '/summary';
+        
+        const requestOptions = {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
+        
+        const response = await fetch(url, requestOptions);
+        
+        const isResponseOk = response.ok;
+        if (isResponseOk === true) {
+          const data = await response.json();
+          ratingsMap[businessId] = data;
+          console.log('✅ Rating for business', businessId, ':', data.averageRating);
+        } else {
+          // No ratings yet for this business
+          ratingsMap[businessId] = null;
+        }
+      } catch (errorObject) {
+        console.log('⚠️ Could not fetch rating for business', businessId);
+        ratingsMap[businessId] = null;
+      }
+      
+      businessIndex = businessIndex + 1;
+    }
+    
+    setBusinessRatings(ratingsMap);
+    console.log('✅ All ratings fetched');
   }
 
   function filterBusinesses() {
@@ -189,7 +237,7 @@ function ClientHomeScreen(props) {
       while (searchIndex < filtered.length) {
         const business = filtered[searchIndex];
         
-        const businessName = business.name;
+        const businessName = business.businessName;
         let nameLower = '';
         const hasName = businessName !== null && businessName !== undefined;
         if (hasName === true) {
@@ -306,6 +354,14 @@ function ClientHomeScreen(props) {
 
   function renderFlatListItem(renderProps) {
     const item = renderProps.item;
+    const businessId = item.id;
+    
+    // ⭐ Get rating summary for this business
+    const ratingSummary = businessRatings[businessId];
+    
+    // ⭐ Add rating data to business object
+    const businessWithRating = Object.assign({}, item);
+    businessWithRating.ratingSummary = ratingSummary;
     
     function handlePress() {
       handleBusinessPress(item);
@@ -313,7 +369,7 @@ function ClientHomeScreen(props) {
     
     return (
       <BusinessCard
-        business={item}
+        business={businessWithRating}
         userLocation={userLocation}
         onPress={handlePress}
       />
@@ -430,7 +486,7 @@ function ClientHomeScreen(props) {
     return categoryButtons;
   }
 
-  const filterButtonEmoji = hasActiveFilter === true ? '🎯' : '⚙️';
+  const filterButtonEmoji = hasActiveFilter === true ? '🎯' : '☰';
   const filterButtonBackgroundColor = hasActiveFilter === true ? '#ffffff' : 'rgba(255, 255, 255, 0.2)';
   
   const maxModalHeight = SCREEN_HEIGHT * 0.7;

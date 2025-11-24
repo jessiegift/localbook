@@ -7,9 +7,10 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-import BusinessHours from '../../Components/BusinessHours'; // ← ADD THIS IMPORT
+import RatingStars from '../../Components/RatingStars';
 
 const screenDimensions = Dimensions.get('window');
 const SCREEN_WIDTH = screenDimensions.width;
@@ -26,14 +27,19 @@ function BusinessDetailScreen(props) {
   
   const [business, setBusiness] = useState(null);
   const [services, setServices] = useState([]);
+  const [ratings, setRatings] = useState([]);
+  const [ratingSummary, setRatingSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [servicesLoading, setServicesLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   useEffect(function() {
     fetchBusinessDetails();
     fetchBusinessServices();
+    fetchRatings();
+    fetchRatingSummary();
   }, [businessId]);
 
   async function fetchBusinessDetails() {
@@ -41,13 +47,15 @@ function BusinessDetailScreen(props) {
       setLoading(true);
       
       const businessIdString = businessId.toString();
-      const apiUrl = API_BASE_URL + '/businesses/' + businessIdString;
+      const timestamp = new Date().getTime();
+      const apiUrl = API_BASE_URL + '/businesses/' + businessIdString + '?t=' + timestamp;
       console.log('📍 Fetching business details from:', apiUrl);
       
       const requestOptions = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
       };
       
@@ -58,7 +66,8 @@ function BusinessDetailScreen(props) {
       const isResponseOk = response.ok;
       if (isResponseOk === true) {
         const data = await response.json();
-        console.log('✅ Business data:', data);
+        console.log('✅ Business data received');
+        console.log('🕐 Opening hours:', data.openingHours);
         setBusiness(data);
       } else {
         const errorText = await response.text();
@@ -81,13 +90,15 @@ function BusinessDetailScreen(props) {
       setServicesLoading(true);
       
       const businessIdString = businessId.toString();
-      const apiUrl = API_BASE_URL + '/businesses/' + businessIdString + '/services';
+      const timestamp = new Date().getTime();
+      const apiUrl = API_BASE_URL + '/businesses/' + businessIdString + '/services?t=' + timestamp;
       console.log('🔧 Fetching services from:', apiUrl);
       
       const requestOptions = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
         },
       };
       
@@ -114,6 +125,300 @@ function BusinessDetailScreen(props) {
     } finally {
       setServicesLoading(false);
     }
+  }
+
+  async function fetchRatings() {
+    try {
+      const businessIdString = businessId.toString();
+      const apiUrl = API_BASE_URL + '/ratings/business/' + businessIdString;
+      console.log('⭐ Fetching ratings from:', apiUrl);
+      
+      const requestOptions = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+      
+      const response = await fetch(apiUrl, requestOptions);
+      
+      if (response.ok === true) {
+        const data = await response.json();
+        console.log('✅ Ratings fetched:', data.length);
+        setRatings(data);
+      } else {
+        console.log('⚠️ No ratings found');
+        setRatings([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching ratings:', error);
+      setRatings([]);
+    }
+  }
+
+  async function fetchRatingSummary() {
+    try {
+      const businessIdString = businessId.toString();
+      const apiUrl = API_BASE_URL + '/ratings/business/' + businessIdString + '/summary';
+      console.log('📊 Fetching rating summary from:', apiUrl);
+      
+      const requestOptions = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+      
+      const response = await fetch(apiUrl, requestOptions);
+      
+      if (response.ok === true) {
+        const data = await response.json();
+        console.log('✅ Rating summary:', data);
+        setRatingSummary(data);
+      } else {
+        console.log('⚠️ No rating summary');
+        setRatingSummary(null);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching rating summary:', error);
+      setRatingSummary(null);
+    }
+  }
+
+  async function onRefresh() {
+    console.log('🔄 Refreshing business data...');
+    setRefreshing(true);
+    await fetchBusinessDetails();
+    await fetchBusinessServices();
+    await fetchRatings();
+    await fetchRatingSummary();
+    setRefreshing(false);
+    console.log('✅ Refresh complete!');
+  }
+
+  function getBusinessStatus() {
+    const hasOpeningHours = business !== null && business !== undefined && business.openingHours !== null && business.openingHours !== undefined;
+    
+    if (hasOpeningHours === false) {
+      return { isOpen: true, message: '', hasHours: false };
+    }
+
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const dayKey = dayNames[dayOfWeek];
+    const dayHours = business.openingHours[dayKey];
+
+    if (dayHours === null || dayHours === undefined) {
+      return { isOpen: true, message: '', hasHours: false };
+    }
+
+    if (dayHours.isClosed === true) {
+      const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayLabel = dayLabels[dayOfWeek];
+      return {
+        isOpen: false,
+        message: 'Closed on ' + todayLabel + 's',
+        hasHours: true
+      };
+    }
+
+    const openTime = dayHours.openTime;
+    const closeTime = dayHours.closeTime;
+
+    if (openTime === null || openTime === undefined || closeTime === null || closeTime === undefined) {
+      return { isOpen: true, message: '', hasHours: false };
+    }
+
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentMinutes = hours * 60 + minutes;
+
+    const openParts = openTime.split(':');
+    const openHour = parseInt(openParts[0]);
+    const openMinute = parseInt(openParts[1]);
+    const openMinutes = openHour * 60 + openMinute;
+
+    const closeParts = closeTime.split(':');
+    const closeHour = parseInt(closeParts[0]);
+    const closeMinute = parseInt(closeParts[1]);
+    const closeMinutes = closeHour * 60 + closeMinute;
+
+    const isAfterOpen = currentMinutes >= openMinutes;
+    const isBeforeClose = currentMinutes < closeMinutes;
+    const isCurrentlyOpen = isAfterOpen && isBeforeClose;
+
+    if (isCurrentlyOpen === true) {
+      const closeTimeFormatted = formatTime12Hour(closeTime);
+      return {
+        isOpen: true,
+        message: 'Open now • Closes at ' + closeTimeFormatted,
+        hasHours: true
+      };
+    } else {
+      const openTimeFormatted = formatTime12Hour(openTime);
+      return {
+        isOpen: false,
+        message: 'Closed now • Opens at ' + openTimeFormatted,
+        hasHours: true
+      };
+    }
+  }
+
+  function formatTime12Hour(time24) {
+    const parts = time24.split(':');
+    const hours = parts[0];
+    const minutes = parts[1];
+    const hourNumber = parseInt(hours);
+    
+    let ampm = 'AM';
+    const isAfternoon = hourNumber >= 12;
+    if (isAfternoon === true) {
+      ampm = 'PM';
+    }
+    
+    let hour12 = hourNumber % 12;
+    const isMidnight = hour12 === 0;
+    if (isMidnight === true) {
+      hour12 = 12;
+    }
+    
+    const hour12String = hour12.toString();
+    const formattedTime = hour12String + ':' + minutes + ' ' + ampm;
+    return formattedTime;
+  }
+
+  function renderBusinessHours() {
+    const hasOpeningHours = business !== null && business !== undefined && business.openingHours !== null && business.openingHours !== undefined;
+    
+    if (hasOpeningHours === false) {
+      return null;
+    }
+
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    return (
+      <View style={{
+        backgroundColor: '#ffffff',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}>
+          <View style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            backgroundColor: '#dbeafe',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+          }}>
+            <Text style={{ fontSize: 22 }}>🕐</Text>
+          </View>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '700',
+            color: '#111827',
+          }}>
+            Business Hours
+          </Text>
+        </View>
+
+        {dayNames.map(function(dayName, index) {
+          const dayKey = dayKeys[index];
+          const dayData = business.openingHours[dayKey];
+          
+          const isLastDay = index === dayNames.length - 1;
+          let marginBottom = 12;
+          if (isLastDay === true) {
+            marginBottom = 0;
+          }
+
+          if (dayData === null || dayData === undefined) {
+            return (
+              <View
+                key={dayKey}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 8,
+                  marginBottom: marginBottom,
+                }}
+              >
+                <Text style={{
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: '#111827',
+                }}>
+                  {dayName}
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  color: '#6b7280',
+                }}>
+                  Not set
+                </Text>
+              </View>
+            );
+          }
+
+          const isClosed = dayData.isClosed === true;
+
+          return (
+            <View
+              key={dayKey}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingVertical: 8,
+                marginBottom: marginBottom,
+              }}
+            >
+              <Text style={{
+                fontSize: 15,
+                fontWeight: '600',
+                color: '#111827',
+              }}>
+                {dayName}
+              </Text>
+              
+              {isClosed === true && (
+                <Text style={{
+                  fontSize: 14,
+                  color: '#ef4444',
+                  fontWeight: '600',
+                }}>
+                  Closed
+                </Text>
+              )}
+              
+              {isClosed === false && (
+                <Text style={{
+                  fontSize: 14,
+                  color: '#10b981',
+                  fontWeight: '600',
+                }}>
+                  {formatTime12Hour(dayData.openTime)} - {formatTime12Hour(dayData.closeTime)}
+                </Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
   }
 
   function handleBookService(service) {
@@ -240,6 +545,11 @@ function BusinessDetailScreen(props) {
 
   const servicesCount = services.length;
   const hasServices = servicesCount > 0;
+
+  const ratingsCount = ratings.length;
+  const hasRatings = ratingsCount > 0;
+
+  const businessStatus = getBusinessStatus();
 
   function renderServiceCard(service, index) {
     const serviceId = service.id;
@@ -421,13 +731,112 @@ function BusinessDetailScreen(props) {
     return serviceCards;
   }
 
+  function renderReviewCard(rating, index) {
+    const ratingId = rating.id;
+    
+    let userName = 'Anonymous';
+    const hasUser = rating.user !== null && rating.user !== undefined;
+    if (hasUser === true) {
+      const hasUserName = rating.user.name !== null && rating.user.name !== undefined;
+      if (hasUserName === true) {
+        userName = rating.user.name;
+      }
+    }
+    
+    const ratingValue = rating.rating;
+    const reviewText = rating.review;
+    const hasReviewText = reviewText !== null && reviewText !== undefined && reviewText.length > 0;
+    
+    const createdAt = new Date(rating.createdAt);
+    const dateString = createdAt.toLocaleDateString('en-IE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    const maxReviews = Math.min(ratingsCount, 5);
+    const isLastReview = index === maxReviews - 1;
+    let marginBottom = 12;
+    if (isLastReview === true) {
+      marginBottom = 0;
+    }
+
+    return (
+      <View
+        key={ratingId}
+        style={{
+          backgroundColor: '#f9fafb',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: marginBottom,
+        }}
+      >
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: hasReviewText ? 12 : 0,
+        }}>
+          <Text style={{
+            fontSize: 15,
+            fontWeight: '700',
+            color: '#111827',
+          }}>
+            {userName}
+          </Text>
+          <RatingStars rating={ratingValue} size={16} />
+        </View>
+        
+        {hasReviewText && (
+          <Text style={{
+            fontSize: 14,
+            color: '#4b5563',
+            lineHeight: 20,
+            marginBottom: 8,
+          }}>
+            {reviewText}
+          </Text>
+        )}
+        
+        <Text style={{
+          fontSize: 12,
+          color: '#9ca3af',
+        }}>
+          {dateString}
+        </Text>
+      </View>
+    );
+  }
+
+  function renderReviewsList() {
+    const reviewCards = [];
+    const maxReviews = Math.min(ratingsCount, 5);
+    let reviewIndex = 0;
+    
+    while (reviewIndex < maxReviews) {
+      const rating = ratings[reviewIndex];
+      const card = renderReviewCard(rating, reviewIndex);
+      reviewCards.push(card);
+      reviewIndex = reviewIndex + 1;
+    }
+    
+    return reviewCards;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#7c3aed']}
+            tintColor="#7c3aed"
+          />
+        }
       >
-        {/* Hero Header */}
         <View style={{
           backgroundColor: '#7c3aed',
           paddingTop: 60,
@@ -512,6 +921,78 @@ function BusinessDetailScreen(props) {
                 </View>
               )}
             </View>
+
+            {ratingSummary !== null && ratingSummary !== undefined && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 12,
+              }}>
+                <RatingStars 
+                  rating={Math.round(ratingSummary.averageRating)} 
+                  size={18} 
+                />
+                <Text style={{
+                  marginLeft: 8,
+                  fontSize: 14,
+                  color: '#ffffff',
+                  fontWeight: '600',
+                }}>
+                  {ratingSummary.averageRating.toFixed(1)} ({ratingSummary.totalRatings} {ratingSummary.totalRatings === 1 ? 'review' : 'reviews'})
+                </Text>
+              </View>
+            )}
+
+            {businessStatus.hasHours === true && (
+              <View style={{
+                marginTop: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+                {businessStatus.isOpen === true && (
+                  <View style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(16, 185, 129, 0.3)',
+                  }}>
+                    <Text style={{ fontSize: 12, marginRight: 6 }}>🟢</Text>
+                    <Text style={{
+                      color: '#ffffff',
+                      fontSize: 13,
+                      fontWeight: '600',
+                    }}>
+                      {businessStatus.message}
+                    </Text>
+                  </View>
+                )}
+                {businessStatus.isOpen === false && (
+                  <View style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(239, 68, 68, 0.3)',
+                  }}>
+                    <Text style={{ fontSize: 12, marginRight: 6 }}>🔴</Text>
+                    <Text style={{
+                      color: '#ffffff',
+                      fontSize: 13,
+                      fontWeight: '600',
+                    }}>
+                      {businessStatus.message}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </View>
 
           <View style={{
@@ -522,13 +1003,11 @@ function BusinessDetailScreen(props) {
           }} />
         </View>
 
-        {/* Business Information Cards */}
         <View style={{
           paddingHorizontal: 20,
           paddingTop: 8,
           paddingBottom: 24,
         }}>
-          {/* Location Card */}
           <View style={{
             backgroundColor: '#ffffff',
             borderRadius: 16,
@@ -574,7 +1053,6 @@ function BusinessDetailScreen(props) {
             </View>
           </View>
 
-          {/* Phone Card */}
           {hasPhoneNumber === true && (
             <View style={{
               backgroundColor: '#ffffff',
@@ -622,7 +1100,6 @@ function BusinessDetailScreen(props) {
             </View>
           )}
 
-          {/* Description Card */}
           {hasDescription === true && (
             <View style={{
               backgroundColor: '#ffffff',
@@ -669,10 +1146,85 @@ function BusinessDetailScreen(props) {
             </View>
           )}
 
-          {/* ⭐ BUSINESS HOURS - ADD THIS HERE! */}
-          <BusinessHours business={business} />
+          {renderBusinessHours()}
 
-          {/* Services Section */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 16,
+            padding: 20,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+            marginTop: 12,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}>
+              <View style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: '#fef3c7',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 12,
+              }}>
+                <Text style={{ fontSize: 22 }}>⭐</Text>
+              </View>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#111827',
+              }}>
+                Customer Reviews ({ratingsCount})
+              </Text>
+            </View>
+
+            {hasRatings === false && (
+              <View style={{
+                paddingVertical: 40,
+                alignItems: 'center',
+              }}>
+                <View style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  backgroundColor: '#f9fafb',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 16,
+                }}>
+                  <Text style={{ fontSize: 40 }}>⭐</Text>
+                </View>
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '600',
+                  color: '#6b7280',
+                  marginBottom: 4,
+                }}>
+                  No Reviews Yet
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  color: '#9ca3af',
+                  textAlign: 'center',
+                }}>
+                  Be the first to review this business
+                </Text>
+              </View>
+            )}
+            
+            {hasRatings === true && (
+              <View>
+                {renderReviewsList()}
+              </View>
+            )}
+          </View>
+
           <View style={{
             backgroundColor: '#ffffff',
             borderRadius: 16,
@@ -709,7 +1261,7 @@ function BusinessDetailScreen(props) {
               </Text>
             </View>
 
-            {servicesLoading === true ? (
+            {servicesLoading === true && (
               <View style={{
                 paddingVertical: 40,
                 alignItems: 'center',
@@ -724,7 +1276,9 @@ function BusinessDetailScreen(props) {
                   Loading services...
                 </Text>
               </View>
-            ) : hasServices === false ? (
+            )}
+            
+            {servicesLoading === false && hasServices === false && (
               <View style={{
                 paddingVertical: 60,
                 alignItems: 'center',
@@ -756,7 +1310,9 @@ function BusinessDetailScreen(props) {
                   This business hasn't added any services yet
                 </Text>
               </View>
-            ) : (
+            )}
+            
+            {servicesLoading === false && hasServices === true && (
               <View>
                 {renderServicesList()}
               </View>

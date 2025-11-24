@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, LinearGradient } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import Button from '../../common/Button';
@@ -31,6 +31,17 @@ function BusinessHomeScreen(props) {
   const todaySchedule = scheduleState[0];
   const setTodaySchedule = scheduleState[1];
 
+  // ✅ Ratings state
+  const ratingsState = useState({
+    averageRating: 0,
+    totalRatings: 0,
+    recentRatings: [],
+  });
+  const ratings = ratingsState[0];
+  const setRatings = ratingsState[1];
+
+  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+
   useEffect(function() {
     fetchDashboardData();
   }, []);
@@ -44,10 +55,8 @@ function BusinessHomeScreen(props) {
         return;
       }
 
-      // IMPORTANT: Convert businessId to number
       const businessId = Number(user.businessId);
       
-      // Check if it's a valid number
       if (isNaN(businessId) || businessId <= 0) {
         console.error('Invalid businessId:', user.businessId);
         Alert.alert('Error', 'Invalid business ID: ' + user.businessId);
@@ -56,12 +65,10 @@ function BusinessHomeScreen(props) {
         return;
       }
 
-      const url = 'http://192.168.1.15:8080/api/businesses/' + businessId + '/dashboard';
+      const url = API_BASE_URL + '/businesses/' + businessId + '/dashboard';
       console.log('=== FETCHING DASHBOARD ===');
       console.log('Full URL:', url);
       console.log('Business ID (type):', typeof businessId, businessId);
-      console.log('Original user.businessId (type):', typeof user.businessId, user.businessId);
-      console.log('Token:', token ? 'Present (length: ' + token.length + ')' : 'Missing');
       
       const response = await fetch(url, {
         method: 'GET',
@@ -73,13 +80,10 @@ function BusinessHomeScreen(props) {
 
       console.log('=== RESPONSE RECEIVED ===');
       console.log('Status:', response.status);
-      console.log('Status Text:', response.statusText);
-      console.log('OK:', response.ok);
       
       if (response.ok) {
         const data = await response.json();
         console.log('=== DASHBOARD DATA RECEIVED ===');
-        console.log('Full response:', JSON.stringify(data, null, 2));
         
         if (data.stats) {
           console.log('Stats:', data.stats);
@@ -89,13 +93,14 @@ function BusinessHomeScreen(props) {
             monthRevenue: data.stats.monthRevenue || 0,
             totalCustomers: data.stats.totalCustomers || 0,
           });
-        } else {
-          console.warn('No stats in response');
         }
         
         const schedule = data.todaySchedule || [];
         console.log('Today schedule count:', schedule.length);
         setTodaySchedule(schedule);
+
+        // ✅ Fetch ratings
+        await fetchBusinessRatings(businessId);
       } else {
         console.error('=== ERROR RESPONSE ===');
         const errorText = await response.text();
@@ -110,9 +115,7 @@ function BusinessHomeScreen(props) {
       }
     } catch (error) {
       console.error('=== NETWORK ERROR ===');
-      console.error('Error name:', error.name);
       console.error('Error message:', error.message);
-      console.error('Full error:', error);
       
       Alert.alert(
         'Network Error', 
@@ -124,6 +127,47 @@ function BusinessHomeScreen(props) {
       setRefreshing(false);
     }
   }
+
+  // ✅ Fetch ratings function
+  async function fetchBusinessRatings(businessId) {
+    try {
+      console.log('📥 Fetching ratings for business:', businessId);
+      
+      const url = API_BASE_URL + '/ratings/business/' + businessId;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        const ratingsArray = data.ratings !== null && data.ratings !== undefined ? data.ratings : [];
+        const avgRating = data.averageRating !== null && data.averageRating !== undefined ? data.averageRating : 0;
+        const totalCount = data.totalRatings !== null && data.totalRatings !== undefined ? data.totalRatings : 0;
+        
+        // Get last 3 ratings
+        const recentRatings = ratingsArray.slice(0, 3);
+        
+        console.log('✅ Ratings received:', ratingsArray.length);
+        console.log('⭐ Average rating:', avgRating);
+        
+        setRatings({
+          averageRating: avgRating,
+          totalRatings: totalCount,
+          recentRatings: recentRatings,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching ratings:', error);
+      // Don't alert, just log
+    }
+  }
+
   function onRefresh() {
     console.log('Refreshing dashboard...');
     setRefreshing(true);
@@ -132,26 +176,50 @@ function BusinessHomeScreen(props) {
 
   async function handleComplete(appointmentId) {
     try {
-      const url = 'http://192.168.1.15:8080/api/appointments/' + appointmentId + '/complete?businessId=' + user.businessId;
-      console.log('Completing appointment:', appointmentId);
+      // Debug logging
+      console.log('🔍 User object:', user);
+      console.log('🔍 user.id:', user?.id);
+      console.log('🔍 user.businessId:', user?.businessId);
+      
+      // Check if user exists and has either id or businessId
+      if (!user) {
+        console.error('❌ User is missing');
+        Alert.alert('Error', 'User information not available');
+        return;
+      }
+
+      // Try to use user.id first, fallback to user.businessId if needed
+      const userIdToSend = user.id || user.businessId;
+      
+      if (!userIdToSend) {
+        console.error('❌ Neither user.id nor user.businessId exists');
+        Alert.alert('Error', 'User ID not available');
+        return;
+      }
+
+      const url = API_BASE_URL + '/appointments/' + appointmentId + '/complete?userId=' + userIdToSend;
+      console.log('✅ Completing appointment:', appointmentId);
+      console.log('✅ Sending userId:', userIdToSend);
+      console.log('✅ Full URL:', url);
       
       const response = await fetch(url, {
         method: 'PUT',
         headers: {
           Authorization: 'Bearer ' + token,
+          'Content-Type': 'application/json',
         },
       });
 
       if (response.ok) {
-        Alert.alert('Success', 'Appointment completed!');
+        Alert.alert('Success', 'Appointment completed! ✅');
         fetchDashboardData();
       } else {
         const errorText = await response.text();
-        console.error('Complete appointment failed:', errorText);
+        console.error('❌ Complete appointment failed:', errorText);
         Alert.alert('Error', 'Failed to complete appointment');
       }
     } catch (error) {
-      console.error('Error completing appointment:', error);
+      console.error('❌ Error completing appointment:', error);
       Alert.alert('Error', 'Network error: ' + error.message);
     }
   }
@@ -183,15 +251,16 @@ function BusinessHomeScreen(props) {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View style={{ backgroundColor: '#22c55e', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
+      <View style={{ backgroundColor: '#7c3aed', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
         <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700', marginBottom: 4 }}>
           Good Morning! 👋
         </Text>
-        <Text style={{ color: '#bbf7d0', fontSize: 16 }}>
+        <Text style={{ color: '#e9d5ff', fontSize: 16 }}>
           {user && user.businessName ? user.businessName : user && user.name ? user.name : ''}
         </Text>
       </View>
 
+      {/* Stats Grid */}
       <View style={{ paddingHorizontal: 20, marginTop: 0, marginBottom: 16 }}>
         <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.1 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
@@ -210,7 +279,7 @@ function BusinessHomeScreen(props) {
             </View>
 
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#22c55e' }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#7c3aed' }}>
                 ${formatRevenue(stats.monthRevenue)}
               </Text>
               <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Revenue</Text>
@@ -219,6 +288,77 @@ function BusinessHomeScreen(props) {
         </View>
       </View>
 
+      {/* ✅ Ratings Card */}
+      <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+        <TouchableOpacity 
+          onPress={function() { navigation.navigate('BusinessRatings'); }}
+          style={{ 
+            backgroundColor: '#ffffff', 
+            borderRadius: 16, 
+            padding: 16, 
+            shadowColor: '#000', 
+            shadowOpacity: 0.1,
+            borderLeftWidth: 4,
+            borderLeftColor: '#a855f7',
+          }}
+        >
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
+              ⭐ Customer Ratings
+            </Text>
+            <TouchableOpacity 
+              onPress={function() { navigation.navigate('BusinessRatings'); }}
+              style={{ backgroundColor: '#f3e8ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}
+            >
+              <Text style={{ color: '#a855f7', fontSize: 12, fontWeight: '600' }}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Rating Display */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 42, fontWeight: '700', color: '#a855f7', marginRight: 12 }}>
+              {ratings.averageRating.toFixed(1)}
+            </Text>
+            <View>
+              <View style={{ flexDirection: 'row', gap: 2, marginBottom: 4 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Text key={star} style={{ fontSize: 16 }}>
+                    {star <= Math.round(ratings.averageRating) ? '⭐' : '☆'}
+                  </Text>
+                ))}
+              </View>
+              <Text style={{ fontSize: 12, color: '#6b7280' }}>
+                {ratings.totalRatings} {ratings.totalRatings === 1 ? 'rating' : 'ratings'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Recent Ratings Preview */}
+          {ratings.recentRatings.length > 0 && (
+            <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 12 }}>
+              {ratings.recentRatings.map((rating, index) => (
+                <View key={index} style={{ marginBottom: index < ratings.recentRatings.length - 1 ? 8 : 0 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#111827' }}>
+                      {rating.user?.name || 'Anonymous'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#a855f7', fontWeight: '600' }}>
+                      {rating.rating}/5
+                    </Text>
+                  </View>
+                  {rating.review && (
+                    <Text style={{ fontSize: 11, color: '#6b7280', marginTop: 2, fontStyle: 'italic' }} numberOfLines={1}>
+                      "{rating.review}"
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Quick Actions */}
       <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
         <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
           Quick Actions
@@ -247,13 +387,14 @@ function BusinessHomeScreen(props) {
         </View>
       </View>
 
+      {/* Today's Schedule */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
             Today's Schedule 📅
           </Text>
           <TouchableOpacity onPress={function() { navigation.navigate('ManageAppointments'); }}>
-            <Text style={{ color: '#22c55e', fontWeight: '600', fontSize: 14 }}>
+            <Text style={{ color: '#7c3aed', fontWeight: '600', fontSize: 14 }}>
               View All
             </Text>
           </TouchableOpacity>
@@ -289,7 +430,7 @@ function BusinessHomeScreen(props) {
                       </View>
                     )}
                   </View>
-                  <Text style={{ color: '#22c55e', fontWeight: '700', fontSize: 16 }}>
+                  <Text style={{ color: '#7c3aed', fontWeight: '700', fontSize: 16 }}>
                     ${appointment.service && appointment.service.price ? appointment.service.price : 0}
                   </Text>
                 </View>

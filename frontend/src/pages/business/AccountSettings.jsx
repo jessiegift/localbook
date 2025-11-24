@@ -4,7 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 
 const AccountSettings = () => {
-    const { user, logout } = useAuth();
+    const authContext = useAuth();
+    const user = authContext.user;
+    const logout = authContext.logout;
     const navigate = useNavigate();
     
     const [loading, setLoading] = useState(false);
@@ -12,26 +14,14 @@ const AccountSettings = () => {
     const [error, setError] = useState('');
     const [businessId, setBusinessId] = useState(null);
     
-    // Active tab
     const [activeTab, setActiveTab] = useState('account');
     
-    // Toggle states
-    const [showChangePassword, setShowChangePassword] = useState(false);
-    const [showChangeEmail, setShowChangeEmail] = useState(false);
-    
-    // Form states
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
     });
     
-    const [emailData, setEmailData] = useState({
-        newEmail: '',
-        password: ''
-    });
-
-    // ✅ Business Profile State
     const [profileData, setProfileData] = useState({
         businessName: '',
         ownerName: '',
@@ -43,28 +33,49 @@ const AccountSettings = () => {
         county: '',
         eircode: '',
         phoneNumber: '',
-        email: '',
-        website: ''
+        email: ''
     });
 
-    useEffect(() => {
-        if (user?.id) {
+    useEffect(function() {
+        const hasUser = user !== null && user !== undefined;
+        const hasUserId = hasUser === true && user.id !== null && user.id !== undefined;
+        if (hasUserId === true) {
             fetchBusinessData();
         }
     }, [user]);
 
-    const fetchBusinessData = async () => {
+    async function fetchBusinessData() {
         try {
             console.log('🔍 Fetching business for user:', user.id);
-            const response = await api.get(`/businesses/owner/${user.id}`);
+            
+            const userId = user.id;
+            const userIdString = userId.toString();
+            const endpoint = '/businesses/owner/' + userIdString;
+            const response = await api.get(endpoint);
+            
             console.log('📦 Business data response:', response.data);
             
-            if (response.data && response.data.length > 0) {
+            const hasData = response.data !== null && response.data !== undefined;
+            const hasLength = hasData === true && response.data.length > 0;
+            
+            if (hasLength === true) {
                 const business = response.data[0];
-                setBusinessId(business.id);
+                const businessIdValue = business.id;
+                setBusinessId(businessIdValue);
+                
+                let ownerNameValue = '';
+                const hasOwnerName = business.ownerName !== null && business.ownerName !== undefined;
+                const hasUserName = user.name !== null && user.name !== undefined;
+                
+                if (hasOwnerName === true) {
+                    ownerNameValue = business.ownerName;
+                } else if (hasUserName === true) {
+                    ownerNameValue = user.name;
+                }
+                
                 setProfileData({
                     businessName: business.businessName || '',
-                    ownerName: business.ownerName || user.name || '',
+                    ownerName: ownerNameValue,
                     description: business.description || '',
                     category: business.category || '',
                     location: business.location || '',
@@ -73,23 +84,27 @@ const AccountSettings = () => {
                     county: business.county || '',
                     eircode: business.eircode || '',
                     phoneNumber: business.phoneNumber || '',
-                    email: business.email || '',
-                    website: business.website || ''
+                    email: business.email || ''
                 });
             }
         } catch (err) {
             console.error('❌ Error fetching business data:', err);
         }
-    };
+    }
 
-    const handleProfileChange = (e) => {
-        setProfileData({ ...profileData, [e.target.name]: e.target.value });
-    };
+    function handleProfileChange(event) {
+        const fieldName = event.target.name;
+        const fieldValue = event.target.value;
+        const updatedProfile = Object.assign({}, profileData);
+        updatedProfile[fieldName] = fieldValue;
+        setProfileData(updatedProfile);
+    }
 
-    const handleSaveProfile = async (e) => {
-        e.preventDefault();
+    async function handleSaveProfile(event) {
+        event.preventDefault();
         
-        if (!businessId) {
+        const hasBusinessId = businessId !== null && businessId !== undefined;
+        if (hasBusinessId === false) {
             setError('No business found. Please complete business setup first.');
             return;
         }
@@ -99,26 +114,56 @@ const AccountSettings = () => {
         setMessage('');
 
         try {
-            await api.put(`/businesses/${businessId}?ownerId=${user.id}`, profileData);
+            const businessIdString = businessId.toString();
+            const userIdString = user.id.toString();
+            const endpoint = '/businesses/' + businessIdString + '?ownerId=' + userIdString;
+            
+            await api.put(endpoint, profileData);
+            
             setMessage('✅ Business profile updated successfully!');
-            setTimeout(() => setMessage(''), 3000);
+            
+            setTimeout(function() {
+                setMessage('');
+            }, 3000);
         } catch (err) {
             console.error('Error updating profile:', err);
-            setError('❌ Failed to update profile: ' + (err.response?.data?.message || err.message));
+            
+            let errorMessage = 'Failed to update profile';
+            const hasResponse = err.response !== null && err.response !== undefined;
+            const hasResponseData = hasResponse === true && err.response.data !== null;
+            const hasResponseMessage = hasResponseData === true && err.response.data.message !== null;
+            
+            if (hasResponseMessage === true) {
+                errorMessage = err.response.data.message;
+            } else {
+                const hasErrorMessage = err.message !== null && err.message !== undefined;
+                if (hasErrorMessage === true) {
+                    errorMessage = err.message;
+                }
+            }
+            
+            setError('❌ ' + errorMessage);
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const handleChangePassword = async (e) => {
-        e.preventDefault();
+    async function handleChangePassword(event) {
+        event.preventDefault();
         
-        if (passwordData.newPassword !== passwordData.confirmPassword) {
+        const newPassword = passwordData.newPassword;
+        const confirmPassword = passwordData.confirmPassword;
+        const passwordsMatch = newPassword === confirmPassword;
+        
+        if (passwordsMatch === false) {
             setError('❌ Passwords do not match!');
             return;
         }
         
-        if (passwordData.newPassword.length < 6) {
+        const newPasswordLength = newPassword.length;
+        const isPasswordLongEnough = newPasswordLength >= 6;
+        
+        if (isPasswordLongEnough === false) {
             setError('❌ Password must be at least 6 characters!');
             return;
         }
@@ -128,105 +173,71 @@ const AccountSettings = () => {
         setMessage('');
 
         try {
-            await api.put(`/users/${user.id}/password`, {
+            const userId = user.id;
+            const userIdString = userId.toString();
+            const endpoint = '/users/' + userIdString + '/password';
+            
+            const requestData = {
                 currentPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword
-            });
+            };
+            
+            await api.put(endpoint, requestData);
             
             setMessage('✅ Password changed successfully!');
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-            setShowChangePassword(false);
-            setTimeout(() => setMessage(''), 3000);
+            
+            setTimeout(function() {
+                setMessage('');
+            }, 3000);
         } catch (err) {
             setError('❌ Failed to change password. Check your current password.');
         } finally {
             setLoading(false);
         }
-    };
+    }
 
-    const handleChangeEmail = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setMessage('');
+    function handlePasswordInputChange(event) {
+        const fieldName = event.target.name;
+        const fieldValue = event.target.value;
+        const updatedPasswordData = Object.assign({}, passwordData);
+        updatedPasswordData[fieldName] = fieldValue;
+        setPasswordData(updatedPasswordData);
+    }
 
-        try {
-            await api.put(`/users/${user.id}/email`, {
-                newEmail: emailData.newEmail,
-                password: emailData.password
-            });
-            
-            setMessage('✅ Email changed successfully! Please log in again.');
-            setEmailData({ newEmail: '', password: '' });
-            setShowChangeEmail(false);
-            
-            // Logout after 2 seconds
-            setTimeout(() => {
-                logout();
-                navigate('/login');
-            }, 2000);
-        } catch (err) {
-            setError('❌ Failed to change email. Email may already be in use.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    function handleAccountTabClick() {
+        setActiveTab('account');
+    }
 
-    const handleDeactivateAccount = async () => {
-        const confirmed = window.confirm(
-            '⚠️ Are you sure you want to deactivate your account?\n\nYour business will be hidden from clients but your data will be preserved. You can reactivate anytime.'
-        );
-        
-        if (!confirmed) return;
+    function handleBusinessTabClick() {
+        setActiveTab('business');
+    }
 
-        setLoading(true);
-        try {
-            await api.put(`/users/${user.id}/deactivate`);
-            setMessage('✅ Account deactivated. Logging out...');
-            setTimeout(() => {
-                logout();
-                navigate('/login');
-            }, 2000);
-        } catch (err) {
-            setError('❌ Failed to deactivate account.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const isAccountTab = activeTab === 'account';
+    const isBusinessTab = activeTab === 'business';
 
-    const handleDeleteAccount = async () => {
-        const confirmed1 = window.confirm(
-            '🚨 WARNING: Are you sure you want to DELETE your account?\n\nThis action is PERMANENT and CANNOT be undone!'
-        );
-        
-        if (!confirmed1) return;
-        
-        const confirmed2 = window.confirm(
-            '🚨 FINAL WARNING!\n\nAll your data including:\n- Business information\n- Services\n- Bookings\n- Customer data\n\nwill be PERMANENTLY DELETED!\n\nType your password in the next prompt to confirm.'
-        );
-        
-        if (!confirmed2) return;
-        
-        const password = prompt('Enter your password to confirm deletion:');
-        if (!password) return;
+    let userEmail = 'Not set';
+    const hasUser = user !== null && user !== undefined;
+    const hasUserEmail = hasUser === true && user.email !== null && user.email !== undefined;
+    if (hasUserEmail === true) {
+        userEmail = user.email;
+    }
 
-        setLoading(true);
-        try {
-            await api.delete(`/users/${user.id}`, {
-                data: { password }
-            });
-            
-            setMessage('Account deleted. Goodbye!');
-            setTimeout(() => {
-                logout();
-                navigate('/login');
-            }, 2000);
-        } catch (err) {
-            setError('❌ Failed to delete account. Check your password.');
-        } finally {
-            setLoading(false);
-        }
-    };
+    let userName = 'Not set';
+    const hasUserName = hasUser === true && user.name !== null && user.name !== undefined;
+    if (hasUserName === true) {
+        userName = user.name;
+    }
+
+    let userRole = 'Not set';
+    const hasUserRole = hasUser === true && user.role !== null && user.role !== undefined;
+    if (hasUserRole === true) {
+        userRole = user.role;
+    }
+
+    const hasMessage = message !== null && message !== undefined && message.length > 0;
+    const hasError = error !== null && error !== undefined && error.length > 0;
+    const hasBusinessId = businessId !== null && businessId !== undefined;
 
     return (
         <div className="w-full bg-gray-50 min-h-screen">
@@ -237,9 +248,9 @@ const AccountSettings = () => {
                 <div className="bg-white rounded-lg shadow-md overflow-hidden mb-6">
                     <div className="flex border-b">
                         <button
-                            onClick={() => setActiveTab('account')}
+                            onClick={handleAccountTabClick}
                             className={`flex-1 px-6 py-4 font-medium transition ${
-                                activeTab === 'account'
+                                isAccountTab === true
                                     ? 'bg-purple-600 text-white'
                                     : 'bg-white text-gray-600 hover:bg-gray-50'
                             }`}
@@ -247,9 +258,9 @@ const AccountSettings = () => {
                             👤 Account Info
                         </button>
                         <button
-                            onClick={() => setActiveTab('business')}
+                            onClick={handleBusinessTabClick}
                             className={`flex-1 px-6 py-4 font-medium transition ${
-                                activeTab === 'business'
+                                isBusinessTab === true
                                     ? 'bg-purple-600 text-white'
                                     : 'bg-white text-gray-600 hover:bg-gray-50'
                             }`}
@@ -260,196 +271,102 @@ const AccountSettings = () => {
                 </div>
 
                 {/* Messages */}
-                {message && (
+                {hasMessage === true && (
                     <div className="mb-6 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
                         {message}
                     </div>
                 )}
-                {error && (
+                {hasError === true && (
                     <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                         {error}
                     </div>
                 )}
 
                 {/* Account Info Tab */}
-                {activeTab === 'account' && (
+                {isAccountTab === true && (
                     <>
-                        {/* Account Info */}
+                        {/* Account Info Card */}
                         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
                             <h2 className="text-xl font-semibold mb-4">Account Information</h2>
                             <div className="space-y-3">
-                                <div>
-                                    <span className="text-gray-600">Email:</span>
-                                    <span className="ml-2 font-medium">{user?.email}</span>
+                                <div className="flex items-center py-3 border-b">
+                                    <span className="text-gray-600 font-medium w-32">Email:</span>
+                                    <span className="text-gray-900">{userEmail}</span>
                                 </div>
-                                <div>
-                                    <span className="text-gray-600">Name:</span>
-                                    <span className="ml-2 font-medium">{user?.name || 'Not set'}</span>
+                                <div className="flex items-center py-3 border-b">
+                                    <span className="text-gray-600 font-medium w-32">Name:</span>
+                                    <span className="text-gray-900">{userName}</span>
                                 </div>
-                                <div>
-                                    <span className="text-gray-600">Role:</span>
-                                    <span className="ml-2 font-medium">{user?.role}</span>
+                                <div className="flex items-center py-3">
+                                    <span className="text-gray-600 font-medium w-32">Role:</span>
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                                        {userRole}
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Change Password Section */}
-                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold">Change Password</h2>
+                        {/* Change Password Card */}
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h2 className="text-xl font-semibold mb-4">Change Password</h2>
+                            <form onSubmit={handleChangePassword} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Current Password *
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="currentPassword"
+                                        value={passwordData.currentPassword}
+                                        onChange={handlePasswordInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        New Password * (min. 6 characters)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="newPassword"
+                                        value={passwordData.newPassword}
+                                        onChange={handlePasswordInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        required
+                                        minLength={6}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Confirm New Password *
+                                    </label>
+                                    <input
+                                        type="password"
+                                        name="confirmPassword"
+                                        value={passwordData.confirmPassword}
+                                        onChange={handlePasswordInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
                                 <button
-                                    onClick={() => setShowChangePassword(!showChangePassword)}
-                                    className="text-purple-600 hover:text-purple-700 font-medium"
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                                 >
-                                    {showChangePassword ? 'Cancel' : 'Change Password'}
+                                    {loading === true ? 'Updating...' : 'Update Password'}
                                 </button>
-                            </div>
-
-                            {showChangePassword && (
-                                <form onSubmit={handleChangePassword} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Current Password *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwordData.currentPassword}
-                                            onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            New Password *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwordData.newPassword}
-                                            onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                            required
-                                            minLength={6}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Confirm New Password *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={passwordData.confirmPassword}
-                                            onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-                                    >
-                                        {loading ? 'Changing...' : 'Update Password'}
-                                    </button>
-                                </form>
-                            )}
-                        </div>
-
-                        {/* Change Email Section */}
-                        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold">Change Email</h2>
-                                <button
-                                    onClick={() => setShowChangeEmail(!showChangeEmail)}
-                                    className="text-purple-600 hover:text-purple-700 font-medium"
-                                >
-                                    {showChangeEmail ? 'Cancel' : 'Change Email'}
-                                </button>
-                            </div>
-
-                            {showChangeEmail && (
-                                <form onSubmit={handleChangeEmail} className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            New Email *
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={emailData.newEmail}
-                                            onChange={(e) => setEmailData({...emailData, newEmail: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Confirm Password *
-                                        </label>
-                                        <input
-                                            type="password"
-                                            value={emailData.password}
-                                            onChange={(e) => setEmailData({...emailData, password: e.target.value})}
-                                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <button
-                                        type="submit"
-                                        disabled={loading}
-                                        className="w-full bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400"
-                                    >
-                                        {loading ? 'Changing...' : 'Update Email'}
-                                    </button>
-                                </form>
-                            )}
-                        </div>
-
-                        {/* Danger Zone */}
-                        <div className="bg-white rounded-lg shadow-md p-6 border-2 border-red-200">
-                            <h2 className="text-xl font-semibold text-red-600 mb-4">Danger Zone</h2>
-                            
-                            <div className="space-y-4">
-                                {/* Deactivate Account */}
-                                <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900">Deactivate Account</h3>
-                                        <p className="text-sm text-gray-600">Temporarily hide your business. You can reactivate anytime.</p>
-                                    </div>
-                                    <button
-                                        onClick={handleDeactivateAccount}
-                                        disabled={loading}
-                                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition disabled:bg-gray-400"
-                                    >
-                                        Deactivate
-                                    </button>
-                                </div>
-
-                                {/* Delete Account */}
-                                <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900">Delete Account</h3>
-                                        <p className="text-sm text-gray-600">Permanently delete your account and all data. This cannot be undone!</p>
-                                    </div>
-                                    <button
-                                        onClick={handleDeleteAccount}
-                                        disabled={loading}
-                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:bg-gray-400"
-                                    >
-                                        Delete Forever
-                                    </button>
-                                </div>
-                            </div>
+                            </form>
                         </div>
                     </>
                 )}
 
                 {/* Business Profile Tab */}
-                {activeTab === 'business' && (
+                {isBusinessTab === true && (
                     <div className="bg-white rounded-lg shadow-md p-8">
                         <form onSubmit={handleSaveProfile} className="space-y-6">
                             <h2 className="text-2xl font-semibold mb-4">Business Information</h2>
@@ -496,12 +413,11 @@ const AccountSettings = () => {
                                     required
                                 >
                                     <option value="">Select category</option>
-                                    <option value="Cafe">Cafe</option>
+                                    <option value="Hair Salon">Hair Salon</option>
+                                    <option value="Beauty">Beauty</option>
+                                    <option value="Spa">Spa</option>
+                                    <option value="Barber">Barber</option>
                                     <option value="Restaurant">Restaurant</option>
-                                    <option value="Salon">Hair Salon</option>
-                                    <option value="Spa">Spa & Wellness</option>
-                                    <option value="Fitness">Fitness Center</option>
-                                    <option value="Barber">Barber Shop</option>
                                 </select>
                             </div>
 
@@ -531,7 +447,7 @@ const AccountSettings = () => {
                                         value={profileData.town}
                                         onChange={handleProfileChange}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="e.g., Carlow"
+                                        placeholder="Carlow"
                                         required
                                     />
                                 </div>
@@ -546,7 +462,7 @@ const AccountSettings = () => {
                                         value={profileData.county}
                                         onChange={handleProfileChange}
                                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                        placeholder="e.g., Carlow"
+                                        placeholder="Carlow"
                                         required
                                     />
                                 </div>
@@ -568,7 +484,7 @@ const AccountSettings = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Full Address *
+                                    Address *
                                 </label>
                                 <input
                                     type="text"
@@ -583,7 +499,7 @@ const AccountSettings = () => {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Location (for search) *
+                                    Location *
                                 </label>
                                 <input
                                     type="text"
@@ -591,10 +507,9 @@ const AccountSettings = () => {
                                     value={profileData.location}
                                     onChange={handleProfileChange}
                                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                    placeholder="e.g., Carlow Town, Ireland"
+                                    placeholder="Carlow, Ireland"
                                     required
                                 />
-                                <p className="text-sm text-gray-500 mt-1">This helps customers find your business in search</p>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -629,26 +544,12 @@ const AccountSettings = () => {
                                 </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Website
-                                </label>
-                                <input
-                                    type="url"
-                                    name="website"
-                                    value={profileData.website}
-                                    onChange={handleProfileChange}
-                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                    placeholder="https://yourbusiness.com"
-                                />
-                            </div>
-
                             <button
                                 type="submit"
-                                disabled={loading || !businessId}
+                                disabled={loading === true || hasBusinessId === false}
                                 className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
                             >
-                                {loading ? 'Saving...' : 'Save Business Profile'}
+                                {loading === true ? 'Saving...' : 'Save Business Profile'}
                             </button>
                         </form>
                     </div>

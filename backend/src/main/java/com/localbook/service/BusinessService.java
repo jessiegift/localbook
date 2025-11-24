@@ -186,6 +186,8 @@ public Business approveBusiness(Long businessId) {
     return approved;
 }
 
+
+        
 /**
  * Reject business with in-app notification
  */
@@ -225,5 +227,19 @@ public Business saveBusinessDirect(Business business) {
     return businessRepository.save(business);
 }
 
+
+@Transactional
+public void deleteBusinessDirect(Long businessId) {
+    System.out.println("🗑️ Deleting business ID: " + businessId);
+    
+    Business business = businessRepository.findById(businessId)
+        .orElseThrow(() -> new IllegalArgumentException("Business not found"));
+    
+    System.out.println("Deleting: " + business.getBusinessName());
+    
+    businessRepository.delete(business);
+    
+    System.out.println("✅ Deleted successfully");
+}
 
 }
