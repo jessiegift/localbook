@@ -108,7 +108,7 @@ function ManageServicesScreen() {
   }
 
   function closeModal() {
-    Keyboard.dismiss(); // Dismiss keyboard when closing modal
+    Keyboard.dismiss();
     setModalVisible(false);
     setEditingService(null);
     setServiceName('');
@@ -118,7 +118,6 @@ function ManageServicesScreen() {
   }
 
   async function handleSaveService() {
-    // Dismiss keyboard before validation
     Keyboard.dismiss();
 
     // Validation
@@ -249,21 +248,21 @@ function ManageServicesScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
-        <ActivityIndicator size="large" color="#22c55e" />
-        <Text style={{ marginTop: 16, color: '#6b7280' }}>Loading services...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#faf5ff' }}>
+        <ActivityIndicator size="large" color="#8b5cf6" />
+        <Text style={{ marginTop: 16, color: '#7c3aed', fontWeight: '600' }}>Loading services...</Text>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+    <View style={{ flex: 1, backgroundColor: '#faf5ff' }}>
       {/* Header */}
-      <View style={{ backgroundColor: '#22c55e', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
+      <View style={{ backgroundColor: '#8b5cf6', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
         <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700', marginBottom: 8 }}>
           Manage Services
         </Text>
-        <Text style={{ color: '#bbf7d0', fontSize: 14 }}>
+        <Text style={{ color: '#e9d5ff', fontSize: 14 }}>
           {services.length} service{services.length !== 1 ? 's' : ''} available
         </Text>
       </View>
@@ -272,24 +271,32 @@ function ManageServicesScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 20 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            colors={['#8b5cf6']}
+            tintColor="#8b5cf6"
+          />
         }
       >
         {/* Add Service Button */}
         <TouchableOpacity
           style={{
-            backgroundColor: '#22c55e',
+            backgroundColor: '#8b5cf6',
             borderRadius: 12,
             padding: 16,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 20,
-            shadowColor: '#000',
-            shadowOpacity: 0.1,
+            shadowColor: '#7c3aed',
+            shadowOpacity: 0.3,
             shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 5,
           }}
           onPress={openAddModal}
+          activeOpacity={0.8}
         >
           <Text style={{ fontSize: 20, marginRight: 8 }}>➕</Text>
           <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>
@@ -299,12 +306,29 @@ function ManageServicesScreen() {
 
         {/* Services List */}
         {services.length === 0 ? (
-          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 32, alignItems: 'center' }}>
-            <Text style={{ fontSize: 48, marginBottom: 12 }}>📋</Text>
+          <View style={{ 
+            backgroundColor: '#ffffff', 
+            borderRadius: 16, 
+            padding: 32, 
+            alignItems: 'center',
+            borderWidth: 2,
+            borderColor: '#e9d5ff',
+          }}>
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: '#faf5ff',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}>
+              <Text style={{ fontSize: 48 }}>📋</Text>
+            </View>
             <Text style={{ fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 8 }}>
               No Services Yet
             </Text>
-            <Text style={{ color: '#6b7280', textAlign: 'center' }}>
+            <Text style={{ color: '#7c3aed', textAlign: 'center', fontSize: 14 }}>
               Add your first service to start accepting bookings
             </Text>
           </View>
@@ -323,9 +347,13 @@ function ManageServicesScreen() {
                   borderRadius: 16,
                   padding: 16,
                   marginBottom: 12,
-                  shadowColor: '#000',
-                  shadowOpacity: 0.05,
+                  shadowColor: '#7c3aed',
+                  shadowOpacity: 0.1,
                   shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
+                  borderWidth: 1,
+                  borderColor: '#f3e8ff',
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
@@ -343,13 +371,13 @@ function ManageServicesScreen() {
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ backgroundColor: '#d1fae5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginRight: 8 }}>
-                      <Text style={{ color: '#065f46', fontWeight: '700', fontSize: 16 }}>
+                    <View style={{ backgroundColor: '#f3e8ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginRight: 8, borderWidth: 1, borderColor: '#e9d5ff' }}>
+                      <Text style={{ color: '#7c3aed', fontWeight: '700', fontSize: 16 }}>
                         €{servicePrice.toFixed(2)}
                       </Text>
                     </View>
-                    <View style={{ backgroundColor: '#dbeafe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
-                      <Text style={{ color: '#1e40af', fontWeight: '600', fontSize: 14 }}>
+                    <View style={{ backgroundColor: '#faf5ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#e9d5ff' }}>
+                      <Text style={{ color: '#8b5cf6', fontWeight: '600', fontSize: 14 }}>
                         ⏱️ {serviceDuration} min
                       </Text>
                     </View>
@@ -361,40 +389,42 @@ function ManageServicesScreen() {
                   <TouchableOpacity
                     style={{
                       flex: 1,
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: '#8b5cf6',
                       borderRadius: 8,
                       paddingVertical: 10,
                       alignItems: 'center',
                     }}
                     onPress={() => openEditModal(service)}
+                    activeOpacity={0.8}
                   >
                     <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
                       ✏️ Edit
                     </Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#ef4444',
-                      borderRadius: 8,
-                      paddingVertical: 10,
-                      alignItems: 'center',
-                    }}
-                    onPress={() => handleDeleteService(service)}
-                  >
-                    <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
-                      🗑️ Delete
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                 <TouchableOpacity
+                  style={{
+                    flex: 1,
+                    backgroundColor: '#a10eaeff',
+                    borderRadius: 8,
+                    paddingVertical: 10,
+                    alignItems: 'center',
+                  }}
+                  onPress={() => handleDeleteService(service)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={{ color: '#ffffff', fontWeight: '600', fontSize: 14 }}>
+                    🗑️ Delete
+                  </Text>
+                </TouchableOpacity>
+              </View>
               </View>
             );
           })
         )}
       </ScrollView>
 
-      {/* Add/Edit Service Modal - WITH KEYBOARD FIX */}
+      {/* Add/Edit Service Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -406,15 +436,23 @@ function ManageServicesScreen() {
           style={{ flex: 1 }}
         >
           <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(139, 92, 246, 0.4)', justifyContent: 'flex-end' }}>
               <TouchableWithoutFeedback>
-                <View style={{ backgroundColor: '#ffffff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' }}>
+                <View style={{ 
+                  backgroundColor: '#ffffff', 
+                  borderTopLeftRadius: 24, 
+                  borderTopRightRadius: 24, 
+                  padding: 24, 
+                  maxHeight: '90%',
+                  borderTopWidth: 3,
+                  borderColor: '#8b5cf6',
+                }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#111827' }}>
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: '#7c3aed' }}>
                       {editingService ? 'Edit Service' : 'Add New Service'}
                     </Text>
                     <TouchableOpacity onPress={closeModal}>
-                      <Text style={{ fontSize: 24, color: '#6b7280' }}>✕</Text>
+                      <Text style={{ fontSize: 24, color: '#9ca3af' }}>✕</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -423,20 +461,22 @@ function ManageServicesScreen() {
                     keyboardShouldPersistTaps="handled"
                   >
                     {/* Service Name */}
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#7c3aed', marginBottom: 8 }}>
                       Service Name *
                     </Text>
                     <TextInput
                       style={{
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: '#faf5ff',
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
                         marginBottom: 16,
-                        borderWidth: 1,
-                        borderColor: '#e5e7eb',
+                        borderWidth: 2,
+                        borderColor: '#e9d5ff',
+                        color: '#111827',
                       }}
                       placeholder="e.g., Haircut, Facial, Manicure"
+                      placeholderTextColor="#9ca3af"
                       value={serviceName}
                       onChangeText={setServiceName}
                       returnKeyType="next"
@@ -444,22 +484,24 @@ function ManageServicesScreen() {
                     />
 
                     {/* Description */}
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#7c3aed', marginBottom: 8 }}>
                       Description
                     </Text>
                     <TextInput
                       style={{
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: '#faf5ff',
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
                         marginBottom: 16,
-                        borderWidth: 1,
-                        borderColor: '#e5e7eb',
+                        borderWidth: 2,
+                        borderColor: '#e9d5ff',
                         height: 80,
                         textAlignVertical: 'top',
+                        color: '#111827',
                       }}
                       placeholder="Brief description of the service"
+                      placeholderTextColor="#9ca3af"
                       value={description}
                       onChangeText={setDescription}
                       multiline={true}
@@ -470,20 +512,22 @@ function ManageServicesScreen() {
                     />
 
                     {/* Price */}
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#7c3aed', marginBottom: 8 }}>
                       Price (€) *
                     </Text>
                     <TextInput
                       style={{
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: '#faf5ff',
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
                         marginBottom: 16,
-                        borderWidth: 1,
-                        borderColor: '#e5e7eb',
+                        borderWidth: 2,
+                        borderColor: '#e9d5ff',
+                        color: '#111827',
                       }}
                       placeholder="e.g., 25.00"
+                      placeholderTextColor="#9ca3af"
                       value={price}
                       onChangeText={setPrice}
                       keyboardType="decimal-pad"
@@ -493,20 +537,22 @@ function ManageServicesScreen() {
                     />
 
                     {/* Duration */}
-                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#7c3aed', marginBottom: 8 }}>
                       Duration (minutes) *
                     </Text>
                     <TextInput
                       style={{
-                        backgroundColor: '#f9fafb',
+                        backgroundColor: '#faf5ff',
                         borderRadius: 8,
                         padding: 12,
                         fontSize: 16,
                         marginBottom: 24,
-                        borderWidth: 1,
-                        borderColor: '#e5e7eb',
+                        borderWidth: 2,
+                        borderColor: '#e9d5ff',
+                        color: '#111827',
                       }}
                       placeholder="e.g., 60"
+                      placeholderTextColor="#9ca3af"
                       value={duration}
                       onChangeText={setDuration}
                       keyboardType="number-pad"
@@ -518,14 +564,20 @@ function ManageServicesScreen() {
                     {/* Save Button */}
                     <TouchableOpacity
                       style={{
-                        backgroundColor: saving ? '#9ca3af' : '#22c55e',
+                        backgroundColor: saving ? '#9ca3af' : '#8b5cf6',
                         borderRadius: 12,
                         padding: 16,
                         alignItems: 'center',
                         marginBottom: 12,
+                        shadowColor: '#7c3aed',
+                        shadowOpacity: 0.3,
+                        shadowRadius: 8,
+                        shadowOffset: { width: 0, height: 4 },
+                        elevation: 5,
                       }}
                       onPress={handleSaveService}
                       disabled={saving}
+                      activeOpacity={0.8}
                     >
                       {saving ? (
                         <ActivityIndicator color="#ffffff" />
@@ -543,10 +595,13 @@ function ManageServicesScreen() {
                         borderRadius: 12,
                         padding: 16,
                         alignItems: 'center',
+                        borderWidth: 2,
+                        borderColor: '#e9d5ff',
                       }}
                       onPress={closeModal}
+                      activeOpacity={0.8}
                     >
-                      <Text style={{ color: '#374151', fontSize: 16, fontWeight: '600' }}>
+                      <Text style={{ color: '#7c3aed', fontSize: 16, fontWeight: '600' }}>
                         Cancel
                       </Text>
                     </TouchableOpacity>

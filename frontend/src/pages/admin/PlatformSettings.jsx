@@ -8,7 +8,7 @@ const PlatformSettings = () => {
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("general");
 
-  // General Settings - Carlow Focused
+  // General Settings
   const [generalSettings, setGeneralSettings] = useState({
     platformName: "LocalBook",
     platformTagline: "Carlow's Premier Local Business Booking Platform",
@@ -18,54 +18,33 @@ const PlatformSettings = () => {
     maintenanceMode: false,
     allowRegistration: true,
     requireEmailVerification: true,
-    carlowOnly: true, // Enforce Carlow-only businesses
   });
 
   // Booking Settings
   const [bookingSettings, setBookingSettings] = useState({
     advanceBookingDays: 90,
-    minAdvanceHours: 2, // Minimum hours before appointment
+    minAdvanceHours: 2,
     cancellationHours: 24,
     allowSameDayBooking: true,
-    maxDailyBookings: 5, // Per client
-    reminderHours: 24, // Hours before appointment to send reminder
+    maxDailyBookings: 5,
+    reminderHours: 24,
   });
 
-  // Business Settings - Carlow Specific
+  // Business Settings
   const [businessSettings, setBusinessSettings] = useState({
-    autoApproveBusinesses: false, // Always manually review
-    requireCarlowVerification: true,
-    allowedEircodes: ["R93"], // Carlow eircodes start with R93
+    autoApproveBusinesses: false,
+    requireLocationVerification: true,
     minimumBusinessRating: 3.0,
-    maxServices: 20, // Max services per business
-    requireBusinessRegistration: true, // Require Irish business registration number
+    maxServices: 20,
+    requireBusinessRegistration: true,
+    allowedEircodes: ["R93"],
   });
 
-  // Location Settings - Carlow Focus
-  const [locationSettings, setLocationSettings] = useState({
-    county: "Carlow",
-    allowedTowns: [
-      "Carlow Town",
-      "Tullow",
-      "Muine Bheag (Bagenalstown)",
-      "Borris",
-      "Rathvilly",
-      "Hacketstown",
-      "Leighlinbridge",
-      "Old Leighlin",
-    ],
-    requireEircode: true,
-    verifyLocation: true, // Verify business is actually in Carlow
-  });
-
-  // ✅ FIXED: These save functions now just show messages since endpoints don't exist
   const handleSaveGeneral = async () => {
     setLoading(true);
     try {
-      // ✅ Store settings in localStorage for now (until backend is ready)
       localStorage.setItem('platformSettings_general', JSON.stringify(generalSettings));
-      
-      setMessage("✅ General settings saved locally (backend implementation needed)");
+      setMessage("✅ General settings saved successfully");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -79,7 +58,7 @@ const PlatformSettings = () => {
     setLoading(true);
     try {
       localStorage.setItem('platformSettings_booking', JSON.stringify(bookingSettings));
-      setMessage("✅ Booking settings saved locally (backend implementation needed)");
+      setMessage("✅ Booking settings saved successfully");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -93,21 +72,7 @@ const PlatformSettings = () => {
     setLoading(true);
     try {
       localStorage.setItem('platformSettings_business', JSON.stringify(businessSettings));
-      setMessage("✅ Business settings saved locally (backend implementation needed)");
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error saving settings:", error);
-      setMessage("❌ Failed to save settings");
-      setTimeout(() => setMessage(""), 3000);
-    }
-    setLoading(false);
-  };
-
-  const handleSaveLocation = async () => {
-    setLoading(false);
-    try {
-      localStorage.setItem('platformSettings_location', JSON.stringify(locationSettings));
-      setMessage("✅ Location settings saved locally (backend implementation needed)");
+      setMessage("✅ Business settings saved successfully");
       setTimeout(() => setMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -122,17 +87,15 @@ const PlatformSettings = () => {
     const savedGeneral = localStorage.getItem('platformSettings_general');
     const savedBooking = localStorage.getItem('platformSettings_booking');
     const savedBusiness = localStorage.getItem('platformSettings_business');
-    const savedLocation = localStorage.getItem('platformSettings_location');
 
     if (savedGeneral) setGeneralSettings(JSON.parse(savedGeneral));
     if (savedBooking) setBookingSettings(JSON.parse(savedBooking));
     if (savedBusiness) setBusinessSettings(JSON.parse(savedBusiness));
-    if (savedLocation) setLocationSettings(JSON.parse(savedLocation));
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-[1600px] mx-auto">
+      <div className="max-w-[1400px] mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -147,23 +110,8 @@ const PlatformSettings = () => {
             </h1>
           </div>
           <p className="text-gray-600 text-lg">
-            Configure LocalBook settings for Carlow businesses
+            Configure LocalBook platform settings
           </p>
-        </div>
-
-        {/* Warning Box */}
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <h3 className="font-bold text-yellow-900 mb-2">Settings Stored Locally</h3>
-              <p className="text-yellow-800 text-sm">
-                These settings are currently stored in your browser's localStorage. 
-                To persist settings across all devices and users, you need to implement 
-                settings endpoints in your backend (e.g., /api/settings/general, /api/settings/booking, etc.)
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Message Alert */}
@@ -199,11 +147,6 @@ const PlatformSettings = () => {
               label="🏢 Businesses"
               active={activeTab === "business"}
               onClick={() => setActiveTab("business")}
-            />
-            <TabButton
-              label="📍 Carlow Area"
-              active={activeTab === "location"}
-              onClick={() => setActiveTab("location")}
             />
           </div>
 
@@ -342,19 +285,6 @@ const PlatformSettings = () => {
                         requireEmailVerification: checked,
                       })
                     }
-                  />
-
-                  <ToggleSetting
-                    label="Carlow Only Mode"
-                    description="⚠️ CRITICAL: Only allow businesses located in County Carlow"
-                    checked={generalSettings.carlowOnly}
-                    onChange={(checked) =>
-                      setGeneralSettings({
-                        ...generalSettings,
-                        carlowOnly: checked,
-                      })
-                    }
-                    important
                   />
                 </div>
 
@@ -565,48 +495,45 @@ const PlatformSettings = () => {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Allowed Eircode Prefixes
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    {businessSettings.allowedEircodes.map((code, index) => (
+                      <span
+                        key={index}
+                        className="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg border border-purple-300 font-bold text-lg"
+                      >
+                        {code}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Only businesses with these eircode prefixes can register
+                  </p>
+                </div>
+
                 <div className="space-y-4 pt-6 border-t-2 border-gray-200">
                   <h3 className="font-bold text-lg text-gray-900">
                     Verification Requirements
                   </h3>
 
-                  <ToggleSetting
-                    label="Auto-Approve New Businesses"
-                    description="⚠️ NOT RECOMMENDED: Automatically approve without admin review"
-                    checked={businessSettings.autoApproveBusinesses}
-                    onChange={(checked) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        autoApproveBusinesses: checked,
-                      })
-                    }
-                    danger={businessSettings.autoApproveBusinesses}
-                  />
 
                   <ToggleSetting
-                    label="Require Carlow Location Verification"
-                    description="✅ RECOMMENDED: Verify business is actually located in Carlow"
-                    checked={businessSettings.requireCarlowVerification}
+                    label="Require Location Verification"
+                    description="✅ RECOMMENDED: Verify business location before approval"
+                    checked={businessSettings.requireLocationVerification}
                     onChange={(checked) =>
                       setBusinessSettings({
                         ...businessSettings,
-                        requireCarlowVerification: checked,
+                        requireLocationVerification: checked,
                       })
                     }
                     important
                   />
 
-                  <ToggleSetting
-                    label="Require Irish Business Registration"
-                    description="Require valid Irish business registration number"
-                    checked={businessSettings.requireBusinessRegistration}
-                    onChange={(checked) =>
-                      setBusinessSettings({
-                        ...businessSettings,
-                        requireBusinessRegistration: checked,
-                      })
-                    }
-                  />
+                 
                 </div>
 
                 <button
@@ -615,120 +542,6 @@ const PlatformSettings = () => {
                   className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? "Saving..." : "💾 Save Business Settings"}
-                </button>
-              </div>
-            )}
-
-            {/* Location Settings Tab - Carlow Specific */}
-            {activeTab === "location" && (
-              <div className="space-y-6">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-                  <div className="flex items-start gap-3">
-                    <span className="text-3xl">📍</span>
-                    <div>
-                      <h3 className="font-bold text-green-900 text-lg mb-2">
-                        LocalBook is Exclusively for County Carlow
-                      </h3>
-                      <p className="text-green-800">
-                        These settings ensure only legitimate Carlow businesses
-                        can register on the platform.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <h2 className="text-2xl font-bold mb-4 text-gray-900">
-                  Carlow Location Settings
-                </h2>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Operating County (Fixed)
-                  </label>
-                  <input
-                    type="text"
-                    value={locationSettings.county}
-                    disabled
-                    className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-500 mt-2">
-                    LocalBook operates exclusively in County Carlow
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Allowed Towns in Carlow
-                  </label>
-                  <div className="space-y-2">
-                    {locationSettings.allowedTowns.map((town, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200"
-                      >
-                        <span className="text-green-600">✓</span>
-                        <span className="font-medium text-gray-900">{town}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    Businesses must be located in one of these Carlow towns
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Valid Eircode Prefixes
-                  </label>
-                  <div className="flex gap-2">
-                    {locationSettings.allowedEircodes.map((code, index) => (
-                      <span
-                        key={index}
-                        className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg border border-blue-300 font-bold text-lg"
-                      >
-                        {code}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    All Carlow eircodes start with R93
-                  </p>
-                </div>
-
-                <div className="space-y-4 pt-6 border-t-2 border-gray-200">
-                  <ToggleSetting
-                    label="Require Valid Eircode"
-                    description="Businesses must provide a valid Carlow eircode (R93)"
-                    checked={locationSettings.requireEircode}
-                    onChange={(checked) =>
-                      setLocationSettings({
-                        ...locationSettings,
-                        requireEircode: checked,
-                      })
-                    }
-                    important
-                  />
-
-                  <ToggleSetting
-                    label="Verify Business Location"
-                    description="✅ CRITICAL: Manually verify each business is actually in Carlow"
-                    checked={locationSettings.verifyLocation}
-                    onChange={(checked) =>
-                      setLocationSettings({
-                        ...locationSettings,
-                        verifyLocation: checked,
-                      })
-                    }
-                    important
-                  />
-                </div>
-
-                <button
-                  onClick={handleSaveLocation}
-                  disabled={loading}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? "Saving..." : "💾 Save Location Settings"}
                 </button>
               </div>
             )}

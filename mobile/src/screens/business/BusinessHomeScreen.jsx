@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert, LinearGradient } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import Button from '../../common/Button';
 
@@ -31,11 +32,9 @@ function BusinessHomeScreen(props) {
   const todaySchedule = scheduleState[0];
   const setTodaySchedule = scheduleState[1];
 
-  // ✅ Ratings state
   const ratingsState = useState({
     averageRating: 0,
     totalRatings: 0,
-    recentRatings: [],
   });
   const ratings = ratingsState[0];
   const setRatings = ratingsState[1];
@@ -45,6 +44,21 @@ function BusinessHomeScreen(props) {
   useEffect(function() {
     fetchDashboardData();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('🔄 Screen focused - refreshing ratings');
+      if (user && user.businessId) {
+        const businessId = Number(user.businessId);
+        if (!isNaN(businessId) && businessId > 0) {
+          fetchBusinessRatings(businessId);
+        }
+      }
+      return () => {
+        console.log('Screen unfocused');
+      };
+    }, [user])
+  );
 
   async function fetchDashboardData() {
     try {
@@ -97,9 +111,9 @@ function BusinessHomeScreen(props) {
         
         const schedule = data.todaySchedule || [];
         console.log('Today schedule count:', schedule.length);
+        console.log('Schedule data:', JSON.stringify(schedule, null, 2));
         setTodaySchedule(schedule);
 
-        // ✅ Fetch ratings
         await fetchBusinessRatings(businessId);
       } else {
         console.error('=== ERROR RESPONSE ===');
@@ -128,7 +142,6 @@ function BusinessHomeScreen(props) {
     }
   }
 
-  // ✅ Fetch ratings function
   async function fetchBusinessRatings(businessId) {
     try {
       console.log('📥 Fetching ratings for business:', businessId);
@@ -146,49 +159,54 @@ function BusinessHomeScreen(props) {
       if (response.ok) {
         const data = await response.json();
         
-        const ratingsArray = data.ratings !== null && data.ratings !== undefined ? data.ratings : [];
-        const avgRating = data.averageRating !== null && data.averageRating !== undefined ? data.averageRating : 0;
-        const totalCount = data.totalRatings !== null && data.totalRatings !== undefined ? data.totalRatings : 0;
+        let avgRating = 0;
+        let totalCount = 0;
+
+        if (data.ratings) {
+          avgRating = data.averageRating || 0;
+          totalCount = data.totalRatings || data.ratings.length;
+        } else if (Array.isArray(data)) {
+          totalCount = data.length;
+          if (data.length > 0) {
+            const sum = data.reduce(function(acc, r) {
+              return acc + (r.rating || 0);
+            }, 0);
+            avgRating = sum / data.length;
+          }
+        }
         
-        // Get last 3 ratings
-        const recentRatings = ratingsArray.slice(0, 3);
-        
-        console.log('✅ Ratings received:', ratingsArray.length);
-        console.log('⭐ Average rating:', avgRating);
+        console.log('✅ Ratings updated - Total:', totalCount, 'Average:', avgRating);
         
         setRatings({
           averageRating: avgRating,
           totalRatings: totalCount,
-          recentRatings: recentRatings,
         });
+      } else {
+        console.error('❌ Failed to fetch ratings:', response.status);
       }
     } catch (error) {
       console.error('❌ Error fetching ratings:', error);
-      // Don't alert, just log
     }
   }
 
   function onRefresh() {
-    console.log('Refreshing dashboard...');
+    console.log('🔄 Manual refresh triggered');
     setRefreshing(true);
     fetchDashboardData();
   }
 
   async function handleComplete(appointmentId) {
     try {
-      // Debug logging
       console.log('🔍 User object:', user);
-      console.log('🔍 user.id:', user?.id);
-      console.log('🔍 user.businessId:', user?.businessId);
+      console.log('🔍 user.id:', user && user.id ? user.id : 'undefined');
+      console.log('🔍 user.businessId:', user && user.businessId ? user.businessId : 'undefined');
       
-      // Check if user exists and has either id or businessId
       if (!user) {
         console.error('❌ User is missing');
         Alert.alert('Error', 'User information not available');
         return;
       }
 
-      // Try to use user.id first, fallback to user.businessId if needed
       const userIdToSend = user.id || user.businessId;
       
       if (!userIdToSend) {
@@ -240,46 +258,102 @@ function BusinessHomeScreen(props) {
     return amount.toFixed(2);
   }
 
+  function renderStars(rating) {
+    const stars = [];
+    const roundedRating = Math.round(rating);
+    
+    for (let i = 1; i <= 5; i++) {
+      if (i <= roundedRating) {
+        stars.push(
+          <Text key={i} style={{ fontSize: 20 }}>⭐</Text>
+        );
+      } else {
+        stars.push(
+          <Text key={i} style={{ fontSize: 20, color: '#d1d5db' }}>☆</Text>
+        );
+      }
+    }
+    
+    return stars;
+  }
+
   if (loading) {
     return <LoadingSpinner fullScreen={true} text="Loading dashboard..." />;
+  }
+
+  let businessName = '';
+  if (user && user.businessName) {
+    businessName = user.businessName;
+  } else if (user && user.name) {
+    businessName = user.name;
   }
 
   return (
     <ScrollView 
       style={{ flex: 1, backgroundColor: '#f9fafb' }}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl 
+          refreshing={refreshing} 
+          onRefresh={onRefresh}
+          tintColor="#7c3aed"
+          colors={['#7c3aed']}
+        />
       }
     >
-      <View style={{ backgroundColor: '#7c3aed', paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20 }}>
-        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700', marginBottom: 4 }}>
+      {/* Header */}
+      <View style={{ 
+        backgroundColor: '#7c3aed', 
+        paddingTop: 56, 
+        paddingBottom: 24, 
+        paddingHorizontal: 20 
+      }}>
+        <Text style={{ 
+          color: '#ffffff', 
+          fontSize: 24, 
+          fontWeight: '700', 
+          marginBottom: 4 
+        }}>
           Good Morning! 👋
         </Text>
         <Text style={{ color: '#e9d5ff', fontSize: 16 }}>
-          {user && user.businessName ? user.businessName : user && user.name ? user.name : ''}
+          {businessName}
         </Text>
       </View>
 
       {/* Stats Grid */}
       <View style={{ paddingHorizontal: 20, marginTop: 0, marginBottom: 16 }}>
-        <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.1 }}>
+        <View style={{ 
+          backgroundColor: '#ffffff', 
+          borderRadius: 16, 
+          padding: 16, 
+          shadowColor: '#000', 
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 2 }
+        }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827' }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#7c3aed' }}>
                 {stats.todayAppointments}
               </Text>
               <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Today</Text>
             </View>
 
-            <View style={{ alignItems: 'center', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#e5e7eb', paddingHorizontal: 24 }}>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#111827' }}>
+            <View style={{ 
+              alignItems: 'center', 
+              borderLeftWidth: 1, 
+              borderRightWidth: 1, 
+              borderColor: '#e5e7eb', 
+              paddingHorizontal: 24 
+            }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#a855f7' }}>
                 {stats.weekAppointments}
               </Text>
               <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>This Week</Text>
             </View>
 
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 28, fontWeight: '700', color: '#7c3aed' }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#c084fc' }}>
                 ${formatRevenue(stats.monthRevenue)}
               </Text>
               <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>Revenue</Text>
@@ -288,71 +362,93 @@ function BusinessHomeScreen(props) {
         </View>
       </View>
 
-      {/* ✅ Ratings Card */}
+      {/* Ratings Card */}
       <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
         <TouchableOpacity 
           onPress={function() { navigation.navigate('BusinessRatings'); }}
           style={{ 
             backgroundColor: '#ffffff', 
             borderRadius: 16, 
-            padding: 16, 
-            shadowColor: '#000', 
-            shadowOpacity: 0.1,
-            borderLeftWidth: 4,
-            borderLeftColor: '#a855f7',
+            padding: 20, 
+            shadowColor: '#7c3aed', 
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            borderWidth: 2,
+            borderColor: '#f3e8ff',
           }}
         >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: 16 
+          }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>
               ⭐ Customer Ratings
             </Text>
             <TouchableOpacity 
               onPress={function() { navigation.navigate('BusinessRatings'); }}
-              style={{ backgroundColor: '#f3e8ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}
+              style={{ 
+                backgroundColor: '#f3e8ff', 
+                paddingHorizontal: 12, 
+                paddingVertical: 6, 
+                borderRadius: 20 
+              }}
             >
-              <Text style={{ color: '#a855f7', fontSize: 12, fontWeight: '600' }}>View All</Text>
+              <Text style={{ color: '#7c3aed', fontSize: 12, fontWeight: '600' }}>View All →</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Rating Display */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={{ fontSize: 42, fontWeight: '700', color: '#a855f7', marginRight: 12 }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            backgroundColor: '#faf5ff',
+            padding: 20,
+            borderRadius: 16
+          }}>
+            <Text style={{ 
+              fontSize: 56, 
+              fontWeight: '700', 
+              color: '#7c3aed', 
+              marginRight: 16 
+            }}>
               {ratings.averageRating.toFixed(1)}
             </Text>
-            <View>
-              <View style={{ flexDirection: 'row', gap: 2, marginBottom: 4 }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Text key={star} style={{ fontSize: 16 }}>
-                    {star <= Math.round(ratings.averageRating) ? '⭐' : '☆'}
-                  </Text>
-                ))}
+            <View style={{ alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', gap: 4, marginBottom: 8 }}>
+                {renderStars(ratings.averageRating)}
               </View>
-              <Text style={{ fontSize: 12, color: '#6b7280' }}>
+              <Text style={{ fontSize: 14, color: '#6b7280', fontWeight: '600' }}>
                 {ratings.totalRatings} {ratings.totalRatings === 1 ? 'rating' : 'ratings'}
               </Text>
             </View>
           </View>
 
-          {/* Recent Ratings Preview */}
-          {ratings.recentRatings.length > 0 && (
-            <View style={{ borderTopWidth: 1, borderTopColor: '#e5e7eb', paddingTop: 12 }}>
-              {ratings.recentRatings.map((rating, index) => (
-                <View key={index} style={{ marginBottom: index < ratings.recentRatings.length - 1 ? 8 : 0 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#111827' }}>
-                      {rating.user?.name || 'Anonymous'}
-                    </Text>
-                    <Text style={{ fontSize: 12, color: '#a855f7', fontWeight: '600' }}>
-                      {rating.rating}/5
-                    </Text>
-                  </View>
-                  {rating.review && (
-                    <Text style={{ fontSize: 11, color: '#6b7280', marginTop: 2, fontStyle: 'italic' }} numberOfLines={1}>
-                      "{rating.review}"
-                    </Text>
-                  )}
-                </View>
-              ))}
+          {ratings.totalRatings === 0 ? (
+            <View style={{ 
+              alignItems: 'center', 
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: '#e9d5ff',
+              marginTop: 16
+            }}>
+              <Text style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center' }}>
+                No ratings yet. Complete appointments to receive customer ratings!
+              </Text>
+            </View>
+          ) : (
+            <View style={{ 
+              alignItems: 'center', 
+              paddingTop: 16,
+              borderTopWidth: 1,
+              borderTopColor: '#e9d5ff',
+              marginTop: 16
+            }}>
+              <Text style={{ fontSize: 13, color: '#7c3aed', fontWeight: '600', textAlign: 'center' }}>
+                Tap to see all reviews and ratings
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -360,27 +456,86 @@ function BusinessHomeScreen(props) {
 
       {/* Quick Actions */}
       <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
+        <Text style={{ 
+          fontSize: 18, 
+          fontWeight: '700', 
+          color: '#111827', 
+          marginBottom: 12 
+        }}>
           Quick Actions
         </Text>
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <TouchableOpacity 
-            style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flex: 1, marginRight: 8, alignItems: 'center' }}
+            style={{ 
+              backgroundColor: '#ffffff', 
+              borderRadius: 16, 
+              padding: 16, 
+              shadowColor: '#000', 
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              flex: 1, 
+              marginRight: 8, 
+              alignItems: 'center',
+              borderWidth: 2,
+              borderColor: '#f3e8ff'
+            }}
             onPress={function() { navigation.navigate('ManageAppointments'); }}
           >
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>📋</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'center' }}>
+            <View style={{
+              backgroundColor: '#f3e8ff',
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 8
+            }}>
+              <Text style={{ fontSize: 28 }}>📋</Text>
+            </View>
+            <Text style={{ 
+              fontSize: 14, 
+              fontWeight: '600', 
+              color: '#7c3aed', 
+              textAlign: 'center' 
+            }}>
               Appointments
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flex: 1, marginLeft: 8, alignItems: 'center' }}
+            style={{ 
+              backgroundColor: '#ffffff', 
+              borderRadius: 16, 
+              padding: 16, 
+              shadowColor: '#000', 
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+              flex: 1, 
+              marginLeft: 8, 
+              alignItems: 'center',
+              borderWidth: 2,
+              borderColor: '#f3e8ff'
+            }}
             onPress={function() { navigation.navigate('ManageServices'); }}
           >
-            <Text style={{ fontSize: 28, marginBottom: 8 }}>⚙️</Text>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151', textAlign: 'center' }}>
+            <View style={{
+              backgroundColor: '#f3e8ff',
+              width: 56,
+              height: 56,
+              borderRadius: 28,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 8
+            }}>
+              <Text style={{ fontSize: 28 }}>⚙️</Text>
+            </View>
+            <Text style={{ 
+              fontSize: 14, 
+              fontWeight: '600', 
+              color: '#7c3aed', 
+              textAlign: 'center' 
+            }}>
               Services
             </Text>
           </TouchableOpacity>
@@ -389,21 +544,46 @@ function BusinessHomeScreen(props) {
 
       {/* Today's Schedule */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <View style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: 12 
+        }}>
           <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
             Today's Schedule 📅
           </Text>
-          <TouchableOpacity onPress={function() { navigation.navigate('ManageAppointments'); }}>
-            <Text style={{ color: '#7c3aed', fontWeight: '600', fontSize: 14 }}>
+          <TouchableOpacity 
+            onPress={function() { navigation.navigate('ManageAppointments'); }}
+            style={{
+              backgroundColor: '#f3e8ff',
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16
+            }}
+          >
+            <Text style={{ color: '#7c3aed', fontWeight: '600', fontSize: 13 }}>
               View All
             </Text>
           </TouchableOpacity>
         </View>
 
         {todaySchedule.length === 0 ? (
-          <View style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 32, alignItems: 'center' }}>
-            <Text style={{ fontSize: 40, marginBottom: 12 }}>🎉</Text>
-            <Text style={{ color: '#6b7280', fontWeight: '600', textAlign: 'center' }}>
+          <View style={{ 
+            backgroundColor: '#ffffff', 
+            borderRadius: 16, 
+            padding: 32, 
+            alignItems: 'center',
+            borderWidth: 2,
+            borderColor: '#f3e8ff'
+          }}>
+            <Text style={{ fontSize: 48, marginBottom: 12 }}>🎉</Text>
+            <Text style={{ 
+              color: '#7c3aed', 
+              fontWeight: '600', 
+              textAlign: 'center',
+              fontSize: 16
+            }}>
               No appointments today
             </Text>
             <Text style={{ color: '#9ca3af', fontSize: 14, marginTop: 4 }}>
@@ -412,46 +592,170 @@ function BusinessHomeScreen(props) {
           </View>
         ) : (
           todaySchedule.map(function(appointment) {
+            console.log('📋 Appointment data:', JSON.stringify(appointment, null, 2));
+
+            const isCompleted = appointment.status === 'COMPLETED';
+            const isCancelled = appointment.status === 'CANCELLED';
+            
+            // Get user name
+            let userName = 'Unknown';
+            if (appointment.user && appointment.user.name) {
+              userName = appointment.user.name;
+            } else if (appointment.userName) {
+              userName = appointment.userName;
+            } else if (appointment.clientName) {
+              userName = appointment.clientName;
+            }
+
+            // Get service details with multiple fallbacks
+            let serviceName = 'Service';
+            let serviceDuration = 0;
+            let servicePrice = 0;
+
+            if (appointment.service) {
+              serviceName = appointment.service.name || appointment.service.serviceName || 'Service';
+              serviceDuration = appointment.service.duration || 0;
+              servicePrice = appointment.service.price || 0;
+            } else if (appointment.serviceName) {
+              serviceName = appointment.serviceName;
+              serviceDuration = appointment.serviceDuration || 0;
+              servicePrice = appointment.servicePrice || 0;
+            }
+
+            console.log('Service Name:', serviceName);
+            console.log('Service Duration:', serviceDuration);
+            console.log('Service Price:', servicePrice);
+
+            const appointmentNotes = appointment.notes || '';
+
             return (
               <View 
                 key={appointment.id}
-                style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, marginBottom: 12 }}
+                style={{ 
+                  backgroundColor: '#ffffff', 
+                  borderRadius: 16, 
+                  padding: 16, 
+                  shadowColor: '#000', 
+                  shadowOpacity: 0.05,
+                  shadowRadius: 4,
+                  marginBottom: 12,
+                  borderWidth: 2,
+                  borderColor: '#f3e8ff'
+                }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: 12 
+                }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={{ backgroundColor: '#d1fae5', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 9999, marginRight: 12 }}>
-                      <Text style={{ color: '#065f46', fontWeight: '700', fontSize: 16 }}>
+                    <View style={{ 
+                      backgroundColor: '#ede9fe', 
+                      paddingHorizontal: 12, 
+                      paddingVertical: 6, 
+                      borderRadius: 20, 
+                      marginRight: 12 
+                    }}>
+                      <Text style={{ 
+                        color: '#7c3aed', 
+                        fontWeight: '700', 
+                        fontSize: 15 
+                      }}>
                         {formatTime(appointment.appointmentDateTime)}
                       </Text>
                     </View>
-                    {appointment.status === 'COMPLETED' && (
-                      <View style={{ backgroundColor: '#dbeafe', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
-                        <Text style={{ color: '#1e40af', fontSize: 12, fontWeight: '700' }}>✓ DONE</Text>
+                    {isCompleted && (
+                      <View style={{ 
+                        backgroundColor: '#dcfce7', 
+                        paddingHorizontal: 8, 
+                        paddingVertical: 4, 
+                        borderRadius: 12 
+                      }}>
+                        <Text style={{ 
+                          color: '#16a34a', 
+                          fontSize: 11, 
+                          fontWeight: '700' 
+                        }}>
+                          ✓ DONE
+                        </Text>
                       </View>
                     )}
                   </View>
-                  <Text style={{ color: '#7c3aed', fontWeight: '700', fontSize: 16 }}>
-                    ${appointment.service && appointment.service.price ? appointment.service.price : 0}
+                  <Text style={{ 
+                    color: '#7c3aed', 
+                    fontWeight: '700', 
+                    fontSize: 16 
+                  }}>
+                    ${servicePrice}
                   </Text>
                 </View>
 
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
-                  {appointment.user && appointment.user.name ? appointment.user.name : 'Unknown'}
+                <Text style={{ 
+                  fontSize: 17, 
+                  fontWeight: '700', 
+                  color: '#111827', 
+                  marginBottom: 4 
+                }}>
+                  {userName}
                 </Text>
 
-                <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 12 }}>
-                  {appointment.service && appointment.service.name ? appointment.service.name : 'Service'} • {appointment.service && appointment.service.duration ? appointment.service.duration : 0} min
-                </Text>
+                <View style={{ 
+                  flexDirection: 'row', 
+                  alignItems: 'center',
+                  marginBottom: 12 
+                }}>
+                  <View style={{
+                    backgroundColor: '#f3e8ff',
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                    marginRight: 8
+                  }}>
+                    <Text style={{ 
+                      fontSize: 13, 
+                      color: '#7c3aed',
+                      fontWeight: '600'
+                    }}>
+                      {serviceName}
+                    </Text>
+                  </View>
+                  {serviceDuration > 0 && (
+                    <View style={{
+                      backgroundColor: '#ede9fe',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 12,
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}>
+                      <Text style={{ fontSize: 12, marginRight: 2 }}>⏱️</Text>
+                      <Text style={{ 
+                        fontSize: 13, 
+                        color: '#6b7280',
+                        fontWeight: '600'
+                      }}>
+                        {serviceDuration} min
+                      </Text>
+                    </View>
+                  )}
+                </View>
 
-                {appointment.notes && (
-                  <View style={{ backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, marginBottom: 12 }}>
-                    <Text style={{ fontSize: 12, color: '#6b7280' }}>
-                      💬 {appointment.notes}
+                {appointmentNotes && (
+                  <View style={{ 
+                    backgroundColor: '#fef3c7', 
+                    paddingHorizontal: 12, 
+                    paddingVertical: 8, 
+                    borderRadius: 8, 
+                    marginBottom: 12 
+                  }}>
+                    <Text style={{ fontSize: 12, color: '#78350f' }}>
+                      💬 {appointmentNotes}
                     </Text>
                   </View>
                 )}
 
-                {appointment.status !== 'COMPLETED' && appointment.status !== 'CANCELLED' && (
+                {!isCompleted && !isCancelled && (
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <View style={{ flex: 1 }}>
                       <Button
@@ -462,10 +766,25 @@ function BusinessHomeScreen(props) {
                       />
                     </View>
                     <TouchableOpacity 
-                      style={{ flex: 1, backgroundColor: '#f3f4f6', borderRadius: 8, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}
+                      style={{ 
+                        flex: 1, 
+                        backgroundColor: '#f3e8ff', 
+                        borderRadius: 8, 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        paddingVertical: 8,
+                        borderWidth: 1,
+                        borderColor: '#e9d5ff'
+                      }}
                       onPress={function() { }}
                     >
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>📞 Call</Text>
+                      <Text style={{ 
+                        fontSize: 14, 
+                        fontWeight: '600', 
+                        color: '#7c3aed' 
+                      }}>
+                        📞 Call
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -475,20 +794,47 @@ function BusinessHomeScreen(props) {
         )}
       </View>
 
+      {/* Business Profile Link */}
       <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
         <TouchableOpacity 
-          style={{ backgroundColor: '#ffffff', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOpacity: 0.05, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          style={{ 
+            backgroundColor: '#ffffff', 
+            borderRadius: 16, 
+            padding: 16, 
+            shadowColor: '#7c3aed', 
+            shadowOpacity: 0.1,
+            shadowRadius: 8,
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            borderWidth: 2,
+            borderColor: '#f3e8ff'
+          }}
           onPress={function() { navigation.navigate('BusinessProfile'); }}
         >
           <View>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
+            <Text style={{ 
+              fontSize: 16, 
+              fontWeight: '700', 
+              color: '#7c3aed', 
+              marginBottom: 4 
+            }}>
               My Business Profile
             </Text>
             <Text style={{ fontSize: 14, color: '#6b7280' }}>
               Update contact info, and more
             </Text>
           </View>
-          <Text style={{ fontSize: 24 }}>🏪</Text>
+          <View style={{
+            backgroundColor: '#f3e8ff',
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Text style={{ fontSize: 24 }}>🏪</Text>
+          </View>
         </TouchableOpacity>
       </View>
     </ScrollView>

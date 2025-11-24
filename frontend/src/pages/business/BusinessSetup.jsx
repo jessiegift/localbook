@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -21,6 +21,42 @@ function BusinessSetup() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    
+    // ✅ ADD: State for categories
+    const [categories, setCategories] = useState([]);
+    const [loadingCategories, setLoadingCategories] = useState(true);
+
+    // ✅ ADD: Fetch categories on mount
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    // ✅ ADD: Fetch categories from database
+    const fetchCategories = async () => {
+        try {
+            setLoadingCategories(true);
+            console.log('Fetching categories...');
+            
+            const response = await api.get('/categories');
+            console.log('Categories loaded:', response.data);
+            
+            setCategories(response.data);
+            setLoadingCategories(false);
+        } catch (error) {
+            console.error('Error fetching categories:', error);
+            setLoadingCategories(false);
+            
+            // ✅ Fallback categories if API fails
+            setCategories([
+                { id: 1, name: 'Hair Salons', icon: '💇' },
+                { id: 2, name: 'Spa & Wellness', icon: '🧖' },
+                { id: 3, name: 'Barber Shops', icon: '✂️' },
+                { id: 4, name: 'Beauty', icon: '💄' },
+                { id: 5, name: 'Fitness', icon: '💪' },
+                { id: 6, name: 'Nail Salons', icon: '💅' },
+            ]);
+        }
+    };
 
     const handleChange = (e) => {
         setFormData({
@@ -49,6 +85,8 @@ function BusinessSetup() {
                 county: 'Carlow',
                 location: 'Carlow'
             };
+
+            console.log('Submitting business with category:', businessData.category);
 
             await api.post(`/businesses/register?ownerId=${user.id}`, businessData);
 
@@ -149,28 +187,52 @@ function BusinessSetup() {
                                 />
                             </div>
 
-                            {/* Category */}
+                            {/* ✅ UPDATED: Dynamic Category Dropdown */}
                             <div className="group">
                                 <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center">
                                     <span className="mr-2">📂</span> Business Category *
                                 </label>
-                                <select
-                                    name="category"
-                                    value={formData.category}
-                                    onChange={handleChange}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer"
-                                    required
-                                >
-                                    <option value="">Select a category</option>
-                                    <option value="Salon">💇 Hair Salon</option>
-                                    <option value="Spa">🧖 Spa & Wellness</option>
-                                    <option value="Barbershop">✂️ Barbershop</option>
-                                    <option value="Clinic">🏥 Medical Clinic</option>
-                                    <option value="Restaurant">🍽️ Restaurant</option>
-                                    <option value="Cafe">☕ Cafe</option>
-                                    <option value="Gym">💪 Gym & Fitness</option>
-                                    <option value="Other">📦 Other</option>
-                                </select>
+                                
+                                {loadingCategories ? (
+                                    <div className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-gray-50 flex items-center">
+                                        <svg className="animate-spin h-5 w-5 text-purple-500 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span className="text-gray-500">Loading categories...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <select
+                                            name="category"
+                                            value={formData.category}
+                                            onChange={handleChange}
+                                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:ring-4 focus:ring-purple-100 focus:outline-none transition-all duration-200 hover:border-gray-300 cursor-pointer appearance-none"
+                                            style={{
+                                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                                                backgroundRepeat: 'no-repeat',
+                                                backgroundPosition: 'right 1rem center',
+                                                backgroundSize: '1.5em 1.5em',
+                                                paddingRight: '3rem'
+                                            }}
+                                            required
+                                        >
+                                            <option value="">-- Select a category --</option>
+                                            {categories.map((category) => (
+                                                <option key={category.id} value={category.name}>
+                                                    {category.icon} {category.name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        
+                                        {formData.category && (
+                                            <p className="text-green-600 text-sm mt-2 flex items-center">
+                                                <span className="mr-1">✓</span>
+                                                Selected: <span className="font-semibold ml-1">{formData.category}</span>
+                                            </p>
+                                        )}
+                                    </>
+                                )}
                             </div>
 
                             {/* Two Column Layout for Address & Eircode */}

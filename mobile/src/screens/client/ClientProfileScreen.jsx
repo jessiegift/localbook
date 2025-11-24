@@ -27,7 +27,9 @@ function ClientProfileScreen(props) {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showFaqModal, setShowFaqModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [expandedFaq, setExpandedFaq] = useState(null);
 
   // Edit form state
   const [editName, setEditName] = useState('');
@@ -43,6 +45,58 @@ function ClientProfileScreen(props) {
   });
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
+
+  // FAQ Data
+  const faqData = [
+    {
+      id: 1,
+      question: 'How far in advance can I book?',
+      answer: 'You can book appointments up to 90 days in advance. This gives you plenty of time to plan ahead for your appointments.',
+      icon: '📅'
+    },
+    {
+      id: 2,
+      question: 'What is the minimum booking notice?',
+      answer: 'You must book at least 2 hours before your desired appointment time. This ensures businesses have adequate time to prepare.',
+      icon: '⏰'
+    },
+    {
+      id: 3,
+      question: 'Can I cancel my booking?',
+      answer: 'Yes! You can cancel for free up to 24 hours before your appointment. Cancellations within 24 hours may be subject to business policies.',
+      icon: '❌'
+    },
+    {
+      id: 4,
+      question: 'How many bookings can I make per day?',
+      answer: 'You can make up to 5 bookings per day. This helps ensure fair access to services for all customers.',
+      icon: '📊'
+    },
+    {
+      id: 5,
+      question: 'When will I receive booking reminders?',
+      answer: 'You\'ll receive a reminder notification 24 hours before your appointment to help you remember.',
+      icon: '🔔'
+    },
+    {
+      id: 6,
+      question: 'Are same-day bookings allowed?',
+      answer: 'Yes, if the business has enabled same-day bookings and slots are available at least 2 hours from now.',
+      icon: '⚡'
+    },
+    {
+      id: 7,
+      question: 'What if a business is in Carlow only?',
+      answer: 'LocalBook Carlow focuses on local businesses. All businesses must be physically located in County Carlow and verified with an R93 eircode.',
+      icon: '📍'
+    },
+    {
+      id: 8,
+      question: 'How do I contact support?',
+      answer: 'You can reach us at support@localbook.ie or call +353 1 234 5678. We\'re here to help Monday-Friday, 9am-5pm.',
+      icon: '💬'
+    }
+  ];
 
   useEffect(() => {
     if (user) {
@@ -73,7 +127,6 @@ function ClientProfileScreen(props) {
   function handleSaveSettings() {
     setLoading(true);
     
-    // Simulate API call to save notification preferences
     setTimeout(() => {
       setLoading(false);
       Alert.alert('Success', 'Settings saved successfully!');
@@ -105,10 +158,23 @@ function ClientProfileScreen(props) {
     Keyboard.dismiss();
   }
 
+  function handleOpenFaqModal() {
+    setShowFaqModal(true);
+    setExpandedFaq(null);
+  }
+
+  function handleCloseFaqModal() {
+    setShowFaqModal(false);
+    setExpandedFaq(null);
+  }
+
+  function toggleFaq(faqId) {
+    setExpandedFaq(expandedFaq === faqId ? null : faqId);
+  }
+
   async function handleSaveProfile() {
     Keyboard.dismiss();
 
-    // Validation
     if (!editName.trim()) {
       Alert.alert('Error', 'Please enter your name');
       return;
@@ -119,7 +185,6 @@ function ClientProfileScreen(props) {
       return;
     }
 
-    // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(editEmail)) {
       Alert.alert('Error', 'Please enter a valid email address');
@@ -150,9 +215,6 @@ function ClientProfileScreen(props) {
       if (response.ok) {
         setShowEditModal(false);
         Alert.alert('Success', 'Profile updated successfully!');
-        
-        // Refresh user data if you have a refresh function in AuthContext
-        // await authContext.refreshUser();
       } else {
         const errorText = await response.text();
         console.error('Update failed:', errorText);
@@ -277,7 +339,6 @@ function ClientProfileScreen(props) {
               {userEmail}
             </Text>
 
-            {/* Edit Profile Button */}
             <TouchableOpacity
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -501,6 +562,54 @@ function ClientProfileScreen(props) {
               <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
             </TouchableOpacity>
 
+            {/* FAQ & Booking Rules */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+                borderBottomWidth: 1,
+                borderBottomColor: '#f3f4f6',
+              }}
+              onPress={handleOpenFaqModal}
+            >
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                flex: 1
+              }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#fef3c7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12
+                }}>
+                  <Text style={{ fontSize: 20 }}>❓</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: '600',
+                    color: '#111827',
+                    marginBottom: 2
+                  }}>
+                    FAQ & Booking Rules
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: '#6b7280'
+                  }}>
+                    Common questions & platform policies
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
@@ -519,7 +628,7 @@ function ClientProfileScreen(props) {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: '#fef3c7',
+                  backgroundColor: '#dcfce7',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12
@@ -803,7 +912,7 @@ function ClientProfileScreen(props) {
               fontSize: 12,
               marginBottom: 4
             }}>
-              LocalBook
+              LocalBook Carlow
             </Text>
             <Text style={{
               color: '#d1d5db',
@@ -840,7 +949,6 @@ function ClientProfileScreen(props) {
                 paddingBottom: 40,
                 maxHeight: '85%'
               }}>
-                {/* Modal Header */}
                 <View style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -881,7 +989,6 @@ function ClientProfileScreen(props) {
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
-                  {/* Name Input */}
                   <View style={{ marginBottom: 20 }}>
                     <Text style={{
                       fontSize: 14,
@@ -909,7 +1016,6 @@ function ClientProfileScreen(props) {
                     />
                   </View>
 
-                  {/* Email Input */}
                   <View style={{ marginBottom: 20 }}>
                     <Text style={{
                       fontSize: 14,
@@ -939,7 +1045,6 @@ function ClientProfileScreen(props) {
                     />
                   </View>
 
-                  {/* Phone Input */}
                   <View style={{ marginBottom: 20 }}>
                     <Text style={{
                       fontSize: 14,
@@ -971,7 +1076,6 @@ function ClientProfileScreen(props) {
                   <View style={{ height: 20 }} />
                 </ScrollView>
 
-                {/* Save Button */}
                 <View style={{
                   paddingHorizontal: 20,
                   paddingTop: 16,
@@ -1024,6 +1128,254 @@ function ClientProfileScreen(props) {
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* FAQ Modal */}
+      <Modal
+        visible={showFaqModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleCloseFaqModal}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+          <View style={{
+            flex: 1,
+            marginTop: 80,
+            backgroundColor: '#ffffff',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28
+          }}>
+            {/* Header */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+              paddingTop: 20,
+              paddingBottom: 16,
+              borderBottomWidth: 1,
+              borderBottomColor: '#e5e7eb',
+              backgroundColor: '#ffffff'
+            }}>
+              <View style={{ width: 40 }} />
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '700',
+                color: '#111827'
+              }}>
+                FAQ & Booking Rules
+              </Text>
+              <TouchableOpacity
+                onPress={handleCloseFaqModal}
+                activeOpacity={0.7}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#f3f4f6',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Text style={{ fontSize: 24, color: '#6b7280', fontWeight: '300' }}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Content */}
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{
+                paddingHorizontal: 20,
+                paddingTop: 16,
+                paddingBottom: 40
+              }}
+              showsVerticalScrollIndicator={true}
+            >
+              {/* Info Banner */}
+              <View style={{
+                backgroundColor: '#eff6ff',
+                borderLeftWidth: 4,
+                borderLeftColor: '#3b82f6',
+                borderRadius: 12,
+                padding: 14,
+                marginBottom: 16,
+                flexDirection: 'row',
+                alignItems: 'flex-start'
+              }}>
+                <Text style={{ fontSize: 20, marginRight: 10 }}>📋</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: 13,
+                    fontWeight: '600',
+                    color: '#1e40af',
+                    marginBottom: 4
+                  }}>
+                    Platform Policies
+                  </Text>
+                  <Text style={{
+                    fontSize: 12,
+                    color: '#1e3a8a',
+                    lineHeight: 18
+                  }}>
+                    These rules ensure fair access and quality service for all LocalBook Carlow users.
+                  </Text>
+                </View>
+              </View>
+
+              {/* FAQ Items */}
+              {faqData.map((faq) => (
+                <View
+                  key={faq.id}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    borderWidth: 1.5,
+                    borderColor: expandedFaq === faq.id ? '#7c3aed' : '#e5e7eb',
+                    borderRadius: 12,
+                    marginBottom: 10,
+                    overflow: 'hidden',
+                    shadowColor: '#000',
+                    shadowOpacity: expandedFaq === faq.id ? 0.1 : 0,
+                    shadowRadius: 4,
+                    shadowOffset: { width: 0, height: 2 }
+                  }}
+                >
+                  <TouchableOpacity
+                    onPress={() => toggleFaq(faq.id)}
+                    activeOpacity={0.7}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      padding: 14,
+                      backgroundColor: expandedFaq === faq.id ? '#faf5ff' : '#ffffff'
+                    }}
+                  >
+                    <View style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 17,
+                      backgroundColor: expandedFaq === faq.id ? '#ede9fe' : '#f9fafb',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 12
+                    }}>
+                      <Text style={{ fontSize: 16 }}>{faq.icon}</Text>
+                    </View>
+                    <Text style={{
+                      flex: 1,
+                      fontSize: 14,
+                      fontWeight: '600',
+                      color: expandedFaq === faq.id ? '#7c3aed' : '#111827',
+                      lineHeight: 20
+                    }}>
+                      {faq.question}
+                    </Text>
+                    <View style={{
+                      width: 24,
+                      height: 24,
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Text style={{
+                        fontSize: 16,
+                        color: expandedFaq === faq.id ? '#7c3aed' : '#9ca3af',
+                        transform: [{ rotate: expandedFaq === faq.id ? '180deg' : '0deg' }]
+                      }}>
+                        ▼
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {expandedFaq === faq.id && (
+                    <View style={{
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      backgroundColor: '#faf5ff',
+                      borderTopWidth: 1,
+                      borderTopColor: '#e9d5ff'
+                    }}>
+                      <Text style={{
+                        fontSize: 13,
+                        color: '#4b5563',
+                        lineHeight: 20
+                      }}>
+                        {faq.answer}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+
+              {/* Support Box */}
+              <View style={{
+                backgroundColor: '#f0fdf4',
+                borderRadius: 12,
+                padding: 14,
+                marginTop: 8,
+                borderWidth: 1,
+                borderColor: '#bbf7d0'
+              }}>
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  marginBottom: 8
+                }}>
+                  <Text style={{ fontSize: 20, marginRight: 8 }}>💬</Text>
+                  <Text style={{
+                    fontSize: 15,
+                    fontWeight: '700',
+                    color: '#166534'
+                  }}>
+                    Still have questions?
+                  </Text>
+                </View>
+                <Text style={{
+                  fontSize: 13,
+                  color: '#15803d',
+                  marginBottom: 12,
+                  lineHeight: 19
+                }}>
+                  Our support team is here to help you Monday-Friday, 9am-5pm.
+                </Text>
+                <View style={{
+                  backgroundColor: '#ffffff',
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 8
+                }}>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 6
+                  }}>
+                    <Text style={{ fontSize: 14, marginRight: 8 }}>📧</Text>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '600',
+                      color: '#166534'
+                    }}>
+                      support@localbook.ie
+                    </Text>
+                  </View>
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center'
+                  }}>
+                    <Text style={{ fontSize: 14, marginRight: 8 }}>📞</Text>
+                    <Text style={{
+                      fontSize: 13,
+                      fontWeight: '600',
+                      color: '#166534'
+                    }}>
+                      +353 1 234 5678
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
     </View>
   );

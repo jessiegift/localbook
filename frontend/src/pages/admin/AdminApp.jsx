@@ -5,7 +5,7 @@ import AdminDashboard from "./AdminDashboard";
 import AllBusinesses from "./AllBusinesses";
 import BusinessDetails from "./BusinessDetails";
 import AllUsers from "./AllUsers";
-import Reports from "./Reports";
+import Reports from "./Analytics";
 import Categories from "./Categories";
 import PlatformSettings from "./PlatformSettings";
 import Pending from "./Pending";

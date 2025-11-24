@@ -134,11 +134,7 @@ const Dashboard = () => {
                                 Welcome back, {user?.name}! 👋
                             </h1>
                             <p className="text-gray-600">Managing your Carlow business</p>
-                            {lastUpdated && (
-                                <p className="text-sm text-gray-500 mt-2">
-                                    🔴 Live Data • Last updated: {formatDate(lastUpdated)} at {formatTime(lastUpdated)}
-                                </p>
-                            )}
+                            
                         </div>
                         <button
                             onClick={handleRefresh}
@@ -215,7 +211,7 @@ const Dashboard = () => {
                             <div className="text-5xl opacity-80">👥</div>
                         </div>
                         <div className="mt-4 pt-4 border-t border-orange-400">
-                            <p className="text-sm text-orange-100">Unique clients</p>
+                            <p className="text-sm text-orange-100">clients</p>
                         </div>
                     </div>
                 </div>
@@ -303,19 +299,8 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Footer Note */}
-                <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl shadow-md p-6 border border-blue-200">
-                    <div className="flex items-center gap-3">
-                        <span className="text-3xl">ℹ️</span>
-                        <div>
-                            <h3 className="font-bold text-gray-900 mb-1">Real-Time Dashboard</h3>
-                            <p className="text-sm text-gray-700">
-                                Dashboard automatically refreshes every 2 minutes to keep your data current. 
-                                Click "Refresh Data" anytime for immediate updates.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+               
+                
             </div>
         </div>
     );

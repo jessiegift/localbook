@@ -13,13 +13,8 @@ import { useAuth } from '../../context/AuthContext';
 import BusinessCard from '../../common/BusinessCard';
 import * as Location from 'expo-location';
 
-const CATEGORIES = [
-  'All',
-  'Hair Salon',
-  'Beauty',
-  'Barber',
-  'Restaurant',
-];
+// ❌ REMOVED: Hardcoded categories
+// const CATEGORIES = ['All', 'Hair Salon', 'Beauty', 'Barber', 'Restaurant'];
 
 const screenDimensions = Dimensions.get('window');
 const SCREEN_HEIGHT = screenDimensions.height;
@@ -39,17 +34,69 @@ function ClientHomeScreen(props) {
   const [userLocation, setUserLocation] = useState(null);
   const [error, setError] = useState(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  
+  // ✅ NEW: State for dynamic categories
+  const [categories, setCategories] = useState(['All']);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   useEffect(function() {
     getUserLocation();
+    fetchCategories(); // ✅ NEW: Fetch categories first
     fetchBusinesses();
   }, []);
 
   useEffect(function() {
     filterBusinesses();
   }, [searchQuery, selectedCategory, businesses]);
+
+  // ✅ NEW: Fetch categories from database
+  async function fetchCategories() {
+    try {
+      setLoadingCategories(true);
+      console.log('📂 Fetching categories...');
+      
+      const url = API_BASE_URL + '/categories';
+      const requestOptions = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+      
+      const response = await fetch(url, requestOptions);
+      
+      const isResponseOk = response.ok;
+      if (isResponseOk === true) {
+        const data = await response.json();
+        console.log('✅ Categories received:', data.length);
+        
+        // Extract category names and add "All" at the beginning
+        const categoryNames = ['All'];
+        let categoryIndex = 0;
+        while (categoryIndex < data.length) {
+          const category = data[categoryIndex];
+          const categoryName = category.name;
+          categoryNames.push(categoryName);
+          categoryIndex = categoryIndex + 1;
+        }
+        
+        setCategories(categoryNames);
+        console.log('✅ Categories set:', categoryNames);
+      } else {
+        console.log('⚠️ Failed to fetch categories, using defaults');
+        // Fallback to basic categories
+        setCategories(['All', 'Hair Salons', 'Spa & Wellness', 'Barber Shops', 'Beauty', 'Fitness']);
+      }
+    } catch (errorObject) {
+      console.error('❌ Error fetching categories:', errorObject);
+      // Fallback to basic categories
+      setCategories(['All', 'Hair Salons', 'Spa & Wellness', 'Barber Shops', 'Beauty', 'Fitness']);
+    } finally {
+      setLoadingCategories(false);
+    }
+  }
 
   async function getUserLocation() {
     try {
@@ -127,7 +174,6 @@ function ClientHomeScreen(props) {
       setBusinesses(businessesArray);
       setFilteredBusinesses(businessesArray);
       
-      // ⭐ Fetch ratings for all businesses
       await fetchAllBusinessRatings(businessesArray);
       
     } catch (errorObject) {
@@ -144,7 +190,6 @@ function ClientHomeScreen(props) {
     }
   }
 
-  // ⭐ NEW: Fetch ratings for all businesses
   async function fetchAllBusinessRatings(businessesArray) {
     const ratingsMap = {};
     
@@ -172,7 +217,6 @@ function ClientHomeScreen(props) {
           ratingsMap[businessId] = data;
           console.log('✅ Rating for business', businessId, ':', data.averageRating);
         } else {
-          // No ratings yet for this business
           ratingsMap[businessId] = null;
         }
       } catch (errorObject) {
@@ -214,6 +258,8 @@ function ClientHomeScreen(props) {
         }
         
         const selectedCategoryLower = selectedCategory.toLowerCase();
+        
+        // ✅ FIXED: Exact match for category names
         const isCategoryMatch = categoryLower === selectedCategoryLower;
         
         if (isCategoryMatch === true) {
@@ -295,6 +341,7 @@ function ClientHomeScreen(props) {
 
   function onRefresh() {
     setRefreshing(true);
+    fetchCategories(); // ✅ Refresh categories too
     fetchBusinesses();
   }
 
@@ -356,10 +403,8 @@ function ClientHomeScreen(props) {
     const item = renderProps.item;
     const businessId = item.id;
     
-    // ⭐ Get rating summary for this business
     const ratingSummary = businessRatings[businessId];
     
-    // ⭐ Add rating data to business object
     const businessWithRating = Object.assign({}, item);
     businessWithRating.ratingSummary = ratingSummary;
     
@@ -431,12 +476,14 @@ function ClientHomeScreen(props) {
     );
   }
 
+  // ✅ UPDATED: Render dynamic category buttons
   function renderCategoryButtons() {
     const categoryButtons = [];
     let categoryIndex = 0;
     
-    while (categoryIndex < CATEGORIES.length) {
-      const cat = CATEGORIES[categoryIndex];
+    // ✅ Now uses dynamic categories from state
+    while (categoryIndex < categories.length) {
+      const cat = categories[categoryIndex];
       const isSelected = selectedCategory === cat;
       
       const containerStyle = {
@@ -649,9 +696,16 @@ function ClientHomeScreen(props) {
               </TouchableOpacity>
             </View>
 
-            {/* Categories Grid */}
+            {/* ✅ Categories Grid - Now shows loading state */}
             <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-              {renderCategoryButtons()}
+              {loadingCategories === true ? (
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <ActivityIndicator size="large" color="#7c3aed" />
+                  <Text style={{ marginTop: 12, color: '#6b7280' }}>Loading categories...</Text>
+                </View>
+              ) : (
+                renderCategoryButtons()
+              )}
             </View>
 
             {/* Reset Button */}

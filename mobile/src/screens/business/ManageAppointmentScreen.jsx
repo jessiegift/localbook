@@ -200,7 +200,6 @@ const ManageAppointmentScreen = function(props) {
           style: 'default',
           onPress: async function() {
             try {
-              // ✅ FIXED: Changed businessId to user.id to match backend expectation
               const url = `${API_BASE_URL}/appointments/${appointmentId}/complete?userId=${user.id}`;
               console.log('✅ Completing appointment:', url);
 
@@ -308,12 +307,12 @@ const ManageAppointmentScreen = function(props) {
   function getStatusConfig(status) {
     const upperStatus = status?.toUpperCase() || '';
     const configs = {
-      'CONFIRMED': { bgColor: '#10b981', textColor: '#ffffff', label: 'Confirmed' },
+      'CONFIRMED': { bgColor: '#8b5cf6', textColor: '#ffffff', label: 'Confirmed' },
       'CANCELLED': { bgColor: '#ef4444', textColor: '#ffffff', label: 'Cancelled' },
-      'COMPLETED': { bgColor: '#8b5cf6', textColor: '#ffffff', label: 'Completed' },
+      'COMPLETED': { bgColor: '#a855f7', textColor: '#ffffff', label: 'Completed' },
       'NO_SHOW': { bgColor: '#6b7280', textColor: '#ffffff', label: 'No Show' },
     };
-    return configs[upperStatus] || { bgColor: '#3b82f6', textColor: '#ffffff', label: status || 'Unknown' };
+    return configs[upperStatus] || { bgColor: '#7c3aed', textColor: '#ffffff', label: status || 'Unknown' };
   }
 
   function renderAppointmentCard({ item }) {
@@ -341,9 +340,9 @@ const ManageAppointmentScreen = function(props) {
     const hour12 = hours % 12 || 12;
     const timeString = `${hour12}:${minutes.toString().padStart(2, '0')} ${ampm}`;
 
-    let accentColor = '#22c55e';
-    if (appointmentNow) accentColor = '#ef4444';
-    else if (appointmentSoon) accentColor = '#f59e0b';
+    let accentColor = '#8b5cf6';
+    if (appointmentNow) accentColor = '#a855f7';
+    else if (appointmentSoon) accentColor = '#c084fc';
 
     const showTimeIndicator = isUpcoming && isConfirmed;
 
@@ -372,7 +371,7 @@ const ManageAppointmentScreen = function(props) {
                 width: 70,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#f9fafb',
+                backgroundColor: '#faf5ff',
                 borderRadius: 12,
                 paddingVertical: 12,
                 marginRight: 16,
@@ -380,7 +379,7 @@ const ManageAppointmentScreen = function(props) {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: '#6b7280',
+                  color: '#7c3aed',
                   letterSpacing: 1,
                 }}>
                   {monthName}
@@ -443,18 +442,20 @@ const ManageAppointmentScreen = function(props) {
 
                 {showTimeIndicator && (
                   <View style={{
-                    backgroundColor: appointmentNow ? '#fee2e2' : appointmentSoon ? '#fef3c7' : '#f3f4f6',
+                    backgroundColor: appointmentNow ? '#faf5ff' : appointmentSoon ? '#f3e8ff' : '#f9fafb',
                     paddingHorizontal: 10,
                     paddingVertical: 6,
                     borderRadius: 8,
                     alignSelf: 'flex-start',
+                    borderWidth: 1,
+                    borderColor: appointmentNow ? '#c084fc' : appointmentSoon ? '#d8b4fe' : '#e5e7eb',
                   }}>
                     <Text style={{
                       fontSize: 13,
                       fontWeight: '700',
-                      color: appointmentNow ? '#991b1b' : appointmentSoon ? '#92400e' : '#374151',
+                      color: appointmentNow ? '#6b21a8' : appointmentSoon ? '#7e22ce' : '#374151',
                     }}>
-                      {appointmentNow && '🔴 '}
+                      {appointmentNow && '🟣 '}
                       {appointmentSoon && '⏰ '}
                       {getRelativeTime(item)}
                     </Text>
@@ -470,7 +471,7 @@ const ManageAppointmentScreen = function(props) {
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={{ fontSize: 16, marginRight: 4 }}>💰</Text>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#22c55e' }}>
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#8b5cf6' }}>
                       €{servicePrice}
                     </Text>
                   </View>
@@ -482,13 +483,13 @@ const ManageAppointmentScreen = function(props) {
             {item.notes && (
               <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
                 <View style={{ 
-                  backgroundColor: '#eff6ff', 
+                  backgroundColor: '#faf5ff', 
                   borderRadius: 12, 
                   padding: 12,
                   borderWidth: 1,
-                  borderColor: '#bfdbfe'
+                  borderColor: '#e9d5ff'
                 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#1e3a8a', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: '#6b21a8', marginBottom: 4 }}>
                     📝 NOTES
                   </Text>
                   <Text style={{ fontSize: 14, color: '#374151', lineHeight: 20 }}>
@@ -519,7 +520,7 @@ const ManageAppointmentScreen = function(props) {
                   activeOpacity={0.7}
                 >
                   <Text style={{ fontSize: 16, marginRight: 6 }}>✅</Text>
-                  <Text style={{ color: '#22c55e', fontSize: 15, fontWeight: '700' }}>
+                  <Text style={{ color: '#8b5cf6', fontSize: 15, fontWeight: '700' }}>
                     Complete
                   </Text>
                 </TouchableOpacity>
@@ -563,10 +564,12 @@ const ManageAppointmentScreen = function(props) {
           width: 100,
           height: 100,
           borderRadius: 50,
-          backgroundColor: '#f3f4f6',
+          backgroundColor: '#faf5ff',
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 24,
+          borderWidth: 2,
+          borderColor: '#e9d5ff',
         }}>
           <Text style={{ fontSize: 50 }}>
             {message.emoji}
@@ -584,9 +587,9 @@ const ManageAppointmentScreen = function(props) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f9fafb' }}>
-        <ActivityIndicator size="large" color="#22c55e" />
-        <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 15 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#faf5ff' }}>
+        <ActivityIndicator size="large" color="#8b5cf6" />
+        <Text style={{ marginTop: 16, color: '#7c3aed', fontSize: 15, fontWeight: '600' }}>
           Loading appointments...
         </Text>
       </View>
@@ -598,10 +601,10 @@ const ManageAppointmentScreen = function(props) {
   const isPastTab = activeTab === 'past';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+    <View style={{ flex: 1, backgroundColor: '#faf5ff' }}>
       {/* Header */}
       <View style={{
-        backgroundColor: '#22c55e',
+        backgroundColor: '#8b5cf6',
         paddingTop: 48,
         paddingBottom: 0,
       }}>
@@ -609,7 +612,7 @@ const ManageAppointmentScreen = function(props) {
           <Text style={{ fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 }}>
             Appointments
           </Text>
-          <Text style={{ fontSize: 14, color: '#d1fae5' }}>
+          <Text style={{ fontSize: 14, color: '#e9d5ff' }}>
             Manage your business bookings
           </Text>
         </View>
@@ -637,7 +640,7 @@ const ManageAppointmentScreen = function(props) {
               textAlign: 'center',
               fontSize: 15,
               fontWeight: '700',
-              color: isTodayTab ? '#22c55e' : '#d1fae5',
+              color: isTodayTab ? '#8b5cf6' : '#e9d5ff',
             }}>
               Today
             </Text>
@@ -657,7 +660,7 @@ const ManageAppointmentScreen = function(props) {
               textAlign: 'center',
               fontSize: 15,
               fontWeight: '700',
-              color: isUpcomingTab ? '#22c55e' : '#d1fae5',
+              color: isUpcomingTab ? '#8b5cf6' : '#e9d5ff',
             }}>
               Upcoming
             </Text>
@@ -677,7 +680,7 @@ const ManageAppointmentScreen = function(props) {
               textAlign: 'center',
               fontSize: 15,
               fontWeight: '700',
-              color: isPastTab ? '#22c55e' : '#d1fae5',
+              color: isPastTab ? '#8b5cf6' : '#e9d5ff',
             }}>
               Past
             </Text>
@@ -686,7 +689,7 @@ const ManageAppointmentScreen = function(props) {
 
         <View style={{
           height: 20,
-          backgroundColor: '#f9fafb',
+          backgroundColor: '#faf5ff',
           borderTopLeftRadius: 20,
           borderTopRightRadius: 20,
         }} />
@@ -695,7 +698,7 @@ const ManageAppointmentScreen = function(props) {
       {/* Appointments Count */}
       {appointments.length > 0 && (
         <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-          <Text style={{ fontSize: 14, color: '#6b7280', fontWeight: '600' }}>
+          <Text style={{ fontSize: 14, color: '#7c3aed', fontWeight: '600' }}>
             {appointments.length} {appointments.length === 1 ? 'appointment' : 'appointments'}
           </Text>
         </View>
@@ -715,8 +718,8 @@ const ManageAppointmentScreen = function(props) {
               setRefreshing(true);
               fetchAppointments();
             }}
-            colors={['#22c55e']}
-            tintColor="#22c55e"
+            colors={['#8b5cf6']}
+            tintColor="#8b5cf6"
           />
         }
         ListEmptyComponent={renderEmpty}
