@@ -36,6 +36,16 @@ public class Appointment {
     
     @Column(columnDefinition = "TEXT")
     private String notes;
+
+    // ✅ NEW: Track which mobile push notifications have been sent
+    @Column(name = "notification_24hr_sent")
+    private Boolean notification24hrSent = false;
+    
+    @Column(name = "notification_30min_sent")
+    private Boolean notification30minSent = false;
+    
+    @Column(name = "notification_start_sent")
+    private Boolean notificationStartSent = false;
     
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -133,6 +143,33 @@ public class Appointment {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+
+
+    // ✅ NEW: Notification tracking getters/setters
+    public Boolean getNotification24hrSent() {
+        return notification24hrSent != null ? notification24hrSent : false;
+    }
+    
+    public void setNotification24hrSent(Boolean notification24hrSent) {
+        this.notification24hrSent = notification24hrSent;
+    }
+    
+    public Boolean getNotification30minSent() {
+        return notification30minSent != null ? notification30minSent : false;
+    }
+    
+    public void setNotification30minSent(Boolean notification30minSent) {
+        this.notification30minSent = notification30minSent;
+    }
+    
+    public Boolean getNotificationStartSent() {
+        return notificationStartSent != null ? notificationStartSent : false;
+    }
+    
+    public void setNotificationStartSent(Boolean notificationStartSent) {
+        this.notificationStartSent = notificationStartSent;
+    }
     
     @PrePersist
     protected void onCreate() {
@@ -141,8 +178,18 @@ public class Appointment {
         if (status == null) {
             status = AppointmentStatus.CONFIRMED;
         }
+        if (notification24hrSent == null) {
+            notification24hrSent = false;
+        }
+        if (notification30minSent == null) {
+            notification30minSent = false;
+        }
+        if (notificationStartSent == null) {
+            notificationStartSent = false;
+        }
     }
     
+
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

@@ -9,11 +9,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -26,31 +21,25 @@ function ClientProfileScreen(props) {
 
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
-  const [updating, setUpdating] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(null);
-
-  // Edit form state
-  const [editName, setEditName] = useState('');
-  const [editEmail, setEditEmail] = useState('');
-  const [editPhone, setEditPhone] = useState('');
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   const [notifications, setNotifications] = useState({
-    bookingConfirmations: true,
-    bookingReminders: true,
-    businessUpdates: true,
-    specialOffers: false,
-    reviewReminders: true,
+    enable24hrReminder: true,
+    enable30minReminder: true,
+    enableStartReminder: true,
+    enableBookingNotifications: true,
+    enableCancellationNotifications: true,
+    enableRescheduleNotifications: true,
   });
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
-  // FAQ Data
   const faqData = [
     {
       id: 1,
-      question: 'How far in advance can I book?',
+      question: 'How far in advance can I book? ',
       answer: 'You can book appointments up to 90 days in advance. This gives you plenty of time to plan ahead for your appointments.',
       icon: '📅'
     },
@@ -63,7 +52,7 @@ function ClientProfileScreen(props) {
     {
       id: 3,
       question: 'Can I cancel my booking?',
-      answer: 'Yes! You can cancel for free up to 24 hours before your appointment. Cancellations within 24 hours may be subject to business policies.',
+      answer: 'Yes!  You can cancel for free up to 24 hours before your appointment.  Cancellations within 24 hours may be subject to business policies.',
       icon: '❌'
     },
     {
@@ -75,7 +64,7 @@ function ClientProfileScreen(props) {
     {
       id: 5,
       question: 'When will I receive booking reminders?',
-      answer: 'You\'ll receive a reminder notification 24 hours before your appointment to help you remember.',
+      answer: 'You\'ll receive reminder notifications 24 hours and 30 minutes before your appointment, plus when it starts.',
       icon: '🔔'
     },
     {
@@ -87,7 +76,7 @@ function ClientProfileScreen(props) {
     {
       id: 7,
       question: 'What if a business is in Carlow only?',
-      answer: 'LocalBook Carlow focuses on local businesses. All businesses must be physically located in County Carlow and verified with an R93 eircode.',
+      answer: 'LocalBook Carlow focuses on local businesses.  All businesses must be physically located in County Carlow and verified with an R93 eircode.',
       icon: '📍'
     },
     {
@@ -100,37 +89,97 @@ function ClientProfileScreen(props) {
 
   useEffect(() => {
     if (user) {
-      initializeEditFields();
+      fetchNotificationSettings();
     }
   }, [user]);
 
-  function initializeEditFields() {
-    setEditName(user?.name || '');
-    setEditEmail(user?.email || '');
-    setEditPhone(user?.phoneNumber || '');
+  async function fetchNotificationSettings() {
+    if (!user?. id) return;
+
+    setLoadingSettings(true);
+    try {
+      const url = `${API_BASE_URL}/notifications/mobile/settings/${user.id}`;
+      console.log('📥 Fetching notification settings:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Notification settings loaded:', data);
+
+        setNotifications({
+          enable24hrReminder: data.enable24hrReminder,
+          enable30minReminder: data.enable30minReminder,
+          enableStartReminder: data.enableStartReminder,
+          enableBookingNotifications: data. enableBookingNotifications,
+          enableCancellationNotifications: data.enableCancellationNotifications,
+          enableRescheduleNotifications: data.enableRescheduleNotifications,
+        });
+      } else {
+        console.log('⚠️ Failed to load settings, using defaults');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching notification settings:', error);
+    } finally {
+      setLoadingSettings(false);
+    }
   }
 
-  function toggleNotification(key) {
+  async function toggleNotification(key) {
+    const newValue = !notifications[key];
+    
+    // Optimistic update
     setNotifications(prev => ({
       ...prev,
-      [key]: !prev[key]
+      [key]: newValue
     }));
+
+    try {
+      const url = `${API_BASE_URL}/notifications/mobile/settings/${user. id}`;
+      console.log('📤 Updating notification setting:', key, '=', newValue);
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ... notifications,
+          [key]: newValue
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Notification setting updated');
+      } else {
+        // Revert on failure
+        setNotifications(prev => ({
+          ...prev,
+          [key]: !newValue
+        }));
+        Alert.alert('Error', 'Failed to update notification settings');
+      }
+    } catch (error) {
+      console. error('❌ Error updating notification setting:', error);
+      // Revert on error
+      setNotifications(prev => ({
+        ...prev,
+        [key]: !newValue
+      }));
+      Alert.alert('Error', 'Network error. Please try again.');
+    }
   }
 
   function handleRefresh() {
     setRefreshing(true);
-    setTimeout(() => {
+    fetchNotificationSettings(). finally(() => {
       setRefreshing(false);
-    }, 1000);
-  }
-
-  function handleSaveSettings() {
-    setLoading(true);
-    
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Success', 'Settings saved successfully!');
-    }, 1000);
+    });
   }
 
   function handleLogout() {
@@ -148,16 +197,6 @@ function ClientProfileScreen(props) {
     );
   }
 
-  function handleOpenEditModal() {
-    initializeEditFields();
-    setShowEditModal(true);
-  }
-
-  function handleCloseEditModal() {
-    setShowEditModal(false);
-    Keyboard.dismiss();
-  }
-
   function handleOpenFaqModal() {
     setShowFaqModal(true);
     setExpandedFaq(null);
@@ -169,63 +208,7 @@ function ClientProfileScreen(props) {
   }
 
   function toggleFaq(faqId) {
-    setExpandedFaq(expandedFaq === faqId ? null : faqId);
-  }
-
-  async function handleSaveProfile() {
-    Keyboard.dismiss();
-
-    if (!editName.trim()) {
-      Alert.alert('Error', 'Please enter your name');
-      return;
-    }
-
-    if (!editEmail.trim()) {
-      Alert.alert('Error', 'Please enter your email');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(editEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address');
-      return;
-    }
-
-    setUpdating(true);
-
-    try {
-      const url = `${API_BASE_URL}/users/${user.id}`;
-      console.log('Updating profile:', url);
-
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          name: editName.trim(),
-          email: editEmail.trim(),
-          phoneNumber: editPhone.trim(),
-        }),
-      });
-
-      console.log('Update response status:', response.status);
-
-      if (response.ok) {
-        setShowEditModal(false);
-        Alert.alert('Success', 'Profile updated successfully!');
-      } else {
-        const errorText = await response.text();
-        console.error('Update failed:', errorText);
-        Alert.alert('Error', 'Failed to update profile. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
-    } finally {
-      setUpdating(false);
-    }
+    setExpandedFaq(expandedFaq === faqId ?  null : faqId);
   }
 
   function handleViewMyBookings() {
@@ -235,29 +218,8 @@ function ClientProfileScreen(props) {
   function handleHelp() {
     Alert.alert(
       'Help & Support',
-      'Need help?\n\n📧 Email: support@localbook.ie\n📞 Phone: +353 1 234 5678\n\nWe\'re here to help you!',
+      'Need help?\n\n📧 Email: support@localbook.ie\n📞 Phone: +353 1 234 5678\n\nWe\'re here to help you! ',
       [{ text: 'OK' }]
-    );
-  }
-
-  function handleDeleteAccount() {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? This action cannot be undone.\n\nAll your bookings and data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Confirm Deletion',
-              'Please contact support@localbook.ie to proceed with account deletion.',
-              [{ text: 'OK' }]
-            );
-          }
-        }
-      ]
     );
   }
 
@@ -333,32 +295,10 @@ function ClientProfileScreen(props) {
             </Text>
             <Text style={{
               color: '#e9d5ff',
-              fontSize: 14,
-              marginBottom: 16
+              fontSize: 14
             }}>
               {userEmail}
             </Text>
-
-            <TouchableOpacity
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                paddingHorizontal: 24,
-                paddingVertical: 10,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-              }}
-              onPress={handleOpenEditModal}
-              activeOpacity={0.8}
-            >
-              <Text style={{
-                color: '#ffffff',
-                fontWeight: '600',
-                fontSize: 15
-              }}>
-                ✏️ Edit Profile
-              </Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -503,7 +443,7 @@ function ClientProfileScreen(props) {
             padding: 16,
             marginBottom: 16,
             shadowColor: '#000',
-            shadowOpacity: 0.05,
+            shadowOpacity: 0.5,
             shadowRadius: 3
           }}>
             <Text style={{
@@ -562,7 +502,6 @@ function ClientProfileScreen(props) {
               <Text style={{ fontSize: 20, color: '#d1d5db' }}>›</Text>
             </TouchableOpacity>
 
-            {/* FAQ & Booking Rules */}
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
@@ -656,7 +595,7 @@ function ClientProfileScreen(props) {
             </TouchableOpacity>
           </View>
 
-          {/* Notifications */}
+          {/* Notification Settings */}
           <View style={{
             backgroundColor: '#ffffff',
             borderRadius: 16,
@@ -672,196 +611,210 @@ function ClientProfileScreen(props) {
               color: '#111827',
               marginBottom: 16
             }}>
-              Notifications
+              Notification Settings
             </Text>
 
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: '#f3f4f6'
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#111827',
-                  marginBottom: 2
-                }}>
-                  Booking Confirmations
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#6b7280'
-                }}>
-                  When your booking is confirmed
+            {loadingSettings ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#7c3aed" />
+                <Text style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
+                  Loading settings...
                 </Text>
               </View>
-              <Switch
-                value={notifications.bookingConfirmations}
-                onValueChange={() => toggleNotification('bookingConfirmations')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.bookingConfirmations ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: '#f3f4f6'
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#111827',
-                  marginBottom: 2
-                }}>
-                  Booking Reminders
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#6b7280'
-                }}>
-                  Upcoming appointment alerts
-                </Text>
-              </View>
-              <Switch
-                value={notifications.bookingReminders}
-                onValueChange={() => toggleNotification('bookingReminders')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.bookingReminders ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: '#f3f4f6'
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#111827',
-                  marginBottom: 2
-                }}>
-                  Business Updates
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#6b7280'
-                }}>
-                  News from your favorite businesses
-                </Text>
-              </View>
-              <Switch
-                value={notifications.businessUpdates}
-                onValueChange={() => toggleNotification('businessUpdates')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.businessUpdates ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: '#f3f4f6'
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#111827',
-                  marginBottom: 2
-                }}>
-                  Special Offers
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#6b7280'
-                }}>
-                  Deals and promotions
-                </Text>
-              </View>
-              <Switch
-                value={notifications.specialOffers}
-                onValueChange={() => toggleNotification('specialOffers')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.specialOffers ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 12
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#111827',
-                  marginBottom: 2
-                }}>
-                  Review Reminders
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#6b7280'
-                }}>
-                  Rate completed appointments
-                </Text>
-              </View>
-              <Switch
-                value={notifications.reviewReminders}
-                onValueChange={() => toggleNotification('reviewReminders')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.reviewReminders ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-          </View>
-
-          {/* Save Settings Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: loading ? '#a78bfa' : '#7c3aed',
-              borderRadius: 12,
-              padding: 16,
-              alignItems: 'center',
-              marginBottom: 12,
-              shadowColor: '#7c3aed',
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 4 },
-            }}
-            onPress={handleSaveSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={{
-                color: '#ffffff',
-                fontSize: 16,
-                fontWeight: '700'
-              }}>
-                Save Settings
-              </Text>
+              <>
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6'
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      24 Hour Reminder
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      Day before appointment
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enable24hrReminder}
+                    onValueChange={() => toggleNotification('enable24hrReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enable24hrReminder ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6'
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      30 Minute Reminder
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      Before appointment starts
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications. enable30minReminder}
+                    onValueChange={() => toggleNotification('enable30minReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enable30minReminder ?  '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6'
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      Start Reminder
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      When appointment starts
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableStartReminder}
+                    onValueChange={() => toggleNotification('enableStartReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableStartReminder ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6'
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      Booking Confirmations
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      When booking is confirmed
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableBookingNotifications}
+                    onValueChange={() => toggleNotification('enableBookingNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableBookingNotifications ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#f3f4f6'
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      Cancellations
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      When booking is cancelled
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableCancellationNotifications}
+                    onValueChange={() => toggleNotification('enableCancellationNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications. enableCancellationNotifications ?  '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+
+                <View style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 12
+                }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: '#111827',
+                      marginBottom: 2
+                    }}>
+                      Reschedules
+                    </Text>
+                    <Text style={{
+                      fontSize: 13,
+                      color: '#6b7280'
+                    }}>
+                      When booking is rescheduled
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableRescheduleNotifications}
+                    onValueChange={() => toggleNotification('enableRescheduleNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableRescheduleNotifications ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+              </>
             )}
-          </TouchableOpacity>
+          </View>
 
           {/* Logout Button */}
           <TouchableOpacity
@@ -870,7 +823,7 @@ function ClientProfileScreen(props) {
               borderRadius: 12,
               padding: 16,
               alignItems: 'center',
-              marginBottom: 12,
+              marginBottom: 24,
             }}
             onPress={handleLogout}
           >
@@ -880,28 +833,6 @@ function ClientProfileScreen(props) {
               fontWeight: '700'
             }}>
               Logout
-            </Text>
-          </TouchableOpacity>
-
-          {/* Delete Account */}
-          <TouchableOpacity
-            style={{
-              borderWidth: 2,
-              borderColor: '#fecaca',
-              backgroundColor: '#ffffff',
-              borderRadius: 12,
-              padding: 16,
-              alignItems: 'center',
-              marginBottom: 24,
-            }}
-            onPress={handleDeleteAccount}
-          >
-            <Text style={{
-              color: '#ef4444',
-              fontSize: 14,
-              fontWeight: '600'
-            }}>
-              Delete Account
             </Text>
           </TouchableOpacity>
 
@@ -924,212 +855,6 @@ function ClientProfileScreen(props) {
         </View>
       </ScrollView>
 
-      {/* Edit Profile Modal */}
-      <Modal
-        visible={showEditModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={handleCloseEditModal}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={{
-              flex: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.6)',
-              justifyContent: 'flex-end'
-            }}>
-              <View style={{
-                backgroundColor: '#ffffff',
-                borderTopLeftRadius: 28,
-                borderTopRightRadius: 28,
-                paddingTop: 20,
-                paddingBottom: 40,
-                maxHeight: '85%'
-              }}>
-                <View style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  paddingHorizontal: 20,
-                  paddingBottom: 20,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#f3f4f6'
-                }}>
-                  <TouchableOpacity
-                    onPress={handleCloseEditModal}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={{
-                      color: '#6b7280',
-                      fontSize: 16,
-                      fontWeight: '600'
-                    }}>
-                      Cancel
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={{
-                    fontSize: 18,
-                    fontWeight: '700',
-                    color: '#111827'
-                  }}>
-                    Edit Profile
-                  </Text>
-                  <View style={{ width: 60 }} />
-                </View>
-
-                <ScrollView
-                  style={{ flex: 1 }}
-                  contentContainerStyle={{
-                    paddingHorizontal: 20,
-                    paddingTop: 24
-                  }}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <View style={{ marginBottom: 20 }}>
-                    <Text style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: '#374151',
-                      marginBottom: 8
-                    }}>
-                      Full Name *
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: '#f9fafb',
-                        borderWidth: 2,
-                        borderColor: '#e5e7eb',
-                        borderRadius: 12,
-                        padding: 14,
-                        fontSize: 16,
-                        color: '#111827'
-                      }}
-                      value={editName}
-                      onChangeText={setEditName}
-                      placeholder="Enter your name"
-                      placeholderTextColor="#9ca3af"
-                      returnKeyType="next"
-                    />
-                  </View>
-
-                  <View style={{ marginBottom: 20 }}>
-                    <Text style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: '#374151',
-                      marginBottom: 8
-                    }}>
-                      Email Address *
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: '#f9fafb',
-                        borderWidth: 2,
-                        borderColor: '#e5e7eb',
-                        borderRadius: 12,
-                        padding: 14,
-                        fontSize: 16,
-                        color: '#111827'
-                      }}
-                      value={editEmail}
-                      onChangeText={setEditEmail}
-                      placeholder="Enter your email"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      returnKeyType="next"
-                    />
-                  </View>
-
-                  <View style={{ marginBottom: 20 }}>
-                    <Text style={{
-                      fontSize: 14,
-                      fontWeight: '600',
-                      color: '#374151',
-                      marginBottom: 8
-                    }}>
-                      Phone Number
-                    </Text>
-                    <TextInput
-                      style={{
-                        backgroundColor: '#f9fafb',
-                        borderWidth: 2,
-                        borderColor: '#e5e7eb',
-                        borderRadius: 12,
-                        padding: 14,
-                        fontSize: 16,
-                        color: '#111827'
-                      }}
-                      value={editPhone}
-                      onChangeText={setEditPhone}
-                      placeholder="Enter your phone number"
-                      placeholderTextColor="#9ca3af"
-                      keyboardType="phone-pad"
-                      returnKeyType="done"
-                    />
-                  </View>
-
-                  <View style={{ height: 20 }} />
-                </ScrollView>
-
-                <View style={{
-                  paddingHorizontal: 20,
-                  paddingTop: 16,
-                  borderTopWidth: 1,
-                  borderTopColor: '#f3f4f6'
-                }}>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: updating ? '#a78bfa' : '#7c3aed',
-                      borderRadius: 12,
-                      padding: 16,
-                      shadowColor: '#7c3aed',
-                      shadowOpacity: 0.3,
-                      shadowRadius: 8,
-                      shadowOffset: { width: 0, height: 4 }
-                    }}
-                    onPress={handleSaveProfile}
-                    disabled={updating}
-                    activeOpacity={0.8}
-                  >
-                    {updating ? (
-                      <View style={{
-                        flexDirection: 'row',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                      }}>
-                        <ActivityIndicator size="small" color="#ffffff" />
-                        <Text style={{
-                          color: '#ffffff',
-                          fontSize: 16,
-                          fontWeight: '700',
-                          marginLeft: 8
-                        }}>
-                          Saving...
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text style={{
-                        color: '#ffffff',
-                        textAlign: 'center',
-                        fontSize: 16,
-                        fontWeight: '700'
-                      }}>
-                        Save Changes
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </Modal>
-
       {/* FAQ Modal */}
       <Modal
         visible={showFaqModal}
@@ -1145,7 +870,6 @@ function ClientProfileScreen(props) {
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28
           }}>
-            {/* Header */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
@@ -1181,7 +905,6 @@ function ClientProfileScreen(props) {
               </TouchableOpacity>
             </View>
 
-            {/* Content */}
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{
@@ -1191,7 +914,6 @@ function ClientProfileScreen(props) {
               }}
               showsVerticalScrollIndicator={true}
             >
-              {/* Info Banner */}
               <View style={{
                 backgroundColor: '#eff6ff',
                 borderLeftWidth: 4,
@@ -1222,13 +944,12 @@ function ClientProfileScreen(props) {
                 </View>
               </View>
 
-              {/* FAQ Items */}
               {faqData.map((faq) => (
                 <View
                   key={faq.id}
                   style={{
                     backgroundColor: '#ffffff',
-                    borderWidth: 1.5,
+                    borderWidth: 0.5,
                     borderColor: expandedFaq === faq.id ? '#7c3aed' : '#e5e7eb',
                     borderRadius: 12,
                     marginBottom: 10,
@@ -1298,14 +1019,13 @@ function ClientProfileScreen(props) {
                         color: '#4b5563',
                         lineHeight: 20
                       }}>
-                        {faq.answer}
+                        {faq. answer}
                       </Text>
                     </View>
                   )}
                 </View>
               ))}
 
-              {/* Support Box */}
               <View style={{
                 backgroundColor: '#f0fdf4',
                 borderRadius: 12,
@@ -1334,7 +1054,7 @@ function ClientProfileScreen(props) {
                   marginBottom: 12,
                   lineHeight: 19
                 }}>
-                  Our support team is here to help you Monday-Friday, 9am-5pm.
+                  Our support team is here to help you Monday-Friday, 9am-5pm. 
                 </Text>
                 <View style={{
                   backgroundColor: '#ffffff',

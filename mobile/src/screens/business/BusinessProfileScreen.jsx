@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -7,39 +7,39 @@ import {
   TouchableOpacity, 
   Switch,
   ActivityIndicator,
-  Modal
+  Modal,
+  RefreshControl
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
 function BusinessProfileScreen() {
   const authContext = useAuth();
   const user = authContext.user;
+  const token = authContext.token;
   const logout = authContext.logout;
 
   const [notifications, setNotifications] = useState({
-    newBookings: true,
-    bookingReminders: true,
-    cancellations: true,
-    reviews: true,
-    promotions: false,
-  });
-
-  const [preferences, setPreferences] = useState({
-    autoAcceptBookings: false,
-    showBusinessHours: true,
-    allowCancellations: true,
+    enable24hrReminder: true,
+    enable30minReminder: true,
+    enableStartReminder: true,
+    enableBookingNotifications: true,
+    enableCancellationNotifications: true,
+    enableRescheduleNotifications: true,
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(null);
 
-  // FAQ Data for Business Owners
+  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+
   const faqData = [
     {
       id: 1,
-      question: 'What is the minimum business rating required?',
-      answer: 'Businesses must maintain a minimum 3-star rating. Businesses below this rating will be reviewed by our team to ensure quality service standards.',
+      question: 'What is the minimum business rating required? ',
+      answer: 'Businesses must maintain a minimum 3-star rating.  Businesses below this rating will be reviewed by our team to ensure quality service standards.',
       icon: '⭐'
     },
     {
@@ -51,7 +51,7 @@ function BusinessProfileScreen() {
     {
       id: 3,
       question: 'Do I need to be located in Carlow?',
-      answer: 'Yes! LocalBook Carlow is exclusively for businesses physically located in County Carlow. We verify location using eircode (R93 prefix), town name, and address.',
+      answer: 'Yes!  LocalBook Carlow is exclusively for businesses physically located in County Carlow. We verify location using eircode (R93 prefix), town name, and address.',
       icon: '📍'
     },
     {
@@ -86,25 +86,99 @@ function BusinessProfileScreen() {
     }
   ];
 
-  function toggleNotification(key) {
-    const newNotifications = { ...notifications };
-    newNotifications[key] = !newNotifications[key];
-    setNotifications(newNotifications);
+  useEffect(() => {
+    if (user) {
+      fetchNotificationSettings();
+    }
+  }, [user]);
+
+  async function fetchNotificationSettings() {
+    if (!user?. id) return;
+
+    setLoadingSettings(true);
+    try {
+      const url = `${API_BASE_URL}/notifications/mobile/settings/${user.id}`;
+      console.log('📥 Fetching notification settings:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Notification settings loaded:', data);
+
+        setNotifications({
+          enable24hrReminder: data.enable24hrReminder,
+          enable30minReminder: data.enable30minReminder,
+          enableStartReminder: data.enableStartReminder,
+          enableBookingNotifications: data.enableBookingNotifications,
+          enableCancellationNotifications: data.enableCancellationNotifications,
+          enableRescheduleNotifications: data.enableRescheduleNotifications,
+        });
+      } else {
+        console.log('⚠️ Failed to load settings, using defaults');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching notification settings:', error);
+    } finally {
+      setLoadingSettings(false);
+    }
   }
 
-  function togglePreference(key) {
-    const newPreferences = { ...preferences };
-    newPreferences[key] = !newPreferences[key];
-    setPreferences(newPreferences);
-  }
-
-  function handleSaveSettings() {
-    setLoading(true);
+  async function toggleNotification(key) {
+    const newValue = !notifications[key];
     
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Success', 'Settings saved successfully!');
-    }, 1000);
+    // Optimistic update
+    setNotifications(prev => ({
+      ...prev,
+      [key]: newValue
+    }));
+
+    try {
+      const url = `${API_BASE_URL}/notifications/mobile/settings/${user.id}`;
+      console.log('📤 Updating notification setting:', key, '=', newValue);
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ... notifications,
+          [key]: newValue
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Notification setting updated');
+      } else {
+        // Revert on failure
+        setNotifications(prev => ({
+          ...prev,
+          [key]: ! newValue
+        }));
+        Alert.alert('Error', 'Failed to update notification settings');
+      }
+    } catch (error) {
+      console. error('❌ Error updating notification setting:', error);
+      // Revert on error
+      setNotifications(prev => ({
+        ...prev,
+        [key]: !newValue
+      }));
+      Alert.alert('Error', 'Network error. Please try again.');
+    }
+  }
+
+  function handleRefresh() {
+    setRefreshing(true);
+    fetchNotificationSettings(). finally(() => {
+      setRefreshing(false);
+    });
   }
 
   function handleLogout() {
@@ -137,7 +211,7 @@ function BusinessProfileScreen() {
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Open', onPress: () => {
-          console.log('Opening website...');
+          console.log('Opening website.. .');
         }}
       ]
     );
@@ -162,26 +236,25 @@ function BusinessProfileScreen() {
   }
 
   function toggleFaq(faqId) {
-    if (expandedFaq === faqId) {
-      setExpandedFaq(null);
-    } else {
-      setExpandedFaq(faqId);
-    }
+    setExpandedFaq(expandedFaq === faqId ? null : faqId);
   }
 
-  let userName = 'My Business';
-  if (user && user.name) {
-    userName = user.name;
-  }
-
-  let userEmail = '';
-  if (user && user.email) {
-    userEmail = user.email;
-  }
+  const userName = user?.name || 'My Business';
+  const userEmail = user?.email || '';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
-      <ScrollView style={{ flex: 1 }}>
+      <ScrollView 
+        style={{ flex: 1 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={['#7c3aed']}
+            tintColor="#7c3aed"
+          />
+        }
+      >
         {/* Header */}
         <View style={{ 
           backgroundColor: '#7c3aed', 
@@ -359,7 +432,7 @@ function BusinessProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Notifications */}
+          {/* Notification Settings */}
           <View style={{ 
             backgroundColor: '#ffffff', 
             borderRadius: 16, 
@@ -375,256 +448,191 @@ function BusinessProfileScreen() {
               color: '#111827', 
               marginBottom: 16 
             }}>
-              Notifications
+              Notification Settings
             </Text>
 
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
-                }}>
-                  New Bookings
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Get notified of new appointments
+            {loadingSettings ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color="#7c3aed" />
+                <Text style={{ marginTop: 8, color: '#6b7280', fontSize: 13 }}>
+                  Loading settings...
                 </Text>
               </View>
-              <Switch
-                value={notifications.newBookings}
-                onValueChange={() => toggleNotification('newBookings')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.newBookings ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+            ) : (
+              <>
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: '#f3f4f6' 
                 }}>
-                  Booking Reminders
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Upcoming appointment alerts
-                </Text>
-              </View>
-              <Switch
-                value={notifications.bookingReminders}
-                onValueChange={() => toggleNotification('bookingReminders')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.bookingReminders ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      24 Hour Reminder
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      Day before appointment
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enable24hrReminder}
+                    onValueChange={() => toggleNotification('enable24hrReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enable24hrReminder ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
 
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: '#f3f4f6' 
                 }}>
-                  Cancellations
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Alert when bookings are cancelled
-                </Text>
-              </View>
-              <Switch
-                value={notifications.cancellations}
-                onValueChange={() => toggleNotification('cancellations')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.cancellations ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      30 Minute Reminder
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      Before appointment starts
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications. enable30minReminder}
+                    onValueChange={() => toggleNotification('enable30minReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enable30minReminder ?  '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
 
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: '#f3f4f6' 
                 }}>
-                  Reviews
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  New customer reviews
-                </Text>
-              </View>
-              <Switch
-                value={notifications.reviews}
-                onValueChange={() => toggleNotification('reviews')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.reviews ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      Start Reminder
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      When appointment starts
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableStartReminder}
+                    onValueChange={() => toggleNotification('enableStartReminder')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableStartReminder ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
 
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: '#f3f4f6' 
                 }}>
-                  Promotions
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Tips and marketing updates
-                </Text>
-              </View>
-              <Switch
-                value={notifications.promotions}
-                onValueChange={() => toggleNotification('promotions')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={notifications.promotions ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-          </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      New Bookings
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      When booking is confirmed
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableBookingNotifications}
+                    onValueChange={() => toggleNotification('enableBookingNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableBookingNotifications ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
 
-          {/* Booking Preferences */}
-          <View style={{ 
-            backgroundColor: '#ffffff', 
-            borderRadius: 16, 
-            padding: 16, 
-            marginBottom: 16, 
-            shadowColor: '#000', 
-            shadowOpacity: 0.05, 
-            shadowRadius: 3 
-          }}>
-            <Text style={{ 
-              fontSize: 18, 
-              fontWeight: '700', 
-              color: '#111827', 
-              marginBottom: 16 
-            }}>
-              Booking Preferences
-            </Text>
-
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12, 
+                  borderBottomWidth: 1, 
+                  borderBottomColor: '#f3f4f6' 
                 }}>
-                  Auto-Accept Bookings
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Automatically confirm appointments
-                </Text>
-              </View>
-              <Switch
-                value={preferences.autoAcceptBookings}
-                onValueChange={() => togglePreference('autoAcceptBookings')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={preferences.autoAcceptBookings ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      Cancellations
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      When booking is cancelled
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications.enableCancellationNotifications}
+                    onValueChange={() => toggleNotification('enableCancellationNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications. enableCancellationNotifications ?  '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
 
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12, 
-              borderBottomWidth: 1, 
-              borderBottomColor: '#f3f4f6' 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
+                <View style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  paddingVertical: 12 
                 }}>
-                  Show Business Hours
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Display opening times to clients
-                </Text>
-              </View>
-              <Switch
-                value={preferences.showBusinessHours}
-                onValueChange={() => togglePreference('showBusinessHours')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={preferences.showBusinessHours ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
-
-            <View style={{ 
-              flexDirection: 'row', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              paddingVertical: 12 
-            }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ 
-                  fontSize: 16, 
-                  fontWeight: '600', 
-                  color: '#111827', 
-                  marginBottom: 2 
-                }}>
-                  Allow Cancellations
-                </Text>
-                <Text style={{ fontSize: 13, color: '#6b7280' }}>
-                  Let clients cancel bookings
-                </Text>
-              </View>
-              <Switch
-                value={preferences.allowCancellations}
-                onValueChange={() => togglePreference('allowCancellations')}
-                trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
-                thumbColor={preferences.allowCancellations ? '#7c3aed' : '#f4f4f5'}
-              />
-            </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ 
+                      fontSize: 16, 
+                      fontWeight: '600', 
+                      color: '#111827', 
+                      marginBottom: 2 
+                    }}>
+                      Reschedules
+                    </Text>
+                    <Text style={{ fontSize: 13, color: '#6b7280' }}>
+                      When booking is rescheduled
+                    </Text>
+                  </View>
+                  <Switch
+                    value={notifications. enableRescheduleNotifications}
+                    onValueChange={() => toggleNotification('enableRescheduleNotifications')}
+                    trackColor={{ false: '#d1d5db', true: '#c4b5fd' }}
+                    thumbColor={notifications.enableRescheduleNotifications ? '#7c3aed' : '#f4f4f5'}
+                  />
+                </View>
+              </>
+            )}
           </View>
 
           {/* Help & Support */}
@@ -685,31 +693,6 @@ function BusinessProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Save Button */}
-          <TouchableOpacity
-            style={{
-              backgroundColor: loading ? '#a78bfa' : '#7c3aed',
-              borderRadius: 12,
-              padding: 16,
-              alignItems: 'center',
-              marginBottom: 12,
-              shadowColor: '#7c3aed',
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              shadowOffset: { width: 0, height: 4 },
-            }}
-            onPress={handleSaveSettings}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>
-                Save Settings
-              </Text>
-            )}
-          </TouchableOpacity>
-
           {/* Logout Button */}
           <TouchableOpacity
             style={{
@@ -745,7 +728,7 @@ function BusinessProfileScreen() {
         animationType="slide"
         onRequestClose={handleCloseFaqModal}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0. 6)' }}>
           <View style={{
             flex: 1,
             marginTop: 80,
@@ -753,7 +736,6 @@ function BusinessProfileScreen() {
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28
           }}>
-            {/* Header */}
             <View style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
@@ -789,7 +771,6 @@ function BusinessProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Content */}
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{
@@ -799,7 +780,6 @@ function BusinessProfileScreen() {
               }}
               showsVerticalScrollIndicator={true}
             >
-              {/* Info Banner */}
               <View style={{
                 backgroundColor: '#eff6ff',
                 borderLeftWidth: 4,
@@ -830,15 +810,8 @@ function BusinessProfileScreen() {
                 </View>
               </View>
 
-              {/* FAQ Items */}
               {faqData.map((faq) => {
                 const isExpanded = expandedFaq === faq.id;
-                const borderColor = isExpanded ? '#7c3aed' : '#e5e7eb';
-                const bgColor = isExpanded ? '#faf5ff' : '#ffffff';
-                const iconBgColor = isExpanded ? '#ede9fe' : '#f9fafb';
-                const textColor = isExpanded ? '#7c3aed' : '#111827';
-                const arrowColor = isExpanded ? '#7c3aed' : '#9ca3af';
-                const arrowRotation = isExpanded ? '180deg' : '0deg';
 
                 return (
                   <View
@@ -846,7 +819,7 @@ function BusinessProfileScreen() {
                     style={{
                       backgroundColor: '#ffffff',
                       borderWidth: 1.5,
-                      borderColor: borderColor,
+                      borderColor: isExpanded ? '#7c3aed' : '#e5e7eb',
                       borderRadius: 12,
                       marginBottom: 10,
                       overflow: 'hidden',
@@ -863,14 +836,14 @@ function BusinessProfileScreen() {
                         flexDirection: 'row',
                         alignItems: 'center',
                         padding: 14,
-                        backgroundColor: bgColor
+                        backgroundColor: isExpanded ? '#faf5ff' : '#ffffff'
                       }}
                     >
                       <View style={{
                         width: 34,
                         height: 34,
                         borderRadius: 17,
-                        backgroundColor: iconBgColor,
+                        backgroundColor: isExpanded ? '#ede9fe' : '#f9fafb',
                         alignItems: 'center',
                         justifyContent: 'center',
                         marginRight: 12
@@ -881,10 +854,10 @@ function BusinessProfileScreen() {
                         flex: 1,
                         fontSize: 14,
                         fontWeight: '600',
-                        color: textColor,
+                        color: isExpanded ? '#7c3aed' : '#111827',
                         lineHeight: 20
                       }}>
-                        {faq.question}
+                        {faq. question}
                       </Text>
                       <View style={{
                         width: 24,
@@ -894,8 +867,8 @@ function BusinessProfileScreen() {
                       }}>
                         <Text style={{
                           fontSize: 16,
-                          color: arrowColor,
-                          transform: [{ rotate: arrowRotation }]
+                          color: isExpanded ? '#7c3aed' : '#9ca3af',
+                          transform: [{ rotate: isExpanded ? '180deg' : '0deg' }]
                         }}>
                           ▼
                         </Text>
@@ -923,7 +896,6 @@ function BusinessProfileScreen() {
                 );
               })}
 
-              {/* Support Box */}
               <View style={{
                 backgroundColor: '#f0fdf4',
                 borderRadius: 12,
@@ -952,7 +924,7 @@ function BusinessProfileScreen() {
                   marginBottom: 12,
                   lineHeight: 19
                 }}>
-                  Our business support team is here to help Monday-Friday, 9am-5pm.
+                  Our business support team is here to help Monday-Friday, 9am-5pm. 
                 </Text>
                 <View style={{
                   backgroundColor: '#ffffff',

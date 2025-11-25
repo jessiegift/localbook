@@ -1,9 +1,12 @@
 package com.localbook.controller;
+
 import com.localbook.dto.LoginRequest;
 import com.localbook.dto.UserResponseDTO;
 import com.localbook.model.User;
 import com.localbook.model.UserRole;
+import com.localbook.model.UserNotificationSettings;
 import com.localbook.service.UserService;
+import com.localbook.repository.UserNotificationSettingsRepository;
 import com.localbook.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -20,9 +23,11 @@ import java.util.Optional;
 @CrossOrigin(
     origins = {
         "http://localhost:5173",      // for your web frontend
-        "http://192.168.1.15:8081"    // for React Native (Metro or emulator)
+        "http://192.168.1.15:8081",   // for React Native (Metro or emulator)
+        "*"                            // ✅ Allow all origins for mobile testing
     },
-    allowedHeaders = "*"
+    allowedHeaders = "*",
+    allowCredentials = "false"          // ✅ Set to false when using wildcard
 )
 public class UserController {
     
@@ -32,11 +37,18 @@ public class UserController {
     @Autowired
     private JwtUtil jwtUtil;
     
+    @Autowired
+    private UserNotificationSettingsRepository settingsRepository;  // ✅ NEW
+    
     // Register a new client
     @PostMapping("/register/client")
     public ResponseEntity<User> registerClient(@RequestBody User user) {
         try {
             User newUser = userService.registerClient(user);
+            
+            // ✅ NEW: Create default notification settings
+            createDefaultNotificationSettings(newUser.getId());
+            
             return new ResponseEntity<>(newUser, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
@@ -48,6 +60,10 @@ public class UserController {
     public ResponseEntity<User> registerBusinessOwner(@RequestBody User user) {
         try {
             User newUser = userService.registerBusinessOwner(user);
+            
+            // ✅ NEW: Create default notification settings
+            createDefaultNotificationSettings(newUser.getId());
+            
             return new ResponseEntity<>(newUser, HttpStatus.CREATED);
         } catch (IllegalArgumentException e) {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
@@ -55,33 +71,65 @@ public class UserController {
     }
     
     // Login with JWT token generation
-   @PostMapping("/login")
-public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-    // ... authentication logic ...
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        System.out.println("📥 Login request for: " + loginRequest.getEmail());
+        
+        try {
+            // Authenticate user
+            User user = userService.getUserByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+            
+            // Verify password (add proper password checking here)
+            // For now, assuming password is already validated in userService
+            
+            // ✅ NEW: Ensure notification settings exist
+            createDefaultNotificationSettings(user.getId());
+            
+            // Build response
+            Map<String, Object> userResponse = new HashMap<>();
+            userResponse.put("id", user.getId());
+            userResponse.put("name", user.getName());
+            userResponse.put("email", user.getEmail());
+            userResponse.put("phoneNumber", user.getPhoneNumber());
+            userResponse.put("role", user.getRole().toString());
+            userResponse.put("businessId", user.getBusinessId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", "token_" + user.getId());
+            response.put("user", userResponse);
+            
+            System.out.println("✅ Login successful: " + response);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            System.out.println("❌ Login failed: " + e.getMessage());
+            
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        }
+    }
     
-    User user = userService.getUserByEmail(loginRequest.getEmail())
-        .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
+    // ✅ NEW: Helper method to create default notification settings
+    private void createDefaultNotificationSettings(Long userId) {
+        try {
+            Optional<UserNotificationSettings> existing = settingsRepository.findByUserId(userId);
+            
+            if (existing.isEmpty()) {
+                UserNotificationSettings settings = new UserNotificationSettings(userId);
+                settingsRepository.save(settings);
+                System.out.println("✅ Created default notification settings for user " + userId);
+            } else {
+                System.out.println("ℹ️ Notification settings already exist for user " + userId);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to create notification settings for user " + userId + ": " + e.getMessage());
+            // Don't fail the registration/login if notification settings fail
+        }
+    }
     
-    // Build response
-    Map<String, Object> userResponse = new HashMap<>();
-    userResponse.put("id", user.getId());
-    userResponse.put("name", user.getName());
-    userResponse.put("email", user.getEmail());
-    userResponse.put("phoneNumber", user.getPhoneNumber());
-    userResponse.put("role", user.getRole().toString());
-    userResponse.put("businessId", user.getBusinessId()); // CRITICAL!
-    
-    Map<String, Object> response = new HashMap<>();
-    response.put("token", "token_" + user.getId());
-    response.put("user", userResponse);
-    
-    System.out.println("Login response: " + response); // Debug log
-    
-    return ResponseEntity.ok(response);
-}
-
-
-
     // Get all users (Admin only - add authorization later)
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
@@ -155,6 +203,4 @@ public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         boolean exists = userService.existsByEmail(email);
         return new ResponseEntity<>(exists, HttpStatus.OK);
     }
-
-    
 }

@@ -74,6 +74,14 @@ public class Service {
     public void setServiceName(String serviceName) {
         this.serviceName = serviceName;
     }
+
+    public String getName() {
+        return serviceName;
+    }
+    
+    public void setName(String name) {
+        this.serviceName = name;
+    }
     
     public Integer getDurationMinutes() {
         return durationMinutes;

@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 const STORAGE_USER_KEY = '@localbook_user';
 const STORAGE_TOKEN_KEY = '@localbook_token';
@@ -7,6 +9,15 @@ const STORAGE_TOKEN_KEY = '@localbook_token';
 export const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
 const AuthContext = createContext(null);
+
+// ✅ Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
 
 export function AuthProvider(props) {
   const children = props.children;
@@ -172,8 +183,115 @@ export function AuthProvider(props) {
     try {
       await AsyncStorage.removeItem(STORAGE_USER_KEY);
       await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+      await AsyncStorage.removeItem('expoPushToken');
     } catch (e) {
       console.warn('Failed to clear persisted auth', e);
+    }
+  }
+
+  // ✅ NEW: Register push token
+  async function registerPushToken(userId) {
+    try {
+      console.log('📱 Registering push token for user:', userId);
+      
+      // Check if device supports push notifications
+      const isDevice = true; // You can add Device.isDevice check from expo-device
+      if (isDevice === false) {
+        console.log('⚠️ Must use physical device for Push Notifications');
+        return;
+      }
+      
+      // Request permissions
+      const existingPermissions = await Notifications.getPermissionsAsync();
+      let finalStatus = existingPermissions.status;
+      
+      const isGranted = finalStatus === 'granted';
+      if (isGranted === false) {
+        const newPermissions = await Notifications.requestPermissionsAsync();
+        finalStatus = newPermissions.status;
+      }
+      
+      const isNowGranted = finalStatus === 'granted';
+      if (isNowGranted === false) {
+        console.log('⚠️ Push notification permission denied');
+        return;
+      }
+      
+      // Get Expo push token
+      let expoPushToken = await AsyncStorage.getItem('expoPushToken');
+      const hasStoredToken = expoPushToken !== null && expoPushToken !== undefined;
+      
+      if (hasStoredToken === false) {
+       const tokenData = await Notifications.getExpoPushTokenAsync({
+        projectId: '0b50f5ad-0bfa-4d76-8187-26e91973f41f',
+        });
+        expoPushToken = tokenData.data;
+        await AsyncStorage.setItem('expoPushToken', expoPushToken);
+        console.log('📱 New Expo Push Token:', expoPushToken);
+      } else {
+        console.log('📱 Using stored Expo Push Token:', expoPushToken);
+      }
+      
+      // Register with backend
+      const registerUrl = API_BASE_URL + '/notifications/mobile/register-token';
+      const requestBody = {
+        userId: userId,
+        pushToken: expoPushToken,
+        platform: Platform.OS,
+        type: 'expo',
+      };
+      const requestBodyJson = JSON.stringify(requestBody);
+      
+      const requestOptions = {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: requestBodyJson,
+      };
+      
+      const response = await fetch(registerUrl, requestOptions);
+      const data = await safeParseJson(response);
+      
+      const isResponseOk = response.ok;
+      if (isResponseOk === true) {
+        console.log('✅ Push token registered with backend');
+      } else {
+        console.log('⚠️ Failed to register push token:', data);
+      }
+    } catch (error) {
+      console.error('❌ Error registering push token:', error);
+    }
+  }
+
+  // ✅ NEW: Unregister push token
+  async function unregisterPushToken(userId) {
+    try {
+      console.log('📱 Unregistering push token for user:', userId);
+      
+      const unregisterUrl = API_BASE_URL + '/notifications/mobile/unregister-token/' + userId;
+      
+      const requestOptions = {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      };
+      
+      const response = await fetch(unregisterUrl, requestOptions);
+      const data = await safeParseJson(response);
+      
+      const isResponseOk = response.ok;
+      if (isResponseOk === true) {
+        await AsyncStorage.removeItem('expoPushToken');
+        console.log('✅ Push token unregistered');
+      } else {
+        console.log('⚠️ Failed to unregister push token:', data);
+      }
+    } catch (error) {
+      console.error('❌ Error unregistering push token:', error);
     }
   }
 
@@ -247,6 +365,12 @@ export function AuthProvider(props) {
       }
 
       await persistAuth(receivedUser, receivedToken);
+
+      // ✅ NEW: Register push token after successful login
+      const hasUserId = receivedUser.id !== null && receivedUser.id !== undefined;
+      if (hasUserId === true) {
+        await registerPushToken(receivedUser.id);
+      }
 
       console.log('✅ Login successful');
       const result = { success: true, user: receivedUser, token: receivedToken };
@@ -383,6 +507,12 @@ export function AuthProvider(props) {
         setUser(receivedUser);
         setToken(receivedToken);
         await persistAuth(receivedUser, receivedToken);
+        
+        // ✅ NEW: Register push token after successful registration
+        const hasUserId = receivedUser.id !== null && receivedUser.id !== undefined;
+        if (hasUserId === true) {
+          await registerPushToken(receivedUser.id);
+        }
       }
 
       console.log('✅ Registration successful');
@@ -405,6 +535,15 @@ export function AuthProvider(props) {
   }
 
   async function logout() {
+    // ✅ NEW: Unregister push token before logout
+    const hasUser = user !== null && user !== undefined;
+    if (hasUser === true) {
+      const hasUserId = user.id !== null && user.id !== undefined;
+      if (hasUserId === true) {
+        await unregisterPushToken(user.id);
+      }
+    }
+    
     setUser(null);
     setToken(null);
     await clearPersistedAuth();
@@ -419,6 +558,8 @@ export function AuthProvider(props) {
     register: register,
     logout: logout,
     authFetch: authFetch,
+    registerPushToken: registerPushToken, // ✅ NEW: Expose for manual registration
+    unregisterPushToken: unregisterPushToken, // ✅ NEW: Expose for manual unregistration
     API_BASE_URL: API_BASE_URL,
   };
 

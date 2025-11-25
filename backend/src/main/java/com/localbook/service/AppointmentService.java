@@ -5,15 +5,22 @@ import com.localbook.model.AppointmentStatus;
 import com.localbook.model.Business;
 import com.localbook.model.User;
 import com.localbook.model.Service;
+import com.localbook.model.PushToken;
+import com.localbook.model.UserNotificationSettings;
 import com.localbook.repository.AppointmentRepository;
 import com.localbook.repository.BusinessRepository;
 import com.localbook.repository.UserRepository;
 import com.localbook.repository.ServiceRepository;
+import com.localbook.repository.PushTokenRepository;
+import com.localbook.repository.UserNotificationSettingsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @org.springframework.stereotype.Service
@@ -30,6 +37,21 @@ public class AppointmentService {
     
     @Autowired
     private ServiceRepository serviceRepository;
+    
+    @Autowired
+    private PushTokenRepository pushTokenRepository;
+    
+    @Autowired
+    private UserNotificationSettingsRepository settingsRepository;
+    
+    @Autowired
+    private ExpoPushService expoPushService;
+    
+    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy 'at' h:mm a");
+    
+    // ========================================
+    // CREATE APPOINTMENT with notifications
+    // ========================================
     
     @Transactional
     public Appointment createAppointment(Long userId, Long businessId, Long serviceId, 
@@ -57,8 +79,40 @@ public class AppointmentService {
         appointment.setCreatedAt(LocalDateTime.now());
         appointment.setUpdatedAt(LocalDateTime.now());
         
-        return appointmentRepository.save(appointment);
+        Appointment saved = appointmentRepository.save(appointment);
+        
+        // ✅ Send notifications
+        Long customerId = saved.getUser().getId();
+        Long businessOwnerId = saved.getBusiness().getOwner().getId();
+        
+        String appointmentDetails = saved.getService().getName() + " on " + 
+                                   saved.getAppointmentDateTime().format(formatter);
+        
+        // Send "New Booking" notification to BUSINESS OWNER
+        sendNotificationIfEnabled(
+            businessOwnerId,
+            "New Booking! 🎉",
+            saved.getUser().getName() + " booked " + appointmentDetails,
+            "new_booking",
+            saved.getId(),
+            "enableBookingNotifications"
+        );
+        
+        // Send "Booking Confirmation" to CUSTOMER
+        sendNotificationIfEnabled(
+            customerId,
+            "Booking Confirmed! ✅",
+            "Your appointment for " + appointmentDetails + " at " + saved.getBusiness().getBusinessName() + " is confirmed!",
+            "booking_confirmation",
+            saved.getId(),
+            "enableBookingNotifications"
+        );
+        
+        System.out.println("✅ Appointment created with notifications sent");
+        return saved;
     }
+    
+    // ✅ YOUR EXISTING METHODS (keep all of these)
     
     public List<Appointment> getAllAppointments() {
         return appointmentRepository.findAll();
@@ -110,7 +164,10 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
     
-    // ✅ FIXED: Cancel appointment - now checks business OWNER
+    // ========================================
+    // CANCEL APPOINTMENT with notifications
+    // ========================================
+    
     @Transactional
     public Appointment cancelAppointment(Long appointmentId, Long userId) {
         System.out.println("=== CANCEL APPOINTMENT ===");
@@ -121,8 +178,6 @@ public class AppointmentService {
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        
-        // ✅ FIXED: Check if user is business OWNER (not business ID)
         boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
         
         System.out.println("Is client? " + isUser);
@@ -135,12 +190,37 @@ public class AppointmentService {
         appointment.setStatus(AppointmentStatus.CANCELED);
         appointment.setUpdatedAt(LocalDateTime.now());
         
-        System.out.println("✅ Appointment cancelled successfully");
+        Appointment saved = appointmentRepository.save(appointment);
         
-        return appointmentRepository.save(appointment);
+        // ✅ Send cancellation notifications to BOTH
+        Long customerId = saved.getUser().getId();
+        Long businessOwnerId = saved.getBusiness().getOwner().getId();
+        
+        String appointmentDetails = saved.getService().getName() + " on " + 
+                                   saved.getAppointmentDateTime().format(formatter);
+        
+        sendNotificationIfEnabled(
+            customerId,
+            "Appointment Cancelled ❌",
+            "Your appointment for " + appointmentDetails + " has been cancelled",
+            "cancelled",
+            saved.getId(),
+            "enableCancellationNotifications"
+        );
+        
+        sendNotificationIfEnabled(
+            businessOwnerId,
+            "Appointment Cancelled ❌",
+            "Appointment with " + saved.getUser().getName() + " for " + appointmentDetails + " has been cancelled",
+            "cancelled",
+            saved.getId(),
+            "enableCancellationNotifications"
+        );
+        
+        System.out.println("✅ Appointment cancelled with notifications sent");
+        return saved;
     }
     
-    // ✅ FIXED: Complete appointment - now uses userId instead of businessId
     @Transactional
     public Appointment completeAppointment(Long appointmentId, Long userId) {
         System.out.println("=== COMPLETE APPOINTMENT ===");
@@ -153,7 +233,6 @@ public class AppointmentService {
         System.out.println("Appointment Business Owner ID: " + appointment.getBusiness().getOwner().getId());
         System.out.println("Match? " + appointment.getBusiness().getOwner().getId().equals(userId));
         
-        // ✅ FIXED: Check if user is the business OWNER
         if (!appointment.getBusiness().getOwner().getId().equals(userId)) {
             throw new IllegalArgumentException("Unauthorized: You can only complete appointments for your business");
         }
@@ -170,18 +249,20 @@ public class AppointmentService {
         return appointmentRepository.save(appointment);
     }
     
+    // ========================================
+    // RESCHEDULE APPOINTMENT with notifications
+    // ========================================
+    
     @Transactional
     public Appointment rescheduleAppointment(Long appointmentId, LocalDateTime newDateTime, Long userId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        
-        // ✅ FIXED: Check business owner correctly
         boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
         
-        if (!isUser && !isBusinessOwner) {
-            throw new IllegalArgumentException("Unauthorized: You can only reschedule your own appointments");
+        if (!isUser) {
+            throw new IllegalArgumentException("Unauthorized: Only customers can reschedule appointments");
         }
         
         if (newDateTime.isBefore(LocalDateTime.now())) {
@@ -196,11 +277,45 @@ public class AppointmentService {
             throw new IllegalArgumentException("Cannot reschedule a completed appointment");
         }
         
+        LocalDateTime oldDateTime = appointment.getAppointmentDateTime();
         appointment.setAppointmentDateTime(newDateTime);
         appointment.setStatus(AppointmentStatus.CONFIRMED);
         appointment.setUpdatedAt(LocalDateTime.now());
         
-        return appointmentRepository.save(appointment);
+        // Reset notification flags
+        appointment.setNotification24hrSent(false);
+        appointment.setNotification30minSent(false);
+        appointment.setNotificationStartSent(false);
+        
+        Appointment saved = appointmentRepository.save(appointment);
+        
+        // ✅ Send reschedule notifications to BOTH
+        Long customerId = saved.getUser().getId();
+        Long businessOwnerId = saved.getBusiness().getOwner().getId();
+        
+        String message = saved.getService().getName() + " rescheduled from " + 
+                        oldDateTime.format(formatter) + " to " + newDateTime.format(formatter);
+        
+        sendNotificationIfEnabled(
+            customerId,
+            "Appointment Rescheduled 🔄",
+            message,
+            "rescheduled",
+            saved.getId(),
+            "enableRescheduleNotifications"
+        );
+        
+        sendNotificationIfEnabled(
+            businessOwnerId,
+            "Appointment Rescheduled 🔄",
+            saved.getUser().getName() + "'s appointment: " + message,
+            "rescheduled",
+            saved.getId(),
+            "enableRescheduleNotifications"
+        );
+        
+        System.out.println("✅ Appointment rescheduled with notifications sent");
+        return saved;
     }
     
     @Transactional
@@ -209,8 +324,6 @@ public class AppointmentService {
             .orElseThrow(() -> new IllegalArgumentException("Appointment not found with ID: " + appointmentId));
         
         boolean isUser = appointment.getUser().getId().equals(userId);
-        
-        // ✅ FIXED: Check business owner correctly
         boolean isBusinessOwner = appointment.getBusiness().getOwner().getId().equals(userId);
         
         if (!isUser && !isBusinessOwner) {
@@ -218,5 +331,53 @@ public class AppointmentService {
         }
         
         appointmentRepository.delete(appointment);
+    }
+    
+    // ========================================
+    // HELPER: Send notification with settings check
+    // ========================================
+    
+    private void sendNotificationIfEnabled(Long userId, String title, String body, String type, Long appointmentId, String settingField) {
+        // Check user notification settings
+        Optional<UserNotificationSettings> settingsOpt = settingsRepository.findByUserId(userId);
+        
+        boolean shouldSend = true;
+        if (settingsOpt.isPresent()) {
+            UserNotificationSettings settings = settingsOpt.get();
+            
+            try {
+                String methodName = "get" + settingField.substring(0, 1).toUpperCase() + settingField.substring(1);
+                Boolean enabled = (Boolean) settings.getClass().getMethod(methodName).invoke(settings);
+                
+                if (enabled != null && !enabled) {
+                    shouldSend = false;
+                }
+            } catch (Exception e) {
+                // If setting not found, send anyway
+            }
+        }
+        
+        if (!shouldSend) {
+            System.out.println("⚠️ User " + userId + " has disabled " + type + " notifications");
+            return;
+        }
+        
+        // Send mobile push notification
+        Optional<PushToken> tokenOpt = pushTokenRepository.findByUserId(userId);
+        if (tokenOpt.isPresent()) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("type", type);
+            data.put("appointmentId", appointmentId.toString());
+            
+            expoPushService.sendPushNotification(
+                tokenOpt.get().getPushToken(),
+                title,
+                body,
+                data
+            );
+            System.out.println("✅ Mobile push sent to user " + userId);
+        } else {
+            System.out.println("⚠️ No mobile token for user " + userId);
+        }
     }
 }

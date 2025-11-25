@@ -3,6 +3,8 @@ package com.localbook.repository;
 import com.localbook.model.Appointment;
 import com.localbook.model.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -37,4 +39,31 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     
     List<Appointment> findByBusinessIdAndAppointmentDateTimeBetween(
         Long businessId, LocalDateTime start, LocalDateTime end);
+    @Query("SELECT a FROM Appointment a WHERE a.status = 'CONFIRMED' " +
+           "AND a.notification24hrSent = false " +
+           "AND a.appointmentDateTime BETWEEN :start AND :end")
+    List<Appointment> findAppointmentsNeedingReminder24hr(
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end
+    );
+    
+    @Query("SELECT a FROM Appointment a WHERE a.status = 'CONFIRMED' " +
+           "AND a.notification30minSent = false " +
+           "AND a.appointmentDateTime BETWEEN :start AND :end")
+    List<Appointment> findAppointmentsNeedingReminder30min(
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end
+    );
+    
+    @Query("SELECT a FROM Appointment a WHERE a.status = 'CONFIRMED' " +
+           "AND a.notificationStartSent = false " +
+           "AND a.appointmentDateTime BETWEEN :start AND :end")
+    List<Appointment> findAppointmentsNeedingStartReminder(
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end
+    );    
+
+
+
+
 }
