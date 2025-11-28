@@ -8,6 +8,7 @@ import {
   Alert,
   Dimensions,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import RatingStars from '../../Components/RatingStars';
@@ -32,6 +33,12 @@ function BusinessDetailScreen(props) {
   const [loading, setLoading] = useState(true);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showReviewsModal, setShowReviewsModal] = useState(false);
+  const [sentimentStats, setSentimentStats] = useState({
+    positive: 0,
+    neutral: 0,
+    negative: 0,
+  });
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
@@ -67,7 +74,6 @@ function BusinessDetailScreen(props) {
       if (isResponseOk === true) {
         const data = await response.json();
         console.log('✅ Business data received');
-        console.log('🕐 Opening hours:', data.openingHours);
         setBusiness(data);
       } else {
         const errorText = await response.text();
@@ -76,7 +82,6 @@ function BusinessDetailScreen(props) {
         navigation.goBack();
       }
     } catch (error) {
-      const errorMessage = error.message;
       console.error('❌ Error fetching business details:', error);
       Alert.alert('Error', 'Network error. Please try again.');
       navigation.goBack();
@@ -104,24 +109,20 @@ function BusinessDetailScreen(props) {
       
       const response = await fetch(apiUrl, requestOptions);
       const responseStatus = response.status;
-      console.log('📡 Services response status:', responseStatus);
+      console. log('📡 Services response status:', responseStatus);
 
-      const isResponseOk = response.ok;
+      const isResponseOk = response. ok;
       if (isResponseOk === true) {
         const data = await response.json();
-        const dataLength = data.length;
-        console.log('✅ Services fetched:', dataLength);
+        console.log('✅ Services fetched:', data.length);
         setServices(data);
       } else {
         console.log('⚠️ No services found');
-        const emptyArray = [];
-        setServices(emptyArray);
+        setServices([]);
       }
     } catch (error) {
-      const errorMessage = error.message;
-      console.error('❌ Error fetching services:', error);
-      const emptyArray = [];
-      setServices(emptyArray);
+      console. error('❌ Error fetching services:', error);
+      setServices([]);
     } finally {
       setServicesLoading(false);
     }
@@ -145,6 +146,33 @@ function BusinessDetailScreen(props) {
       if (response.ok === true) {
         const data = await response.json();
         console.log('✅ Ratings fetched:', data.length);
+        
+        let positiveCount = 0;
+        let neutralCount = 0;
+        let negativeCount = 0;
+        
+        let ratingIndex = 0;
+        while (ratingIndex < data.length) {
+          const rating = data[ratingIndex];
+          const sentiment = rating.sentiment;
+          
+          if (sentiment === 'positive') {
+            positiveCount = positiveCount + 1;
+          } else if (sentiment === 'negative') {
+            negativeCount = negativeCount + 1;
+          } else if (sentiment === 'neutral') {
+            neutralCount = neutralCount + 1;
+          }
+          
+          ratingIndex = ratingIndex + 1;
+        }
+        
+        setSentimentStats({
+          positive: positiveCount,
+          neutral: neutralCount,
+          negative: negativeCount,
+        });
+        
         setRatings(data);
       } else {
         console.log('⚠️ No ratings found');
@@ -158,7 +186,7 @@ function BusinessDetailScreen(props) {
 
   async function fetchRatingSummary() {
     try {
-      const businessIdString = businessId.toString();
+      const businessIdString = businessId. toString();
       const apiUrl = API_BASE_URL + '/ratings/business/' + businessIdString + '/summary';
       console.log('📊 Fetching rating summary from:', apiUrl);
       
@@ -193,7 +221,7 @@ function BusinessDetailScreen(props) {
     await fetchRatings();
     await fetchRatingSummary();
     setRefreshing(false);
-    console.log('✅ Refresh complete!');
+    console.log('✅ Refresh complete! ');
   }
 
   function getBusinessStatus() {
@@ -207,7 +235,7 @@ function BusinessDetailScreen(props) {
     const dayOfWeek = now.getDay();
     const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     const dayKey = dayNames[dayOfWeek];
-    const dayHours = business.openingHours[dayKey];
+    const dayHours = business. openingHours[dayKey];
 
     if (dayHours === null || dayHours === undefined) {
       return { isOpen: true, message: '', hasHours: false };
@@ -219,7 +247,7 @@ function BusinessDetailScreen(props) {
       return {
         isOpen: false,
         message: 'Closed on ' + todayLabel + 's',
-        hasHours: true
+        hasHours: true,
       };
     }
 
@@ -235,13 +263,13 @@ function BusinessDetailScreen(props) {
     const currentMinutes = hours * 60 + minutes;
 
     const openParts = openTime.split(':');
-    const openHour = parseInt(openParts[0]);
-    const openMinute = parseInt(openParts[1]);
+    const openHour = parseInt(openParts[0], 10);
+    const openMinute = parseInt(openParts[1], 10);
     const openMinutes = openHour * 60 + openMinute;
 
     const closeParts = closeTime.split(':');
-    const closeHour = parseInt(closeParts[0]);
-    const closeMinute = parseInt(closeParts[1]);
+    const closeHour = parseInt(closeParts[0], 10);
+    const closeMinute = parseInt(closeParts[1], 10);
     const closeMinutes = closeHour * 60 + closeMinute;
 
     const isAfterOpen = currentMinutes >= openMinutes;
@@ -253,14 +281,14 @@ function BusinessDetailScreen(props) {
       return {
         isOpen: true,
         message: 'Open now • Closes at ' + closeTimeFormatted,
-        hasHours: true
+        hasHours: true,
       };
     } else {
       const openTimeFormatted = formatTime12Hour(openTime);
       return {
         isOpen: false,
         message: 'Closed now • Opens at ' + openTimeFormatted,
-        hasHours: true
+        hasHours: true,
       };
     }
   }
@@ -269,7 +297,7 @@ function BusinessDetailScreen(props) {
     const parts = time24.split(':');
     const hours = parts[0];
     const minutes = parts[1];
-    const hourNumber = parseInt(hours);
+    const hourNumber = parseInt(hours, 10);
     
     let ampm = 'AM';
     const isAfternoon = hourNumber >= 12;
@@ -289,7 +317,7 @@ function BusinessDetailScreen(props) {
   }
 
   function renderBusinessHours() {
-    const hasOpeningHours = business !== null && business !== undefined && business.openingHours !== null && business.openingHours !== undefined;
+    const hasOpeningHours = business !== null && business !== undefined && business.openingHours !== null && business. openingHours !== undefined;
     
     if (hasOpeningHours === false) {
       return null;
@@ -309,6 +337,8 @@ function BusinessDetailScreen(props) {
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
         elevation: 2,
+        borderWidth: 1,
+        borderColor: '#f3f4f6',
       }}>
         <View style={{
           flexDirection: 'row',
@@ -422,7 +452,7 @@ function BusinessDetailScreen(props) {
   }
 
   function handleBookService(service) {
-    console.log('📅 Navigating to booking for service:', service.serviceName);
+    console.log('📅 Navigating to booking for service:', service. serviceName);
     
     const navigationParams = {
       business: business,
@@ -434,6 +464,378 @@ function BusinessDetailScreen(props) {
 
   function handleGoBack() {
     navigation.goBack();
+  }
+
+  function renderSentimentBadge(sentiment) {
+    if (sentiment === null || sentiment === undefined) {
+      return null;
+    }
+
+    let backgroundColor = '#fef3c7';
+    let textColor = '#b45309';
+    let emoji = '😐';
+    let label = 'Neutral';
+
+    if (sentiment === 'positive') {
+      backgroundColor = '#dcfce7';
+      textColor = '#16a34a';
+      emoji = '😊';
+      label = 'Positive';
+    } else if (sentiment === 'negative') {
+      backgroundColor = '#fee2e2';
+      textColor = '#dc2626';
+      emoji = '😞';
+      label = 'Negative';
+    }
+
+    return (
+      <View style={{
+        backgroundColor: backgroundColor,
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        marginTop: 8,
+        alignSelf: 'flex-start',
+      }}>
+        <Text style={{
+          fontSize: 12,
+          fontWeight: '700',
+          color: textColor,
+        }}>
+          {emoji} {label}
+        </Text>
+      </View>
+    );
+  }
+
+  function renderReviewCard(rating, index) {
+    const ratingId = rating.id;
+    
+    let userName = 'Anonymous';
+    const hasUser = rating.user !== null && rating.user !== undefined;
+    if (hasUser === true) {
+      const hasUserName = rating.user.name !== null && rating.user.name !== undefined;
+      if (hasUserName === true) {
+        userName = rating.user. name;
+      }
+    }
+    
+    const ratingValue = rating.rating;
+    const reviewText = rating.review;
+    const hasReviewText = reviewText !== null && reviewText !== undefined && reviewText. length > 0;
+    
+    const createdAt = new Date(rating.createdAt);
+    const dateString = createdAt.toLocaleDateString('en-IE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const sentiment = rating.sentiment;
+    const hasSentiment = sentiment !== null && sentiment !== undefined;
+
+    const sentimentScore = rating.sentimentScore;
+    const sentimentConfidence = rating.sentimentConfidence;
+    const hasSentimentData = sentimentScore !== null && sentimentScore !== undefined;
+
+    return (
+      <View
+        key={ratingId}
+        style={{
+          backgroundColor: '#f9fafb',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+        }}
+      >
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 12,
+        }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={{
+              fontSize: 15,
+              fontWeight: '700',
+              color: '#111827',
+            }}>
+              {userName}
+            </Text>
+            <Text style={{
+              fontSize: 12,
+              color: '#9ca3af',
+              marginTop: 4,
+            }}>
+              {dateString}
+            </Text>
+          </View>
+          <RatingStars rating={ratingValue} size={14} />
+        </View>
+        
+        {hasReviewText === true && (
+          <Text style={{
+            fontSize: 14,
+            color: '#4b5563',
+            lineHeight: 20,
+            marginBottom: 12,
+          }}>
+            "{reviewText}"
+          </Text>
+        )}
+
+        {/* ✅ SENTIMENT ANALYSIS - UNDER REVIEW */}
+        {hasSentiment === true && (
+          <View style={{
+            marginTop: 12,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: '#e5e7eb',
+          }}>
+            {renderSentimentBadge(sentiment)}
+            
+            {/* SENTIMENT SCORE AND CONFIDENCE */}
+            {hasSentimentData === true && (
+              <View style={{
+                flexDirection: 'row',
+                marginTop: 8,
+                gap: 8,
+              }}>
+                <View style={{
+                  flex: 1,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                }}>
+                  <Text style={{
+                    fontSize: 11,
+                    color: '#6b7280',
+                    fontWeight: '700',
+                  }}>
+                    Score
+                  </Text>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#7c3aed',
+                    marginTop: 4,
+                  }}>
+                    {Math.round(sentimentScore * 100)}%
+                  </Text>
+                </View>
+                <View style={{
+                  flex: 1,
+                  backgroundColor: '#ffffff',
+                  borderRadius: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 8,
+                  borderWidth: 1,
+                  borderColor: '#e5e7eb',
+                }}>
+                  <Text style={{
+                    fontSize: 11,
+                    color: '#6b7280',
+                    fontWeight: '700',
+                  }}>
+                    Confidence
+                  </Text>
+                  <Text style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: '#7c3aed',
+                    marginTop: 4,
+                  }}>
+                    {Math.round(sentimentConfidence * 100)}%
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderServiceCard(service, index) {
+    const serviceId = service.id;
+    const serviceName = service.serviceName;
+    
+    let serviceDescription = 'No description provided';
+    const hasServiceDescription = service.description !== null && service.description !== undefined;
+    if (hasServiceDescription === true) {
+      serviceDescription = service.description;
+    }
+
+    const price = service.price;
+    const priceFormatted = price. toFixed(2);
+
+    const durationMinutes = service.durationMinutes;
+    const durationString = durationMinutes. toString();
+
+    const servicesCount = services.length;
+    const isLastService = index === servicesCount - 1;
+    let marginBottom = 16;
+    if (isLastService === true) {
+      marginBottom = 0;
+    }
+
+    function handlePress() {
+      handleBookService(service);
+    }
+
+    return (
+      <View
+        key={serviceId}
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: marginBottom,
+          shadowColor: '#000',
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 3,
+          borderWidth: 1,
+          borderColor: '#f3f4f6',
+        }}
+      >
+        <Text style={{
+          fontSize: 19,
+          fontWeight: '700',
+          color: '#111827',
+          marginBottom: 8,
+          lineHeight: 24,
+        }}>
+          {serviceName}
+        </Text>
+        <Text style={{
+          fontSize: 14,
+          color: '#6b7280',
+          lineHeight: 20,
+          marginBottom: 16,
+        }}>
+          {serviceDescription}
+        </Text>
+
+        {/* PRICE AND DURATION */}
+        <View style={{
+          backgroundColor: '#f5f3ff',
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: '#e9d5ff',
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: '#6b7280',
+              marginBottom: 6,
+              letterSpacing: 1,
+            }}>
+              PRICE
+            </Text>
+            <Text style={{
+              fontSize: 28,
+              fontWeight: '800',
+              color: '#7c3aed',
+            }}>
+              €{priceFormatted}
+            </Text>
+          </View>
+
+          <View style={{
+            width: 1,
+            height: 50,
+            backgroundColor: '#e9d5ff',
+          }} />
+
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Text style={{
+              fontSize: 11,
+              fontWeight: '700',
+              color: '#6b7280',
+              marginBottom: 6,
+              letterSpacing: 1,
+            }}>
+              DURATION
+            </Text>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: '#111827',
+              }}>
+                {durationString}
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: '#6b7280',
+                marginLeft: 4,
+              }}>
+                min
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* BOOK BUTTON */}
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#7c3aed',
+            paddingVertical: 16,
+            borderRadius: 12,
+            shadowColor: '#7c3aed',
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 4 },
+          }}
+          onPress={handlePress}
+          activeOpacity={0.8}
+        >
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 18, marginRight: 8 }}>📅</Text>
+            <Text style={{
+              color: '#ffffff',
+              fontSize: 16,
+              fontWeight: '700',
+            }}>
+              Book This Service
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  function renderServicesList() {
+    const serviceCards = [];
+    let serviceIndex = 0;
+    
+    while (serviceIndex < services.length) {
+      const service = services[serviceIndex];
+      const card = renderServiceCard(service, serviceIndex);
+      serviceCards.push(card);
+      serviceIndex = serviceIndex + 1;
+    }
+    
+    return serviceCards;
   }
 
   if (loading === true) {
@@ -451,7 +853,7 @@ function BusinessDetailScreen(props) {
           color: '#6b7280',
           fontWeight: '600',
         }}>
-          Loading business...
+          Loading business...  
         </Text>
       </View>
     );
@@ -518,7 +920,7 @@ function BusinessDetailScreen(props) {
   }
 
   let businessName = 'Business';
-  const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
+  const hasBusinessName = business. businessName !== null && business.businessName !== undefined;
   if (hasBusinessName === true) {
     businessName = business.businessName;
   }
@@ -530,7 +932,7 @@ function BusinessDetailScreen(props) {
   }
 
   let location = 'Location not specified';
-  const hasLocation = business.location !== null && business.location !== undefined;
+  const hasLocation = business.location !== null && business. location !== undefined;
   if (hasLocation === true) {
     location = business.location;
   }
@@ -551,278 +953,6 @@ function BusinessDetailScreen(props) {
 
   const businessStatus = getBusinessStatus();
 
-  function renderServiceCard(service, index) {
-    const serviceId = service.id;
-    const serviceName = service.serviceName;
-    
-    let serviceDescription = 'No description provided';
-    const hasServiceDescription = service.description !== null && service.description !== undefined;
-    if (hasServiceDescription === true) {
-      serviceDescription = service.description;
-    }
-
-    const price = service.price;
-    const priceFormatted = price.toFixed(2);
-
-    const durationMinutes = service.durationMinutes;
-    const durationString = durationMinutes.toString();
-
-    const isLastService = index === servicesCount - 1;
-    let marginBottom = 16;
-    if (isLastService === true) {
-      marginBottom = 0;
-    }
-
-    function handlePress() {
-      handleBookService(service);
-    }
-
-    return (
-      <View
-        key={serviceId}
-        style={{
-          backgroundColor: '#ffffff',
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: marginBottom,
-          shadowColor: '#000',
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 3,
-          borderWidth: 2,
-          borderColor: '#f3f4f6',
-        }}
-      >
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: 12,
-        }}>
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={{
-              fontSize: 19,
-              fontWeight: '700',
-              color: '#111827',
-              marginBottom: 8,
-              lineHeight: 24,
-            }}>
-              {serviceName}
-            </Text>
-            <Text style={{
-              fontSize: 14,
-              color: '#6b7280',
-              lineHeight: 20,
-            }}>
-              {serviceDescription}
-            </Text>
-          </View>
-        </View>
-
-        <View style={{
-          backgroundColor: '#f5f3ff',
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: 16,
-          borderWidth: 1,
-          borderColor: '#e9d5ff',
-        }}>
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}>
-            <View>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: '#6b7280',
-                marginBottom: 6,
-                letterSpacing: 1,
-              }}>
-                PRICE
-              </Text>
-              <Text style={{
-                fontSize: 28,
-                fontWeight: '800',
-                color: '#7c3aed',
-              }}>
-                €{priceFormatted}
-              </Text>
-            </View>
-
-            <View style={{
-              width: 1,
-              height: 50,
-              backgroundColor: '#e9d5ff',
-            }} />
-
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{
-                fontSize: 11,
-                fontWeight: '700',
-                color: '#6b7280',
-                marginBottom: 6,
-                letterSpacing: 1,
-              }}>
-                DURATION
-              </Text>
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-              }}>
-                <Text style={{ fontSize: 20, marginRight: 6 }}>⏱️</Text>
-                <Text style={{
-                  fontSize: 20,
-                  fontWeight: '700',
-                  color: '#111827',
-                }}>
-                  {durationString} min
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#7c3aed',
-            paddingVertical: 16,
-            borderRadius: 12,
-            shadowColor: '#7c3aed',
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 4 },
-          }}
-          onPress={handlePress}
-          activeOpacity={0.8}
-        >
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-            <Text style={{ fontSize: 18, marginRight: 8 }}>📅</Text>
-            <Text style={{
-              color: '#ffffff',
-              fontSize: 16,
-              fontWeight: '700',
-            }}>
-              Book This Service
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  function renderServicesList() {
-    const serviceCards = [];
-    let serviceIndex = 0;
-    
-    while (serviceIndex < servicesCount) {
-      const service = services[serviceIndex];
-      const card = renderServiceCard(service, serviceIndex);
-      serviceCards.push(card);
-      serviceIndex = serviceIndex + 1;
-    }
-    
-    return serviceCards;
-  }
-
-  function renderReviewCard(rating, index) {
-    const ratingId = rating.id;
-    
-    let userName = 'Anonymous';
-    const hasUser = rating.user !== null && rating.user !== undefined;
-    if (hasUser === true) {
-      const hasUserName = rating.user.name !== null && rating.user.name !== undefined;
-      if (hasUserName === true) {
-        userName = rating.user.name;
-      }
-    }
-    
-    const ratingValue = rating.rating;
-    const reviewText = rating.review;
-    const hasReviewText = reviewText !== null && reviewText !== undefined && reviewText.length > 0;
-    
-    const createdAt = new Date(rating.createdAt);
-    const dateString = createdAt.toLocaleDateString('en-IE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-
-    const maxReviews = Math.min(ratingsCount, 5);
-    const isLastReview = index === maxReviews - 1;
-    let marginBottom = 12;
-    if (isLastReview === true) {
-      marginBottom = 0;
-    }
-
-    return (
-      <View
-        key={ratingId}
-        style={{
-          backgroundColor: '#f9fafb',
-          borderRadius: 12,
-          padding: 16,
-          marginBottom: marginBottom,
-        }}
-      >
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: hasReviewText ? 12 : 0,
-        }}>
-          <Text style={{
-            fontSize: 15,
-            fontWeight: '700',
-            color: '#111827',
-          }}>
-            {userName}
-          </Text>
-          <RatingStars rating={ratingValue} size={16} />
-        </View>
-        
-        {hasReviewText && (
-          <Text style={{
-            fontSize: 14,
-            color: '#4b5563',
-            lineHeight: 20,
-            marginBottom: 8,
-          }}>
-            {reviewText}
-          </Text>
-        )}
-        
-        <Text style={{
-          fontSize: 12,
-          color: '#9ca3af',
-        }}>
-          {dateString}
-        </Text>
-      </View>
-    );
-  }
-
-  function renderReviewsList() {
-    const reviewCards = [];
-    const maxReviews = Math.min(ratingsCount, 5);
-    let reviewIndex = 0;
-    
-    while (reviewIndex < maxReviews) {
-      const rating = ratings[reviewIndex];
-      const card = renderReviewCard(rating, reviewIndex);
-      reviewCards.push(card);
-      reviewIndex = reviewIndex + 1;
-    }
-    
-    return reviewCards;
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       <ScrollView
@@ -837,6 +967,7 @@ function BusinessDetailScreen(props) {
           />
         }
       >
+        {/* ========== HEADER SECTION ========== */}
         <View style={{
           backgroundColor: '#7c3aed',
           paddingTop: 60,
@@ -846,6 +977,7 @@ function BusinessDetailScreen(props) {
             paddingHorizontal: 20,
             paddingBottom: 24,
           }}>
+            {/* BACK BUTTON */}
             <TouchableOpacity
               onPress={handleGoBack}
               style={{
@@ -867,6 +999,7 @@ function BusinessDetailScreen(props) {
               </Text>
             </TouchableOpacity>
 
+            {/* BUSINESS NAME */}
             <Text style={{
               fontSize: 28,
               fontWeight: '800',
@@ -877,6 +1010,7 @@ function BusinessDetailScreen(props) {
               {businessName}
             </Text>
 
+            {/* CATEGORY AND VERIFIED BADGE */}
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -922,28 +1056,118 @@ function BusinessDetailScreen(props) {
               )}
             </View>
 
+            {/* ✅ RATINGS SUMMARY WITH SENTIMENT AT TOP */}
             {ratingSummary !== null && ratingSummary !== undefined && (
-              <View style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                marginTop: 12,
-              }}>
-                <RatingStars 
-                  rating={Math.round(ratingSummary.averageRating)} 
-                  size={18} 
-                />
-                <Text style={{
-                  marginLeft: 8,
-                  fontSize: 14,
-                  color: '#ffffff',
-                  fontWeight: '600',
-                }}>
-                  {ratingSummary.averageRating.toFixed(1)} ({ratingSummary.totalRatings} {ratingSummary.totalRatings === 1 ? 'review' : 'reviews'})
-                </Text>
+              <View style={{ marginTop: 16 }}>
+                {/* RATING STARS AND AVERAGE */}
+                <TouchableOpacity
+                  onPress={function() { setShowReviewsModal(true); }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    marginBottom: 12,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', gap: 2, marginRight: 8 }}>
+                    <RatingStars 
+                      rating={Math.round(ratingSummary.averageRating)} 
+                      size={20} 
+                    />
+                  </View>
+                  <Text style={{
+                    color: '#ffffff',
+                    fontSize: 16,
+                    fontWeight: '800',
+                    marginRight: 4,
+                  }}>
+                    {ratingSummary.averageRating. toFixed(1)}
+                  </Text>
+                  <Text style={{
+                    color: '#ffffff',
+                    fontSize: 14,
+                    fontWeight: '600',
+                  }}>
+                    ({ratingSummary.totalRatings} {ratingSummary.totalRatings === 1 ? 'review' : 'reviews'})
+                  </Text>
+                </TouchableOpacity>
+
+                {/* ✅ SENTIMENT DISTRIBUTION UNDER STARS */}
+                {hasRatings === true && (
+                  <View style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: 12,
+                    padding: 12,
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                    alignItems: 'center',
+                  }}>
+                    {/* POSITIVE */}
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 24, marginBottom: 4 }}>😊</Text>
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '800',
+                        color: '#86efac',
+                        marginBottom: 2,
+                      }}>
+                        {sentimentStats.positive}
+                      </Text>
+                      <Text style={{
+                        fontSize: 11,
+                        color: '#ffffff',
+                        fontWeight: '600',
+                      }}>
+                        Positive
+                      </Text>
+                    </View>
+
+                    {/* NEUTRAL */}
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 24, marginBottom: 4 }}>😐</Text>
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '800',
+                        color: '#fbbf24',
+                        marginBottom: 2,
+                      }}>
+                        {sentimentStats.neutral}
+                      </Text>
+                      <Text style={{
+                        fontSize: 11,
+                        color: '#ffffff',
+                        fontWeight: '600',
+                      }}>
+                        Neutral
+                      </Text>
+                    </View>
+
+                    {/* NEGATIVE */}
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={{ fontSize: 24, marginBottom: 4 }}>😞</Text>
+                      <Text style={{
+                        fontSize: 16,
+                        fontWeight: '800',
+                        color: '#fca5a5',
+                        marginBottom: 2,
+                      }}>
+                        {sentimentStats.negative}
+                      </Text>
+                      <Text style={{
+                        fontSize: 11,
+                        color: '#ffffff',
+                        fontWeight: '600',
+                      }}>
+                        Negative
+                      </Text>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
 
-            {businessStatus.hasHours === true && (
+            {/* STATUS BADGE */}
+            {businessStatus. hasHours === true && (
               <View style={{
                 marginTop: 16,
                 flexDirection: 'row',
@@ -995,6 +1219,7 @@ function BusinessDetailScreen(props) {
             )}
           </View>
 
+          {/* CURVED BOTTOM */}
           <View style={{
             height: 24,
             backgroundColor: '#f9fafb',
@@ -1003,11 +1228,13 @@ function BusinessDetailScreen(props) {
           }} />
         </View>
 
+        {/* ========== MAIN CONTENT ========== */}
         <View style={{
           paddingHorizontal: 20,
           paddingTop: 8,
           paddingBottom: 24,
         }}>
+          {/* LOCATION CARD */}
           <View style={{
             backgroundColor: '#ffffff',
             borderRadius: 16,
@@ -1053,6 +1280,7 @@ function BusinessDetailScreen(props) {
             </View>
           </View>
 
+          {/* PHONE CARD */}
           {hasPhoneNumber === true && (
             <View style={{
               backgroundColor: '#ffffff',
@@ -1100,6 +1328,7 @@ function BusinessDetailScreen(props) {
             </View>
           )}
 
+          {/* ABOUT CARD */}
           {hasDescription === true && (
             <View style={{
               backgroundColor: '#ffffff',
@@ -1146,85 +1375,10 @@ function BusinessDetailScreen(props) {
             </View>
           )}
 
+          {/* BUSINESS HOURS */}
           {renderBusinessHours()}
 
-          <View style={{
-            backgroundColor: '#ffffff',
-            borderRadius: 16,
-            padding: 20,
-            shadowColor: '#000',
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            shadowOffset: { width: 0, height: 2 },
-            elevation: 2,
-            marginTop: 12,
-          }}>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 20,
-            }}>
-              <View style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                backgroundColor: '#fef3c7',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}>
-                <Text style={{ fontSize: 22 }}>⭐</Text>
-              </View>
-              <Text style={{
-                fontSize: 20,
-                fontWeight: '700',
-                color: '#111827',
-              }}>
-                Customer Reviews ({ratingsCount})
-              </Text>
-            </View>
-
-            {hasRatings === false && (
-              <View style={{
-                paddingVertical: 40,
-                alignItems: 'center',
-              }}>
-                <View style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
-                  backgroundColor: '#f9fafb',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 16,
-                }}>
-                  <Text style={{ fontSize: 40 }}>⭐</Text>
-                </View>
-                <Text style={{
-                  fontSize: 18,
-                  fontWeight: '600',
-                  color: '#6b7280',
-                  marginBottom: 4,
-                }}>
-                  No Reviews Yet
-                </Text>
-                <Text style={{
-                  fontSize: 14,
-                  color: '#9ca3af',
-                  textAlign: 'center',
-                }}>
-                  Be the first to review this business
-                </Text>
-              </View>
-            )}
-            
-            {hasRatings === true && (
-              <View>
-                {renderReviewsList()}
-              </View>
-            )}
-          </View>
-
+          {/* SERVICES HEADER */}
           <View style={{
             backgroundColor: '#ffffff',
             borderRadius: 16,
@@ -1311,17 +1465,202 @@ function BusinessDetailScreen(props) {
                 </Text>
               </View>
             )}
+          </View>
+
+          {/* SERVICES LIST */}
+          {servicesLoading === false && hasServices === true && (
+            <View style={{ marginBottom: 4 }}>
+              {renderServicesList()}
+            </View>
+          )}
+
+          {/* ========== REVIEWS SECTION ========== */}
+          <View style={{
+            backgroundColor: '#ffffff',
+            borderRadius: 16,
+            padding: 20,
+            shadowColor: '#000',
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 20,
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+              }}>
+                <View style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 12,
+                  backgroundColor: '#fef3c7',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}>
+                  <Text style={{ fontSize: 22 }}>⭐</Text>
+                </View>
+                <Text style={{
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: '#111827',
+                }}>
+                  Customer Reviews
+                </Text>
+              </View>
+              {hasRatings === true && (
+                <TouchableOpacity
+                  onPress={function() { setShowReviewsModal(true); }}
+                  style={{
+                    backgroundColor: '#f3e8ff',
+                    borderRadius: 8,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{
+                    color: '#7c3aed',
+                    fontSize: 12,
+                    fontWeight: '700',
+                  }}>
+                    View All →
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {hasRatings === false && (
+              <View style={{
+                paddingVertical: 32,
+                alignItems: 'center',
+              }}>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#6b7280',
+                  marginBottom: 4,
+                }}>
+                  No Reviews Yet
+                </Text>
+                <Text style={{
+                  fontSize: 14,
+                  color: '#9ca3af',
+                  textAlign: 'center',
+                }}>
+                  Be the first to share your experience
+                </Text>
+              </View>
+            )}
             
-            {servicesLoading === false && hasServices === true && (
+            {hasRatings === true && (
               <View>
-                {renderServicesList()}
+                {renderReviewCard(ratings[0], 0)}
               </View>
             )}
           </View>
-        </View>
 
-        <View style={{ height: 40 }} />
+          <View style={{ height: 40 }} />
+        </View>
       </ScrollView>
+
+      {/* ========== REVIEWS MODAL ========== */}
+      <Modal
+        visible={showReviewsModal}
+        onRequestClose={function() { setShowReviewsModal(false); }}
+        animationType="slide"
+        transparent={false}
+      >
+        <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+          {/* MODAL HEADER */}
+          <View style={{
+            backgroundColor: '#7c3aed',
+            paddingTop: 48,
+            paddingBottom: 16,
+            paddingHorizontal: 20,
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <Text style={{
+                fontSize: 24,
+                fontWeight: '800',
+                color: '#ffffff',
+              }}>
+                All Reviews
+              </Text>
+              <TouchableOpacity
+                onPress={function() { setShowReviewsModal(false); }}
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontWeight: '700',
+                }}>
+                  ✕ Close
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* SUMMARY STATS */}
+            {ratingSummary !== null && ratingSummary !== undefined && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: 12,
+                padding: 12,
+              }}>
+                <Text style={{
+                  fontSize: 32,
+                  fontWeight: '800',
+                  color: '#ffffff',
+                  marginRight: 12,
+                }}>
+                  {ratingSummary.averageRating. toFixed(1)}
+                </Text>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', gap: 2, marginBottom: 4 }}>
+                    <RatingStars 
+                      rating={Math.round(ratingSummary.averageRating)} 
+                      size={16} 
+                    />
+                  </View>
+                  <Text style={{
+                    color: '#ffffff',
+                    fontSize: 12,
+                    fontWeight: '700',
+                  }}>
+                    {ratingSummary.totalRatings} {ratingSummary.totalRatings === 1 ? 'review' : 'reviews'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* REVIEWS LIST */}
+          <ScrollView style={{ flex: 1, paddingHorizontal: 20, paddingTop: 16 }}>
+            {ratings.map(function(rating, index) {
+              return renderReviewCard(rating, index);
+            })}
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }

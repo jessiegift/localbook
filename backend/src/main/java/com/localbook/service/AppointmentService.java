@@ -16,12 +16,14 @@ import com.localbook.repository.UserNotificationSettingsRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @org.springframework.stereotype.Service
 public class AppointmentService {
@@ -139,6 +141,37 @@ public class AppointmentService {
     public List<Appointment> getBusinessAppointments(Long businessId) {
         return appointmentRepository.findByBusinessId(businessId);
     }
+    
+    public List<Appointment> getTodayBusinessAppointments(Long businessId) {
+    System.out.println("=== FETCHING TODAY'S APPOINTMENTS ===");
+    System.out.println("Business ID: " + businessId);
+    
+    LocalDate today = LocalDate.now();
+    System.out.println("Today's date: " + today);
+    
+    List<Appointment> allAppointments = appointmentRepository.findAll();
+    System.out.println("Total appointments in DB: " + allAppointments.size());
+    
+    List<Appointment> todayActiveAppointments = allAppointments.stream()
+        .filter(apt -> {
+            boolean isThisBusiness = apt.getBusiness().getId().equals(businessId);
+            boolean isToday = apt.getAppointmentDateTime().toLocalDate().equals(today);
+            boolean isNotCanceled = apt.getStatus() != AppointmentStatus.CANCELED;
+            boolean isNotCompleted = apt.getStatus() != AppointmentStatus.COMPLETED;
+            
+            if (isThisBusiness && isToday) {
+                System.out.println("Appointment " + apt.getId() + ": Status=" + apt.getStatus() + 
+                                 ", Include=" + (isNotCanceled && isNotCompleted));
+            }
+            
+            return isThisBusiness && isToday && isNotCanceled && isNotCompleted;
+        })
+        .collect(Collectors.toList());
+    
+    System.out.println("✅ Today's active appointments: " + todayActiveAppointments.size());
+    
+    return todayActiveAppointments;
+}
     
     public List<Appointment> getUpcomingBusinessAppointments(Long businessId) {
         LocalDateTime now = LocalDateTime.now();

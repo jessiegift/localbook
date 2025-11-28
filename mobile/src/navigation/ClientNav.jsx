@@ -1,12 +1,15 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, TouchableOpacity, View } from 'react-native';
 
 import ClientHomeScreen from '../screens/client/ClientHomeScreen';
 import MyBookingsScreen from '../screens/client/MyBookingsScreen';
+import RateBusinessScreen from '../screens/client/RateBusinessScreen';  // ✅ ADD THIS
 import { useAuth } from '../context/AuthContext';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();  // ✅ ADD THIS
 
 function ClientProfileScreen() {
   const authContext = useAuth();
@@ -88,6 +91,41 @@ function ClientProfileScreen() {
   );
 }
 
+// ✅ NEW: MyBookings Stack Navigator
+function MyBookingsStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: '#7c3aed',
+        },
+        headerTintColor: '#ffffff',
+        headerTitleStyle: {
+          fontWeight: '700',
+          fontSize: 18,
+        },
+      }}
+    >
+      <Stack.Screen
+        name="MyBookingsScreen"
+        component={MyBookingsScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="RateBusinessScreen"  // ✅ THIS IS THE CORRECT NAME! 
+        component={RateBusinessScreen}
+        options={{
+          title: 'Leave a Review',
+          headerShown: true,
+          headerBackTitle: 'Back',
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function ClientNav() {
   return (
     <Tab.Navigator
@@ -128,9 +166,10 @@ function ClientNav() {
         }}
       />
 
+      {/* ✅ UPDATED: Use Stack instead of direct component */}
       <Tab.Screen
         name="MyBookings"
-        component={MyBookingsScreen}
+        component={MyBookingsStack}
         options={{
           title: 'My Bookings',
           headerShown: false,
@@ -149,7 +188,7 @@ function ClientNav() {
         options={{
           title: 'Profile',
           tabBarIcon: function(props) {
-            const color = props.color;
+            const color = props. color;
             return (
               <Text style={{ fontSize: 24 }}>👤</Text>
             );

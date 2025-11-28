@@ -28,7 +28,6 @@ function BusinessRatingsScreen() {
       console.log('User:', user);
       console.log('Token:', token);
 
-      // Check if user has business
       if (!user) {
         console.error('No user found');
         setLoading(false);
@@ -36,7 +35,6 @@ function BusinessRatingsScreen() {
         return;
       }
 
-      // Get business ID from user
       let businessId = null;
       if (user.businessId) {
         businessId = user.businessId;
@@ -46,15 +44,14 @@ function BusinessRatingsScreen() {
 
       console.log('Business ID:', businessId);
 
-      if (!businessId) {
-        console.error('No business ID found');
+      if (! businessId) {
+        console. error('No business ID found');
         Alert.alert('Error', 'No business found for this account');
         setLoading(false);
         setRefreshing(false);
         return;
       }
 
-      // Try multiple endpoints
       const endpoints = [
         API_BASE_URL + '/ratings/business/' + businessId,
         API_BASE_URL + '/businesses/' + businessId + '/ratings',
@@ -63,7 +60,7 @@ function BusinessRatingsScreen() {
 
       let success = false;
       
-      for (let i = 0; i < endpoints.length; i++) {
+      for (let i = 0; i < endpoints. length; i++) {
         const url = endpoints[i];
         console.log('Trying endpoint:', url);
 
@@ -76,29 +73,25 @@ function BusinessRatingsScreen() {
             },
           });
 
-          console.log('Response status:', response.status);
+          console.log('Response status:', response. status);
 
           if (response.ok) {
             const data = await response.json();
             console.log('Response data:', data);
 
-            // Handle different response structures
             let ratingsData = [];
             let avgRating = 0;
             let totalCount = 0;
 
-            // Structure 1: { ratings: [...], averageRating: 4.5, totalRatings: 10 }
             if (data.ratings) {
               ratingsData = data.ratings;
               avgRating = data.averageRating || 0;
               totalCount = data.totalRatings || ratingsData.length;
             }
-            // Structure 2: Direct array
             else if (Array.isArray(data)) {
               ratingsData = data;
               totalCount = data.length;
               
-              // Calculate average
               if (data.length > 0) {
                 const sum = data.reduce(function(acc, r) {
                   return acc + (r.rating || 0);
@@ -106,13 +99,12 @@ function BusinessRatingsScreen() {
                 avgRating = sum / data.length;
               }
             }
-            // Structure 3: { data: [...] }
             else if (data.data) {
               ratingsData = data.data;
               totalCount = data.data.length;
               
               if (data.data.length > 0) {
-                const sum = data.data.reduce(function(acc, r) {
+                const sum = data.data. reduce(function(acc, r) {
                   return acc + (r.rating || 0);
                 }, 0);
                 avgRating = sum / data.data.length;
@@ -151,7 +143,7 @@ function BusinessRatingsScreen() {
 
     } catch (error) {
       console.error('Error fetching ratings:', error);
-      Alert.alert('Error', 'Failed to load ratings. Please try again.');
+      Alert.alert('Error', 'Failed to load ratings.  Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -163,16 +155,12 @@ function BusinessRatingsScreen() {
     fetchRatings();
   }
 
-  if (loading) {
-    return <LoadingSpinner fullScreen={true} text="Loading ratings..." />;
-  }
-
-  // Generate star display
   function renderStars(rating) {
     const stars = [];
     const roundedRating = Math.round(rating);
     
-    for (let i = 1; i <= 5; i++) {
+    let i = 1;
+    while (i <= 5) {
       if (i <= roundedRating) {
         stars.push(
           <Text key={i} style={{ fontSize: 24 }}>⭐</Text>
@@ -182,9 +170,265 @@ function BusinessRatingsScreen() {
           <Text key={i} style={{ fontSize: 24, color: '#d1d5db' }}>☆</Text>
         );
       }
+      i = i + 1;
     }
     
     return stars;
+  }
+
+  function renderSentimentBadge(sentiment) {
+    if (sentiment === null || sentiment === undefined) {
+      return null;
+    }
+
+    let backgroundColor = '#fef3c7';
+    let textColor = '#b45309';
+    let emoji = '😐';
+    let label = 'Neutral';
+
+    if (sentiment === 'positive') {
+      backgroundColor = '#dcfce7';
+      textColor = '#16a34a';
+      emoji = '😊';
+      label = 'Positive';
+    } else if (sentiment === 'negative') {
+      backgroundColor = '#fee2e2';
+      textColor = '#dc2626';
+      emoji = '😞';
+      label = 'Negative';
+    }
+
+    return (
+      <View style={{
+        backgroundColor: backgroundColor,
+        borderRadius: 20,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        marginTop: 8,
+        alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+      }}>
+        <Text style={{ marginRight: 4, fontSize: 14 }}>
+          {emoji}
+        </Text>
+        <Text style={{
+          fontSize: 11,
+          fontWeight: '700',
+          color: textColor,
+        }}>
+          {label}
+        </Text>
+      </View>
+    );
+  }
+
+  function renderEmotionBreakdown(rating) {
+    const hasEmotionData = rating.emotionJoy !== null && 
+                          rating.emotionJoy !== undefined;
+    
+    if (hasEmotionData === false) {
+      return null;
+    }
+
+    return (
+      <View style={{
+        marginTop: 12,
+        backgroundColor: '#f9fafb',
+        borderRadius: 12,
+        padding: 12,
+      }}>
+        <Text style={{
+          fontSize: 12,
+          color: '#6b7280',
+          marginBottom: 12,
+          fontWeight: '700',
+        }}>
+          📊 Emotions Detected
+        </Text>
+
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+        }}>
+          {/* JOY */}
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>😊</Text>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#10b981',
+              marginBottom: 2,
+            }}>
+              {Math.round(rating.emotionJoy * 100)}%
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: '#6b7280',
+              textAlign: 'center',
+            }}>
+              Joy
+            </Text>
+          </View>
+
+          {/* SADNESS */}
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>😢</Text>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#3b82f6',
+              marginBottom: 2,
+            }}>
+              {Math.round(rating.emotionSadness * 100)}%
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: '#6b7280',
+              textAlign: 'center',
+            }}>
+              Sadness
+            </Text>
+          </View>
+
+          {/* ANGER */}
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>😠</Text>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#ef4444',
+              marginBottom: 2,
+            }}>
+              {Math.round(rating. emotionAnger * 100)}%
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: '#6b7280',
+              textAlign: 'center',
+            }}>
+              Anger
+            </Text>
+          </View>
+
+          {/* FEAR */}
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>😨</Text>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#f97316',
+              marginBottom: 2,
+            }}>
+              {Math.round(rating.emotionFear * 100)}%
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: '#6b7280',
+              textAlign: 'center',
+            }}>
+              Fear
+            </Text>
+          </View>
+
+          {/* DISGUST */}
+          <View style={{ alignItems: 'center', flex: 1 }}>
+            <Text style={{ fontSize: 24, marginBottom: 4 }}>🤢</Text>
+            <Text style={{
+              fontSize: 12,
+              fontWeight: '700',
+              color: '#8b5cf6',
+              marginBottom: 2,
+            }}>
+              {Math.round(rating.emotionDisgust * 100)}%
+            </Text>
+            <Text style={{
+              fontSize: 10,
+              color: '#6b7280',
+              textAlign: 'center',
+            }}>
+              Disgust
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  function renderSentimentMetrics(rating) {
+    const hasSentimentScore = rating.sentimentScore !== null && 
+                             rating.sentimentScore !== undefined;
+    
+    if (hasSentimentScore === false) {
+      return null;
+    }
+
+    return (
+      <View style={{
+        marginTop: 12,
+        flexDirection: 'row',
+        gap: 8,
+      }}>
+        {/* SCORE */}
+        <View style={{
+          flex: 1,
+          backgroundColor: '#ffffff',
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 8,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+        }}>
+          <Text style={{
+            fontSize: 11,
+            color: '#6b7280',
+            fontWeight: '700',
+          }}>
+            Score
+          </Text>
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: '#7c3aed',
+            marginTop: 4,
+          }}>
+            {Math.round(rating.sentimentScore * 100)}%
+          </Text>
+        </View>
+
+        {/* CONFIDENCE */}
+        <View style={{
+          flex: 1,
+          backgroundColor: '#ffffff',
+          borderRadius: 8,
+          paddingHorizontal: 8,
+          paddingVertical: 8,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+        }}>
+          <Text style={{
+            fontSize: 11,
+            color: '#6b7280',
+            fontWeight: '700',
+          }}>
+            Confidence
+          </Text>
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '700',
+            color: '#a855f7',
+            marginTop: 4,
+          }}>
+            {Math.round(rating. sentimentConfidence * 100)}%
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return <LoadingSpinner fullScreen={true} text="Loading ratings..." />;
   }
 
   return (
@@ -199,7 +443,7 @@ function BusinessRatingsScreen() {
         />
       }
     >
-      {/* Header */}
+      {/* ========== HEADER ========== */}
       <View style={{ 
         backgroundColor: '#7c3aed', 
         paddingTop: 56, 
@@ -219,7 +463,7 @@ function BusinessRatingsScreen() {
         </Text>
       </View>
 
-      {/* Stats Card */}
+      {/* ========== STATS CARD ========== */}
       <View style={{ 
         paddingHorizontal: 20, 
         marginTop: -20, 
@@ -260,12 +504,11 @@ function BusinessRatingsScreen() {
                 color: '#6b7280', 
                 textAlign: 'center' 
               }}>
-                {stats.totalRatings} {stats.totalRatings === 1 ? 'rating' : 'ratings'}
+                {stats. totalRatings} {stats.totalRatings === 1 ? 'rating' : 'ratings'}
               </Text>
             </View>
           </View>
 
-          {/* Rating breakdown */}
           {stats.totalRatings > 0 && (
             <View style={{ 
               marginTop: 16, 
@@ -285,7 +528,7 @@ function BusinessRatingsScreen() {
         </View>
       </View>
 
-      {/* Ratings List */}
+      {/* ========== RATINGS LIST ========== */}
       <View style={{ paddingHorizontal: 20, marginBottom: 24 }}>
         <Text style={{ 
           fontSize: 18, 
@@ -327,24 +570,19 @@ function BusinessRatingsScreen() {
           </View>
         ) : (
           ratings.map(function(rating, index) {
-            // Get user name
             let userName = 'Anonymous';
             if (rating.userName) {
-              userName = rating.userName;
+              userName = rating. userName;
             } else if (rating.user && rating.user.name) {
               userName = rating.user.name;
             } else if (rating.clientName) {
               userName = rating.clientName;
             }
 
-            // Get rating value
             let ratingValue = rating.rating || rating.stars || 0;
-
-            // Get review text
             let reviewText = rating.review || rating.comment || rating.feedback || '';
-
-            // Get date
             let dateText = '';
+            
             if (rating.createdAt) {
               const date = new Date(rating.createdAt);
               dateText = date.toLocaleDateString('en-IE', {
@@ -370,12 +608,12 @@ function BusinessRatingsScreen() {
                   borderColor: '#f3f4f6'
                 }}
               >
-                {/* Header */}
+                {/* ========== HEADER ========== */}
                 <View style={{ 
                   flexDirection: 'row', 
                   justifyContent: 'space-between', 
                   alignItems: 'center', 
-                  marginBottom: 8 
+                  marginBottom: 12
                 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ 
@@ -396,7 +634,7 @@ function BusinessRatingsScreen() {
                     )}
                   </View>
 
-                  {/* Rating Stars */}
+                  {/* RATING STARS */}
                   <View style={{ 
                     flexDirection: 'row', 
                     alignItems: 'center',
@@ -417,13 +655,13 @@ function BusinessRatingsScreen() {
                   </View>
                 </View>
 
-                {/* Review Text */}
+                {/* ========== REVIEW TEXT ========== */}
                 {reviewText && (
                   <View style={{ 
                     backgroundColor: '#f9fafb',
                     borderRadius: 8,
                     padding: 12,
-                    marginTop: 8
+                    marginBottom: 12
                   }}>
                     <Text style={{ 
                       fontSize: 14, 
@@ -435,19 +673,36 @@ function BusinessRatingsScreen() {
                   </View>
                 )}
 
-                {/* Service name if available */}
+                {/* ========== SENTIMENT BADGE ========== */}
+                {rating.sentiment && (
+                  <View style={{ marginBottom: 12 }}>
+                    {renderSentimentBadge(rating.sentiment)}
+                  </View>
+                )}
+
+                {/* ========== SENTIMENT METRICS ========== */}
+                {renderSentimentMetrics(rating)}
+
+                {/* ========== EMOTION BREAKDOWN ========== */}
+                {renderEmotionBreakdown(rating)}
+
+                {/* ========== SERVICE NAME ========== */}
                 {rating.serviceName && (
                   <View style={{ 
                     flexDirection: 'row',
                     alignItems: 'center',
-                    marginTop: 8
+                    marginTop: 12,
+                    paddingTop: 12,
+                    borderTopWidth: 1,
+                    borderTopColor: '#e5e7eb'
                   }}>
-                    <Text style={{ fontSize: 14, marginRight: 4 }}>📋</Text>
+                    <Text style={{ fontSize: 14, marginRight: 8 }}>📋</Text>
                     <Text style={{ 
                       fontSize: 13, 
-                      color: '#6b7280' 
+                      color: '#6b7280',
+                      fontWeight: '600'
                     }}>
-                      {rating.serviceName}
+                      {rating. serviceName}
                     </Text>
                   </View>
                 )}
@@ -457,7 +712,7 @@ function BusinessRatingsScreen() {
         )}
       </View>
 
-      {/* Debug Info (remove in production) */}
+      {/* ========== DEBUG INFO ========== */}
       {__DEV__ && (
         <View style={{ 
           paddingHorizontal: 20, 
@@ -479,7 +734,7 @@ function BusinessRatingsScreen() {
               Debug Info:
             </Text>
             <Text style={{ fontSize: 11, color: '#92400e' }}>
-              User ID: {user ? user.id : 'none'}
+              User ID: {user ?  user.id : 'none'}
             </Text>
             <Text style={{ fontSize: 11, color: '#92400e' }}>
               Business ID: {user ? (user.businessId || user.id) : 'none'}

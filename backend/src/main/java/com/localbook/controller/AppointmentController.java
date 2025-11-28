@@ -8,9 +8,13 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.format.DateTimeFormatter;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -64,6 +68,16 @@ public class AppointmentController {
         List<Appointment> appointments = appointmentService.getUpcomingUserAppointments(userId);
         return new ResponseEntity<>(appointments, HttpStatus.OK);
     }
+@GetMapping("/business/{businessId}/today")
+public ResponseEntity<List<Appointment>> getTodayBusinessAppointments(@PathVariable Long businessId) {
+    try {
+        List<Appointment> appointments = appointmentService.getTodayBusinessAppointments(businessId);
+        return new ResponseEntity<>(appointments, HttpStatus.OK);
+    } catch (Exception e) {
+        System.err.println("❌ Error fetching today's appointments: " + e.getMessage());
+        return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+}
     
     @GetMapping("/user/{userId}/past")
     public ResponseEntity<List<Appointment>> getPastUserAppointments(@PathVariable Long userId) {
@@ -99,6 +113,45 @@ public class AppointmentController {
             return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
         }
     }
+
+    @GetMapping("/business/{businessId}/booked-slots")
+public ResponseEntity<List<String>> getBookedSlots(
+        @PathVariable Long businessId,
+        @RequestParam String date) {
+    try {
+        System.out.println("📅 Fetching booked slots for business: " + businessId + " on date: " + date);
+        
+        // Parse date: YYYY-MM-DD
+        LocalDate selectedDate = LocalDate.parse(date, DateTimeFormatter.ISO_DATE);
+        
+        // Get all appointments for the business on that date
+        List<Appointment> appointments = appointmentService.getBusinessAppointments(businessId);
+        
+        List<String> bookedSlots = new ArrayList<>();
+        
+        for (Appointment apt : appointments) {
+            LocalDate appointmentDate = apt.getAppointmentDateTime().toLocalDate();
+            
+            // Only include appointments on the selected date that are CONFIRMED
+            if (appointmentDate. equals(selectedDate) && apt.getStatus() == AppointmentStatus.CONFIRMED) {
+                // Extract time: HH:MM
+                String time = apt.getAppointmentDateTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                bookedSlots.add(time);
+                
+                System.out.println("  ✓ Booked: " + time);
+            }
+        }
+        
+        System.out.println("✅ Total booked slots: " + bookedSlots.size());
+        
+        return ResponseEntity.ok(bookedSlots);
+        
+    } catch (Exception e) {
+        System.err.println("❌ Error fetching booked slots: " + e.getMessage());
+        e.printStackTrace();
+        return ResponseEntity.ok(new ArrayList<>());
+    }
+}
     
     // ✅ FIXED: Cancel now uses userId (no changes needed, already correct)
     @PutMapping("/{id}/cancel")

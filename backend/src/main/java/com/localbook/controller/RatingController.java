@@ -2,15 +2,15 @@ package com.localbook.controller;
 
 import com.localbook.model.Rating;
 import com.localbook.model.User;
-import com.localbook.service.RatingService;
+import com.localbook. service.RatingService;
 import com.localbook.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework. beans.factory.annotation.Autowired;
+import org.springframework. http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web. bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
+import java. util.HashMap;
+import java. util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,7 +26,7 @@ public class RatingController {
     private UserService userService;
     
     @PostMapping
-    public ResponseEntity<?> createRating(
+    public ResponseEntity<? > createRating(
             @RequestParam Long userId,
             @RequestParam Long businessId,
             @RequestParam Long appointmentId,
@@ -36,10 +36,10 @@ public class RatingController {
         try {
             System.out.println("=== CREATE RATING REQUEST ===");
             System.out.println("User ID: " + userId);
-            System.out.println("Business ID: " + businessId);
-            System.out.println("Appointment ID: " + appointmentId);
-            System.out.println("Rating: " + rating);
-            System.out.println("Review: " + review);
+            System.out. println("Business ID: " + businessId);
+            System.out. println("Appointment ID: " + appointmentId);
+            System. out.println("Rating: " + rating);
+            System.out. println("Review: " + review);
             
             final boolean isValidRating = rating >= 1 && rating <= 5;
             if (isValidRating == false) {
@@ -56,22 +56,43 @@ public class RatingController {
                 review
             );
             
-            System.out.println("✅ Rating created successfully with ID: " + newRating.getId());
+            System.out.println("✅ Rating created successfully with ID: " + newRating. getId());
+            System.out.println("🤖 Sentiment: " + newRating.getSentiment());
+            System.out.println("📊 Sentiment Score: " + newRating.getSentimentScore());
+            System.out.println("📊 Confidence: " + newRating.getSentimentConfidence());
             
-            return ResponseEntity.status(HttpStatus.CREATED).body(newRating);
+            // ✅ BUILD RESPONSE WITH SENTIMENT DATA
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", newRating.getId());
+            response.put("userId", newRating.getUser().getId());
+            response. put("businessId", newRating.getBusiness().getId());
+            response. put("appointmentId", newRating.getAppointment().getId());
+            response.put("rating", newRating.getRating());
+            response.put("review", newRating.getReview());
+            response.put("sentiment", newRating.getSentiment());
+            response.put("sentimentScore", newRating.getSentimentScore());
+            response.put("sentimentConfidence", newRating.getSentimentConfidence());
+            response.put("emotionJoy", newRating.getEmotionJoy());
+            response. put("emotionSadness", newRating.getEmotionSadness());
+            response.put("emotionAnger", newRating.getEmotionAnger());
+            response. put("emotionFear", newRating.getEmotionFear());
+            response.put("emotionDisgust", newRating.getEmotionDisgust());
+            response.put("createdAt", newRating.getCreatedAt());
+            
+            return ResponseEntity.status(HttpStatus. CREATED).body(response);
             
         } catch (IllegalArgumentException e) {
             System.err.println("❌ Validation error: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+            error.put("error", e. getMessage());
+            return ResponseEntity. status(HttpStatus.BAD_REQUEST).body(error);
             
         } catch (Exception e) {
             System.err.println("❌ Error creating rating: " + e.getMessage());
             e.printStackTrace();
             Map<String, String> error = new HashMap<>();
-            error.put("error", "Failed to create rating: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            error. put("error", "Failed to create rating: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR). body(error);
         }
     }
     
@@ -88,14 +109,14 @@ public class RatingController {
             return ResponseEntity.ok(ratings);
             
         } catch (Exception e) {
-            System.err.println("❌ Error fetching ratings: " + e.getMessage());
+            System.err. println("❌ Error fetching ratings: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus. INTERNAL_SERVER_ERROR).body(null);
         }
     }
     
     @GetMapping("/business/{businessId}/summary")
-    public ResponseEntity<?> getBusinessRatingSummary(@PathVariable Long businessId) {
+    public ResponseEntity<? > getBusinessRatingSummary(@PathVariable Long businessId) {
         try {
             System.out.println("📊 Fetching rating summary for business ID: " + businessId);
             
@@ -107,7 +128,7 @@ public class RatingController {
             // ✅ If NO ratings, return proper response
             if (totalRatings == 0) {
                 Map<String, Object> summary = new HashMap<>();
-                summary.put("averageRating", 0.0);
+                summary. put("averageRating", 0.0);
                 summary.put("totalRatings", 0);
                 
                 System.out.println("⚠️ No ratings found - returning zeros");
@@ -132,7 +153,7 @@ public class RatingController {
             final double averageRating = totalScore / totalRatings;
             final double roundedAverage = Math.round(averageRating * 10.0) / 10.0;
             
-            System.out.println("📊 Total score: " + totalScore);
+            System.out. println("📊 Total score: " + totalScore);
             System.out.println("📊 Average: " + averageRating);
             System.out.println("📊 Rounded average: " + roundedAverage);
             
@@ -148,9 +169,8 @@ public class RatingController {
             System.err.println("❌ Error calculating rating summary: " + e.getMessage());
             e.printStackTrace();
             
-            // ✅ Return zeros on error, not defaults
             Map<String, Object> summary = new HashMap<>();
-            summary.put("averageRating", 0.0);
+            summary. put("averageRating", 0.0);
             summary.put("totalRatings", 0);
             
             return ResponseEntity.ok(summary);
@@ -180,30 +200,49 @@ public class RatingController {
         } catch (Exception e) {
             System.err.println("❌ Error fetching user ratings: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR). body(null);
         }
     }
     
     @GetMapping("/appointment/{appointmentId}")
-    public ResponseEntity<?> getRatingByAppointment(@PathVariable Long appointmentId) {
+    public ResponseEntity<? > getRatingByAppointment(@PathVariable Long appointmentId) {
         try {
             System.out.println("🔍 Checking rating for appointment ID: " + appointmentId);
             
             final Optional<Rating> ratingOpt = ratingService.getRatingByAppointment(appointmentId);
             
-            if (ratingOpt.isPresent() == true) {
+            if (ratingOpt. isPresent() == true) {
                 final Rating rating = ratingOpt.get();
                 System.out.println("✅ Rating found for appointment");
-                return ResponseEntity.ok(rating);
+                
+                // ✅ BUILD RESPONSE WITH ALL DATA
+                Map<String, Object> response = new HashMap<>();
+                response.put("id", rating.getId());
+                response.put("userId", rating.getUser().getId());
+                response.put("businessId", rating.getBusiness().getId());
+                response.put("appointmentId", rating.getAppointment().getId());
+                response.put("rating", rating.getRating());
+                response.put("review", rating.getReview());
+                response.put("sentiment", rating. getSentiment());
+                response. put("sentimentScore", rating. getSentimentScore());
+                response.put("sentimentConfidence", rating.getSentimentConfidence());
+                response.put("emotionJoy", rating.getEmotionJoy());
+                response. put("emotionSadness", rating.getEmotionSadness());
+                response.put("emotionAnger", rating.getEmotionAnger());
+                response.put("emotionFear", rating.getEmotionFear());
+                response.put("emotionDisgust", rating. getEmotionDisgust());
+                response.put("createdAt", rating.getCreatedAt());
+                
+                return ResponseEntity.ok(response);
             } else {
-                System.out.println("⚠️ No rating found for this appointment");
+                System.out. println("⚠️ No rating found for this appointment");
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
             }
             
         } catch (Exception e) {
             System.err.println("❌ Error fetching appointment rating: " + e.getMessage());
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR). body(null);
         }
     }
     
@@ -227,15 +266,15 @@ public class RatingController {
         } catch (IllegalArgumentException e) {
             System.err.println("❌ Delete error: " + e.getMessage());
             Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+            error. put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus. FORBIDDEN).body(error);
             
         } catch (Exception e) {
-            System.err.println("❌ Error deleting rating: " + e.getMessage());
+            System.err.println("❌ Error deleting rating: " + e. getMessage());
             e.printStackTrace();
             Map<String, String> error = new HashMap<>();
             error.put("error", "Failed to delete rating");
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+            return ResponseEntity.status(HttpStatus. INTERNAL_SERVER_ERROR).body(error);
         }
     }
 }

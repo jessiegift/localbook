@@ -1,50 +1,64 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 
-const RatingStars = ({ rating, size = 20, editable = false, onRatingChange }) => {
-  // Ensure rating is between 0 and 5
-  const normalizedRating = Math.max(0, Math.min(5, rating));
+const RatingStars = ({ 
+  rating = 0, 
+  size = 20, 
+  editable = false, 
+  onRatingChange = null,
+  color = '#fbbf24',
+  emptyColor = '#d1d5db'
+}) => {
+  // ✅ Ensure rating is between 0 and 5
+  const normalizedRating = Math.max(0, Math.min(5, Math.round(rating)));
   
-  const handleStarPress = (starValue) => {
-    if (editable && onRatingChange) {
+  function handleStarPress(starValue) {
+    if (editable === true && onRatingChange !== null) {
       onRatingChange(starValue);
     }
-  };
-  
+  }
+
   const stars = [];
-  for (let i = 1; i <= 5; i++) {
+  let i = 1;
+  while (i <= 5) {
     const isSelected = i <= normalizedRating;
     const starEmoji = isSelected ? '⭐' : '☆';
+    const starColor = isSelected ? color : emptyColor;
     
-    if (editable) {
-      // Editable - wrap in TouchableOpacity
+    if (editable === true) {
+      // ✅ EDITABLE - with color feedback
       stars.push(
         <TouchableOpacity
           key={i}
-          onPress={() => handleStarPress(i)}
-          activeOpacity={0.7}
-          style={{ marginRight: 4 }}
-        >
-          <Text style={{ fontSize: size }}>
-            {starEmoji}
-          </Text>
-        </TouchableOpacity>
+          onPress={function() { handleStarPress(i); }}
+      activeOpacity={0.6}
+      style={{ marginRight: 4 }}
+    >
+      <Text style={{ 
+        fontSize: size,
+        color: starColor,
+      }}>
+        {starEmoji}
+      </Text>
+    </TouchableOpacity>
       );
     } else {
-      // Display only
+      // ✅ DISPLAY ONLY - read-only
       stars.push(
         <Text 
           key={i} 
           style={{ 
             fontSize: size,
-            color: isSelected ? '#fbbf24' : '#d1d5db',
-            marginRight: 2,
+            color: starColor,
+            marginRight: 4,
           }}
         >
           {starEmoji}
         </Text>
       );
     }
+    
+    i = i + 1;
   }
   
   return (

@@ -13,9 +13,10 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '../../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 const screenDimensions = Dimensions.get('window');
-const SCREEN_WIDTH = screenDimensions.width;
+const SCREEN_WIDTH = screenDimensions. width;
 
 function MyBookingsScreen(props) {
   const navigation = props.navigation;
@@ -36,6 +37,12 @@ function MyBookingsScreen(props) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [availableSlots, setAvailableSlots] = useState([]);
   const [rescheduling, setRescheduling] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [loadingBookedSlots, setLoadingBookedSlots] = useState(false);
+
+  // ✅ NEW: Track which bookings have ratings
+  const [bookingRatings, setBookingRatings] = useState({});
+  const [checkingRatings, setCheckingRatings] = useState({});
 
   const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
@@ -56,11 +63,21 @@ function MyBookingsScreen(props) {
 
   useEffect(function() {
     const unsubscribe = navigation.addListener('focus', function() {
+      console.log('🔄 Screen focused - refreshing bookings');
       fetchBookings();
     });
     
     return unsubscribe;
   }, [navigation, activeTab]);
+
+  // ✅ NEW: Refresh when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('👀 Screen focused - checking for new ratings');
+      fetchBookings();
+      return () => {};
+    }, [activeTab])
+  );
 
   useEffect(function() {
     const isModalShowing = showRescheduleModal === true;
@@ -86,6 +103,182 @@ function MyBookingsScreen(props) {
     }
     
     setAvailableSlots(slots);
+  }
+
+  async function fetchBookedSlots(date) {
+  try {
+    const businessId = selectedBooking?.business?. id;
+    if (!businessId) {
+      console.log('⚠️ No business ID');
+      setBookedSlots([]);
+      return;
+    }
+
+    const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    console.log('📅 Fetching booked slots for:', dateString, 'Business:', businessId);
+
+    setLoadingBookedSlots(true);
+
+    const url = API_BASE_URL + '/appointments/business/' + businessId + '/booked-slots?  date=' + dateString;
+    console.log('📤 URL:', url);
+
+    const authHeader = 'Bearer ' + token;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✅ Booked slots:', data);
+      setBookedSlots(data);  // Array of times like ["09:00", "09:30", "10:00"]
+    } else {
+      console.log('⚠️ No booked slots found');
+      setBookedSlots([]);
+    }
+  } catch (error) {
+    console.error('❌ Error fetching booked slots:', error);
+    setBookedSlots([]);
+  } finally {
+    setLoadingBookedSlots(false);
+  }
+}
+
+// ✅ UPDATE useEffect to fetch booked slots
+useEffect(function() {
+  const isModalShowing = showRescheduleModal === true;
+  if (isModalShowing === true) {
+    generateTimeSlots();
+    fetchBookedSlots(rescheduleDate);  // ✅ ADD THIS
+  }
+}, [rescheduleDate, showRescheduleModal]);
+
+// ✅ UPDATE time slots rendering in the modal
+{availableSlots.map(function(time, index) {
+  const isSelected = rescheduleTime === time;
+  const isBooked = bookedSlots.includes(time);  // ✅ CHECK IF BOOKED
+  
+  let buttonBgColor = '#f9fafb';
+  let buttonBorderColor = '#e5e7eb';
+  let textColor = '#374151';
+
+  // ✅ GRAY OUT BOOKED SLOTS
+  if (isBooked === true) {
+    buttonBgColor = '#f3f4f6';
+    buttonBorderColor = '#d1d5db';
+    textColor = '#9ca3af';
+  } else if (isSelected === true) {
+    buttonBgColor = '#7c3aed';
+    buttonBorderColor = '#7c3aed';
+    textColor = '#ffffff';
+  }
+
+  let marginRight = '3. 5%';
+  const indexPlusOne = index + 1;
+  const remainder = indexPlusOne % 3;
+  const isLastInRow = remainder === 0;
+  
+  if (isLastInRow === true) {
+    marginRight = 0;
+  }
+
+  return (
+    <TouchableOpacity
+      key={index}
+      style={{
+        width: '31%',
+        paddingVertical: 14,
+        borderRadius: 10,
+        borderWidth: 2,
+        marginBottom: 12,
+        backgroundColor: buttonBgColor,
+        borderColor: buttonBorderColor,
+        marginRight: marginRight,
+        opacity: isBooked === true ? 0.5 : 1,  // ✅ MORE TRANSPARENT
+      }}
+      onPress={function() {
+        // ✅ ONLY SELECT IF NOT BOOKED
+        if (isBooked === false) {
+          setRescheduleTime(time);
+        }
+      }}
+      disabled={isBooked === true}  // ✅ DISABLE BOOKED SLOTS
+      activeOpacity={isBooked === true ? 1 : 0.7}
+    >
+      <Text style={{
+        textAlign: 'center',
+        fontWeight: '700',
+        fontSize: 14,
+        color: textColor,
+      }}>
+        {formatTime12Hour(time)}
+        {isBooked === true && '\n❌'}  // ✅ SHOW X FOR BOOKED
+      </Text>
+    </TouchableOpacity>
+  );
+})}
+
+  // ✅ NEW: Check if booking has a rating
+  async function checkForExistingRating(bookingId) {
+    try {
+      console.log('🔍 Checking rating for appointment:', bookingId);
+
+      // Don't check multiple times
+      if (checkingRatings[bookingId] === true) {
+        return;
+      }
+
+      setCheckingRatings(prev => ({
+        ...prev,
+        [bookingId]: true
+      }));
+
+      const url = API_BASE_URL + '/ratings/appointment/' + bookingId;
+      console.log('📤 Request URL:', url);
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('📥 Response Status:', response.status);
+
+      if (response.ok) {
+        console.log('✅ Rating found for appointment:', bookingId);
+        setBookingRatings(prev => ({
+          ...prev,
+          [bookingId]: true  // ✅ Has rating
+        }));
+      } else if (response.status === 404) {
+        console.log('⚠️ No rating found for appointment:', bookingId);
+        setBookingRatings(prev => ({
+          ...prev,
+          [bookingId]: false  // ✅ No rating
+        }));
+      } else {
+        console.error('❌ Unexpected response:', response.status);
+        setBookingRatings(prev => ({
+          ...prev,
+          [bookingId]: false
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Error checking rating:', error);
+      setBookingRatings(prev => ({
+        ...prev,
+        [bookingId]: false
+      }));
+    } finally {
+      setCheckingRatings(prev => ({
+        ...prev,
+        [bookingId]: false
+      }));
+    }
   }
 
   async function fetchBookings() {
@@ -127,7 +320,7 @@ function MyBookingsScreen(props) {
       const isResponseOk = response.ok;
       if (isResponseOk === true) {
         const data = await response.json();
-        console.log('✅ Bookings received:', data);
+        console.log('✅ Bookings received:', data.length);
 
         const now = new Date();
         const filteredBookings = [];
@@ -165,7 +358,7 @@ function MyBookingsScreen(props) {
 
         const sortedBookings = filteredBookings.sort(function(a, b) {
           const dateAString = a.appointmentDateTime;
-          const dateBString = b.appointmentDateTime;
+          const dateBString = b. appointmentDateTime;
           const dateA = new Date(dateAString);
           const dateB = new Date(dateBString);
           
@@ -180,18 +373,34 @@ function MyBookingsScreen(props) {
         });
 
         const sortedBookingsLength = sortedBookings.length;
-        const logMessage = '📋 ' + activeTab + ' bookings: ' + sortedBookingsLength.toString();
+        const logMessage = '📋 ' + activeTab + ' bookings: ' + sortedBookingsLength. toString();
         console.log(logMessage);
         
         setBookings(sortedBookings);
+
+        // ✅ NEW: Check ratings for completed bookings
+        let bookingIndex = 0;
+        while (bookingIndex < sortedBookings.length) {
+          const booking = sortedBookings[bookingIndex];
+          const bookingStatus = booking.status;
+          const isCompleted = bookingStatus === 'COMPLETED';
+          
+          if (isCompleted === true) {
+            const bookingId = booking.id;
+            checkForExistingRating(bookingId);
+          }
+          
+          bookingIndex = bookingIndex + 1;
+        }
+
       } else {
         const errorText = await response.text();
-        console.error('❌ Failed to fetch bookings:', errorText);
+        console. error('❌ Failed to fetch bookings:', errorText);
         Alert.alert('Error', 'Failed to load bookings');
       }
     } catch (error) {
       console.error('❌ Error fetching bookings:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
+      Alert.alert('Error', 'Network error.  Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -219,8 +428,8 @@ function MyBookingsScreen(props) {
     ];
     
     Alert.alert(
-      'Cancel Booking?',
-      'This action cannot be undone. Are you sure?',
+      'Cancel Booking? ',
+      'This action cannot be undone. Are you sure? ',
       alertButtons
     );
   }
@@ -229,8 +438,8 @@ function MyBookingsScreen(props) {
     try {
       console.log('🗑️ Cancelling booking:', bookingId);
 
-      const userId = user.id;
-      const apiUrl = API_BASE_URL + '/appointments/' + bookingId.toString() + '/cancel?userId=' + userId.toString();
+      const userId = user. id;
+      const apiUrl = API_BASE_URL + '/appointments/' + bookingId. toString() + '/cancel? userId=' + userId. toString();
       
       const authHeader = 'Bearer ' + token;
       const requestHeaders = {
@@ -247,7 +456,7 @@ function MyBookingsScreen(props) {
 
       const isResponseOk = response.ok;
       if (isResponseOk === true) {
-        console.log('✅ Booking cancelled');
+        console. log('✅ Booking cancelled');
         Alert.alert('Cancelled', 'Your booking has been cancelled');
         fetchBookings();
       } else {
@@ -261,23 +470,24 @@ function MyBookingsScreen(props) {
     }
   }
 
-  // ⭐ NEW: Handle navigate to review screen
+  // ✅ NEW: Handle navigate to review screen
   function handleLeaveReview(booking) {
-    console.log('⭐ Navigating to review screen for booking:', booking.id);
-    
-    const business = booking.business;
-    const businessId = business.id;
-    const businessName = business.businessName;
-    const appointmentId = booking.id;
-    const userId = user.id;
-    
-    navigation.navigate('RateBusiness', {
-      businessId: businessId,
-      businessName: businessName,
-      appointmentId: appointmentId,
-      userId: userId,
-    });
-  }
+  console.log('⭐ Navigating to review screen for booking:', booking.id);
+  
+  const business = booking.business;
+  const businessId = business.id;
+  const businessName = business.businessName;
+  const appointmentId = booking.id;
+  const userId = user. id;
+  
+  // ❌ CHANGE THIS LINE:
+  navigation.navigate('RateBusiness', {  // ← Changed from 'RateBusinessScreen'
+    businessId: businessId,
+    businessName: businessName,
+    appointmentId: appointmentId,
+    userId: userId,
+  });
+}
 
   function handleOpenRescheduleModal(booking) {
     const bookingId = booking.id;
@@ -366,7 +576,7 @@ function MyBookingsScreen(props) {
       return;
     }
 
-    console.log('🔄 Starting reschedule process...');
+    console.log('🔄 Starting reschedule process.. .');
     
     const bookingId = selectedBooking.id;
     console.log('📋 Booking ID:', bookingId);
@@ -380,7 +590,7 @@ function MyBookingsScreen(props) {
 
     try {
       const dateISOString = rescheduleDate.toISOString();
-      const dateParts = dateISOString.split('T');
+      const dateParts = dateISOString. split('T');
       const dateStr = dateParts[0];
       const newDateTime = dateStr + 'T' + rescheduleTime + ':00';
 
@@ -417,9 +627,9 @@ function MyBookingsScreen(props) {
         let data;
         try {
           data = JSON.parse(responseText);
-          console.log('✅ Reschedule successful! Data:', data);
+          console.log('✅ Reschedule successful!  Data:', data);
         } catch (parseError) {
-          console.log('✅ Reschedule successful! (no JSON response)');
+          console.log('✅ Reschedule successful!  (no JSON response)');
         }
         
         handleCloseRescheduleModal();
@@ -437,7 +647,7 @@ function MyBookingsScreen(props) {
           },
         ];
         
-        Alert.alert('Rescheduled! ✓', successMessage, alertButtons);
+        Alert.alert('Rescheduled!  ✓', successMessage, alertButtons);
       } else {
         console.error('❌ Reschedule failed with status:', responseStatus);
         console.error('❌ Response text:', responseText);
@@ -494,7 +704,7 @@ function MyBookingsScreen(props) {
   }
 
   function isAppointmentSoon(booking) {
-    const appointmentDateTimeString = booking.appointmentDateTime;
+    const appointmentDateTimeString = booking. appointmentDateTime;
     const appointmentDateTime = new Date(appointmentDateTimeString);
     const timeDiff = appointmentDateTime - currentTime;
     const minutesDiff = timeDiff / 60000;
@@ -512,7 +722,7 @@ function MyBookingsScreen(props) {
     const timeDiff = appointmentDateTime - currentTime;
     const minutesDiff = Math.floor(timeDiff / 60000);
     const hoursDiff = Math.floor(minutesDiff / 60);
-    const daysDiff = Math.floor(hoursDiff / 24);
+    const daysDiff = Math. floor(hoursDiff / 24);
 
     const isNow = isAppointmentNow(booking);
     if (isNow === true) {
@@ -617,7 +827,7 @@ function MyBookingsScreen(props) {
     let businessName = 'Business';
     const hasBusiness = item.business !== null && item.business !== undefined;
     if (hasBusiness === true) {
-      const hasBusinessName = item.business.businessName !== null && item.business.businessName !== undefined;
+      const hasBusinessName = item.business.businessName !== null && item.business. businessName !== undefined;
       if (hasBusinessName === true) {
         businessName = item.business.businessName;
       }
@@ -634,7 +844,7 @@ function MyBookingsScreen(props) {
 
     let durationMinutes = 60;
     if (hasService === true) {
-      const hasDurationMinutes = item.service.durationMinutes !== null && item.service.durationMinutes !== undefined;
+      const hasDurationMinutes = item.service. durationMinutes !== null && item. service.durationMinutes !== undefined;
       if (hasDurationMinutes === true) {
         durationMinutes = item.service.durationMinutes;
       }
@@ -654,11 +864,13 @@ function MyBookingsScreen(props) {
     const isConfirmed = itemStatus === 'CONFIRMED';
     const showActionButtons = isUpcoming === true && isConfirmed === true;
 
-    // ⭐ NEW: Check if completed and not reviewed
+    // ✅ NEW: Check if completed and not reviewed
     const isCompleted = itemStatus === 'COMPLETED';
-    const hasReviewed = item.hasReviewed || false; // This comes from backend
-    const showReviewButton = isCompleted === true && hasReviewed === false;
-    const showReviewedBadge = isCompleted === true && hasReviewed === true;
+    const bookingId = item.id;
+    const hasRating = bookingRatings[bookingId];
+    const isCheckingRating = checkingRatings[bookingId];
+    const showReviewButton = isCompleted === true && hasRating === false && isCheckingRating !== true;
+    const showReviewedBadge = isCompleted === true && hasRating === true;
 
     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const month = appointmentDate.getMonth();
@@ -669,7 +881,7 @@ function MyBookingsScreen(props) {
     const hours = appointmentDate.getHours();
     const minutes = appointmentDate.getMinutes();
     const minutesString = minutes.toString();
-    const paddedMinutes = minutesString.padStart(2, '0');
+    const paddedMinutes = minutesString. padStart(2, '0');
     
     let ampm = 'AM';
     const isAfternoon = hours >= 12;
@@ -807,7 +1019,7 @@ function MyBookingsScreen(props) {
                   </View>
                 )}
 
-                {/* ⭐ NEW: Show "Reviewed" badge if already reviewed */}
+                {/* ✅ NEW: Show "✅ Reviewed" badge if already reviewed */}
                 {showReviewedBadge === true && (
                   <View style={{
                     backgroundColor: '#d1fae5',
@@ -847,7 +1059,7 @@ function MyBookingsScreen(props) {
               </View>
             </View>
 
-            {/* ⭐ UPDATED: Action buttons - show reschedule/cancel OR review button */}
+            {/* ✅ UPDATED: Action buttons - show reschedule/cancel OR review button */}
             {showActionButtons === true && (
               <View style={{
                 flexDirection: 'row',
@@ -897,7 +1109,7 @@ function MyBookingsScreen(props) {
               </View>
             )}
 
-            {/* ⭐ NEW: Review button for completed appointments */}
+            {/* ✅ NEW: Review button for completed appointments without ratings */}
             {showReviewButton === true && (
               <View style={{
                 borderTopWidth: 1,
@@ -1005,7 +1217,7 @@ function MyBookingsScreen(props) {
   const isPastTab = activeTab === 'past';
 
   const bookingsCount = bookings.length;
-  const bookingsCountString = bookingsCount.toString();
+  const bookingsCountString = bookingsCount. toString();
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
@@ -1069,7 +1281,7 @@ function MyBookingsScreen(props) {
               textAlign: 'center',
               fontSize: 15,
               fontWeight: '700',
-              color: isPastTab === true ? '#7c3aed' : '#e9d5ff',
+              color: isPastTab === true ?  '#7c3aed' : '#e9d5ff',
             }}>
               Past
             </Text>
@@ -1084,10 +1296,10 @@ function MyBookingsScreen(props) {
         }} />
       </View>
 
-      {loading === true ? (
+      {loading === true ?  (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color="#7c3aed" />
-          <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 15 }}>Loading...</Text>
+          <Text style={{ marginTop: 16, color: '#6b7280', fontSize: 15 }}>Loading... </Text>
         </View>
       ) : (
         <View style={{ flex: 1 }}>
@@ -1120,15 +1332,14 @@ function MyBookingsScreen(props) {
         </View>
       )}
 
-      {/* Reschedule Modal - keeping your existing modal code */}
+      {/* Reschedule Modal */}
       <Modal
         visible={showRescheduleModal}
         transparent={true}
         animationType="slide"
         onRequestClose={handleCloseRescheduleModal}
       >
-        {/* Your existing reschedule modal code here - keeping it the same */}
-        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0. 6)' }}>
           <View style={{
             flex: 1,
             marginTop: 60,
@@ -1166,7 +1377,6 @@ function MyBookingsScreen(props) {
               contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 24 }}
               showsVerticalScrollIndicator={false}
             >
-              {/* Your existing modal content */}
               {selectedBooking && (
                 <View style={{
                   backgroundColor: '#f9fafb',
@@ -1183,7 +1393,7 @@ function MyBookingsScreen(props) {
                     {(function() {
                       const hasService = selectedBooking.service !== null && selectedBooking.service !== undefined;
                       if (hasService === true) {
-                        const hasServiceName = selectedBooking.service.serviceName !== null && selectedBooking.service.serviceName !== undefined;
+                        const hasServiceName = selectedBooking.service. serviceName !== null && selectedBooking. service.serviceName !== undefined;
                         if (hasServiceName === true) {
                           return selectedBooking.service.serviceName;
                         }
@@ -1213,7 +1423,7 @@ function MyBookingsScreen(props) {
                         hour12 = 12;
                       }
                       
-                      const hour12String = hour12.toString();
+                      const hour12String = hour12. toString();
                       const timeStr = hour12String + ':' + paddedMinutes + ' ' + ampm;
                       
                       return dateStr + ' at ' + timeStr;
@@ -1222,7 +1432,6 @@ function MyBookingsScreen(props) {
                 </View>
               )}
 
-              {/* Rest of your reschedule modal UI - keep as is */}
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 12 }}>
                 Select New Date
               </Text>
@@ -1339,7 +1548,7 @@ function MyBookingsScreen(props) {
                       textColor = '#ffffff';
                     }
 
-                    let marginRight = '3.5%';
+                    let marginRight = '3. 5%';
                     if (isLastInRow === true) {
                       marginRight = 0;
                     }

@@ -11,6 +11,7 @@ import com.localbook.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -29,72 +30,105 @@ public class RatingService {
     
     @Autowired
     private AppointmentRepository appointmentRepository;
-    
+     // ✅ NEW: Inject Sentiment Analysis Service
+   @Autowired
+    private IBMWatsonSentimentService ibmWatsonSentimentService;
     public Rating createRating(
-            Long userId,
-            Long businessId,
-            Long appointmentId,
-            Integer rating,
-            String review) {
-        
-        System.out.println("=== CREATE RATING SERVICE ===");
-        System.out.println("User ID: " + userId);
-        System.out.println("Business ID: " + businessId);
-        System.out.println("Appointment ID: " + appointmentId);
-        System.out.println("Rating: " + rating);
-        
-        final Optional<User> userOpt = userRepository.findById(userId);
-        if (userOpt.isPresent() == false) {
-            final String errorMessage = "User not found with ID: " + userId;
-            throw new IllegalArgumentException(errorMessage);
-        }
-        final User user = userOpt.get();
-        
-        final Optional<Business> businessOpt = businessRepository.findById(businessId);
-        if (businessOpt.isPresent() == false) {
-            final String errorMessage = "Business not found with ID: " + businessId;
-            throw new IllegalArgumentException(errorMessage);
-        }
-        final Business business = businessOpt.get();
-        
-        final Optional<Appointment> appointmentOpt = appointmentRepository.findById(appointmentId);
-        if (appointmentOpt.isPresent() == false) {
-            final String errorMessage = "Appointment not found with ID: " + appointmentId;
-            throw new IllegalArgumentException(errorMessage);
-        }
-        final Appointment appointment = appointmentOpt.get();
-        
-        final Long appointmentUserId = appointment.getUser().getId();
-        final boolean isUserMatch = appointmentUserId.equals(userId);
-        if (isUserMatch == false) {
-            throw new IllegalArgumentException("Appointment does not belong to this user");
-        }
-        
-        final Long appointmentBusinessId = appointment.getBusiness().getId();
-        final boolean isBusinessMatch = appointmentBusinessId.equals(businessId);
-        if (isBusinessMatch == false) {
-            throw new IllegalArgumentException("Appointment is not for this business");
-        }
-        
-        final Optional<Rating> existingRatingOpt = ratingRepository.findByAppointment(appointment);
-        if (existingRatingOpt.isPresent() == true) {
-            throw new IllegalArgumentException("Rating already exists for this appointment");
-        }
-        
-        final Rating newRating = new Rating();
-        newRating.setUser(user);
-        newRating.setBusiness(business);
-        newRating.setAppointment(appointment);
-        newRating.setRating(rating);
-        newRating.setReview(review);
-        newRating.setCreatedAt(LocalDateTime.now());
-        
-        final Rating savedRating = ratingRepository.save(newRating);
-        
-        System.out.println("✅ Rating created with ID: " + savedRating.getId());
-        
-        return savedRating;
+        Long userId,
+        Long businessId,
+        Long appointmentId,
+        Integer rating,
+        String review) {
+    
+    System.out.println("=== CREATE RATING SERVICE ===");
+    System.out.println("User ID: " + userId);
+    System.out.println("Business ID: " + businessId);
+    System.out.println("Appointment ID: " + appointmentId);
+    System.out.println("Rating: " + rating);
+    
+    final Optional<User> userOpt = userRepository.findById(userId);
+    if (userOpt.isPresent() == false) {
+        final String errorMessage = "User not found with ID: " + userId;
+        throw new IllegalArgumentException(errorMessage);
     }
+    final User user = userOpt.get();
+    
+    final Optional<Business> businessOpt = businessRepository.findById(businessId);
+    if (businessOpt.isPresent() == false) {
+        final String errorMessage = "Business not found with ID: " + businessId;
+        throw new IllegalArgumentException(errorMessage);
+    }
+    final Business business = businessOpt.get();
+    
+    final Optional<Appointment> appointmentOpt = appointmentRepository.findById(appointmentId);
+    if (appointmentOpt.isPresent() == false) {
+        final String errorMessage = "Appointment not found with ID: " + appointmentId;
+        throw new IllegalArgumentException(errorMessage);
+    }
+    final Appointment appointment = appointmentOpt.get();
+    
+    final Long appointmentUserId = appointment.getUser().getId();
+    final boolean isUserMatch = appointmentUserId.equals(userId);
+    if (isUserMatch == false) {
+        throw new IllegalArgumentException("Appointment does not belong to this user");
+    }
+    
+    final Long appointmentBusinessId = appointment.getBusiness().getId();
+    final boolean isBusinessMatch = appointmentBusinessId.equals(businessId);
+    if (isBusinessMatch == false) {
+        throw new IllegalArgumentException("Appointment is not for this business");
+    }
+    
+    final Optional<Rating> existingRatingOpt = ratingRepository.findByAppointment(appointment);
+    if (existingRatingOpt. isPresent() == true) {
+        throw new IllegalArgumentException("Rating already exists for this appointment");
+    }
+    
+    final Rating newRating = new Rating();
+    newRating.setUser(user);
+    newRating. setBusiness(business);
+    newRating.setAppointment(appointment);
+    newRating. setRating(rating);
+    newRating.setReview(review);
+    newRating. setCreatedAt(LocalDateTime. now());
+    
+    // ✅✅✅ NEW: Analyze sentiment if review text exists ✅✅✅
+   if (review != null && ! review.trim().isEmpty()) {
+    System.out.println("🤖 Analyzing sentiment with IBM Watson...");
+    
+    IBMWatsonSentimentService.SentimentAnalysisResult sentimentResult = 
+        ibmWatsonSentimentService.analyzeSentiment(review);
+    
+    newRating.setSentiment(sentimentResult.getSentiment());
+    newRating.setSentimentScore(sentimentResult. getScore());
+    newRating.setSentimentConfidence(sentimentResult.getConfidence());
+    
+    // ✅ Save emotion data if available
+    if (sentimentResult.getEmotions() != null) {
+        IBMWatsonSentimentService.EmotionData emotions = sentimentResult.getEmotions();
+        newRating.setEmotionJoy(emotions.getJoy());
+        newRating.setEmotionSadness(emotions. getSadness());
+        newRating.setEmotionAnger(emotions.getAnger());
+        newRating.setEmotionFear(emotions.getFear());
+        newRating.setEmotionDisgust(emotions.getDisgust());
+        
+        System.out.println("😊 Joy: " + emotions.getJoy());
+        System.out.println("😢 Sadness: " + emotions.getSadness());
+        System.out.println("😠 Anger: " + emotions.getAnger());
+    }
+    
+    System.out.println("✅ Sentiment: " + sentimentResult.getSentiment());
+    System.out. println("📊 Score: " + sentimentResult.getScore());
+    System.out.println("🎲 Confidence: " + sentimentResult.getConfidence());
+}
+    // ✅✅✅ END OF NEW CODE ✅✅✅
+    
+    final Rating savedRating = ratingRepository.save(newRating);
+    
+    System.out.println("✅ Rating created with ID: " + savedRating.getId());
+    
+    return savedRating;
+ }
     
     public List<Rating> getBusinessRatings(Long businessId) {
         System.out.println("📊 Fetching ratings for business ID: " + businessId);
