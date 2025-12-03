@@ -57,7 +57,7 @@ function RegisterScreen(props) {
       return;
     }
 
-    const trimmedEmail = email.trim();
+    const trimmedEmail = email. trim();
     const hasEmail = trimmedEmail.length > 0;
     if (hasEmail === false) {
       Alert.alert('Error', 'Please fill in your email');
@@ -129,16 +129,16 @@ function RegisterScreen(props) {
       role: selectedRole,
     };
 
-    const trimmedPhoneNumber = phoneNumber.trim();
-    const hasPhoneNumber = trimmedPhoneNumber.length > 0;
+    const trimmedPhoneNumber = phoneNumber. trim();
+    const hasPhoneNumber = trimmedPhoneNumber. length > 0;
     if (hasPhoneNumber === true) {
-      registrationData.phoneNumber = trimmedPhoneNumber;
+      registrationData. phoneNumber = trimmedPhoneNumber;
     }
 
     if (isBusinessOwner === true) {
-      const trimmedBusinessName = businessName.trim();
+      const trimmedBusinessName = businessName. trim();
       const trimmedLocation = location.trim();
-      const trimmedCategory = category.trim();
+      const trimmedCategory = category. trim();
       const trimmedDescription = description.trim();
 
       registrationData.businessName = trimmedBusinessName;
@@ -147,7 +147,7 @@ function RegisterScreen(props) {
 
       const hasDescription = trimmedDescription.length > 0;
       if (hasDescription === true) {
-        registrationData.description = trimmedDescription;
+        registrationData. description = trimmedDescription;
       }
     }
 
@@ -189,9 +189,19 @@ function RegisterScreen(props) {
 
   const isNotLoading = loading === false;
 
+  let keyboardBehavior = 'height';
+  if (isIOS === true) {
+    keyboardBehavior = 'padding';
+  }
+
+  let loadingButtonColor = '#7c3aed';
+  if (loading === true) {
+    loadingButtonColor = '#a78bfa';
+  }
+
   return (
     <KeyboardAvoidingView
-      behavior={isIOS === true ? 'padding' : 'height'}
+      behavior={keyboardBehavior}
       style={{ flex: 1, backgroundColor: '#f9fafb' }}
     >
       <ScrollView
@@ -254,6 +264,8 @@ function RegisterScreen(props) {
                 onChangeText={setName}
                 autoCapitalize="words"
                 editable={isNotLoading}
+                autoComplete="name"
+                textContentType="name"
               />
             </View>
 
@@ -285,6 +297,8 @@ function RegisterScreen(props) {
                 keyboardType="email-address"
                 autoCorrect={false}
                 editable={isNotLoading}
+                autoComplete="email"
+                textContentType="emailAddress"
               />
             </View>
 
@@ -314,6 +328,8 @@ function RegisterScreen(props) {
                 onChangeText={setPhoneNumber}
                 keyboardType="phone-pad"
                 editable={isNotLoading}
+                autoComplete="tel"
+                textContentType="telephoneNumber"
               />
             </View>
 
@@ -344,6 +360,7 @@ function RegisterScreen(props) {
                     value={businessName}
                     onChangeText={setBusinessName}
                     editable={isNotLoading}
+                    autoComplete="off"
                   />
                 </View>
 
@@ -371,6 +388,7 @@ function RegisterScreen(props) {
                     value={location}
                     onChangeText={setLocation}
                     editable={isNotLoading}
+                    autoComplete="off"
                   />
                 </View>
 
@@ -398,6 +416,7 @@ function RegisterScreen(props) {
                     value={category}
                     onChangeText={setCategory}
                     editable={isNotLoading}
+                    autoComplete="off"
                   />
                 </View>
 
@@ -429,6 +448,7 @@ function RegisterScreen(props) {
                     multiline={true}
                     numberOfLines={4}
                     editable={isNotLoading}
+                    autoComplete="off"
                   />
                 </View>
               </View>
@@ -461,6 +481,9 @@ function RegisterScreen(props) {
                 secureTextEntry={true}
                 autoCapitalize="none"
                 editable={isNotLoading}
+                autoComplete="password-new"
+                textContentType="newPassword"
+                importantForAutofill="no"
               />
               <Text style={{
                 fontSize: 12,
@@ -498,13 +521,16 @@ function RegisterScreen(props) {
                 secureTextEntry={true}
                 autoCapitalize="none"
                 editable={isNotLoading}
+                autoComplete="password-new"
+                textContentType="newPassword"
+                importantForAutofill="no"
               />
             </View>
 
             {/* Register Button */}
             <TouchableOpacity
               style={{
-                backgroundColor: loading === true ? '#a78bfa' : '#7c3aed',
+                backgroundColor: loadingButtonColor,
                 padding: 16,
                 borderRadius: 12,
                 alignItems: 'center',

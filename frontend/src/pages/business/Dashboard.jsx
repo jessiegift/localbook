@@ -30,7 +30,7 @@ const Dashboard = () => {
 
     const fetchDashboardData = async (isAutoRefresh = false) => {
         try {
-            if (!isAutoRefresh) {
+            if (! isAutoRefresh) {
                 setLoading(true);
             } else {
                 setRefreshing(true);
@@ -39,14 +39,14 @@ const Dashboard = () => {
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('🔄 FETCHING DASHBOARD DATA');
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.log('👤 Logged in user:', user.name);
-            console.log('🆔 User ID:', user.id);
+            console.log('👤 Logged in user:', user. name);
+            console.log('🆔 User ID:', user. id);
             console.log('🏢 Business ID:', user.businessId);
             console.log('🌐 API Endpoint:', `/businesses/${user.businessId}/dashboard`);
             console.log('⏰ Time:', new Date().toLocaleTimeString());
 
             // Use the backend dashboard endpoint
-            const response = await api.get(`/businesses/${user.businessId}/dashboard`);
+            const response = await api.get(`/businesses/${user. businessId}/dashboard`);
             const dashboardData = response.data;
 
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -54,12 +54,12 @@ const Dashboard = () => {
             console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('📊 Dashboard data:', dashboardData);
             console.log('📈 Stats:', dashboardData.stats);
-            console.log('📅 Today\'s schedule:', dashboardData.todaySchedule?.length || 0, 'appointments');
+            console.log('📅 Today\'s schedule:', dashboardData.todaySchedule?. length || 0, 'appointments');
 
             // Set stats from backend
             setStats({
                 todayAppointments: dashboardData.stats.todayAppointments || 0,
-                weekAppointments: dashboardData.stats.weekAppointments || 0,
+                weekAppointments: dashboardData.stats. weekAppointments || 0,
                 monthRevenue: dashboardData.stats.monthRevenue || 0,
                 totalCustomers: dashboardData.stats.totalCustomers || 0,
             });
@@ -104,7 +104,7 @@ const Dashboard = () => {
     };
 
     const formatTime = (dateString) => {
-        if (!dateString) return "N/A";
+        if (! dateString) return "N/A";
         const date = new Date(dateString);
         return date.toLocaleTimeString("en-IE", {
             hour: "2-digit",
@@ -131,7 +131,7 @@ const Dashboard = () => {
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                Welcome back, {user?.name}! 👋
+                                Welcome back, {user?. name}!  👋
                             </h1>
                             <p className="text-gray-600">Managing your Carlow business</p>
                             
@@ -140,7 +140,7 @@ const Dashboard = () => {
                             onClick={handleRefresh}
                             disabled={refreshing}
                             className={`flex items-center gap-2 px-5 py-3 bg-white rounded-xl shadow-md hover:shadow-lg transition-all border border-gray-200 ${
-                                refreshing ? "opacity-50 cursor-not-allowed" : ""
+                                refreshing ?  "opacity-50 cursor-not-allowed" : ""
                             }`}
                         >
                             <span className={`text-xl ${refreshing ? "animate-spin" : ""}`}>
@@ -156,62 +156,50 @@ const Dashboard = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {/* Today's Appointments */}
-                    <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white rounded-lg shadow-md border-l-4 border-blue-500 p-6 hover:shadow-lg transition">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-blue-100 text-sm font-medium">Today's Appointments</p>
-                                <p className="text-4xl font-bold mt-2">{stats.todayAppointments}</p>
+                                <p className="text-sm font-medium text-gray-600 mb-2">Today's Appointments</p>
+                                <p className="text-4xl font-bold text-gray-900">{stats.todayAppointments}</p>
+                                <p className="text-xs text-gray-500 mt-2">{todaySchedule.length} on schedule</p>
                             </div>
-                            <div className="text-5xl opacity-80">📅</div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-blue-400">
-                            <p className="text-sm text-blue-100">
-                                {todaySchedule.length} on schedule
-                            </p>
+                            <div className="text-5xl opacity-60">📅</div>
                         </div>
                     </div>
 
                     {/* This Week's Appointments */}
-                    <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white rounded-lg shadow-md border-l-4 border-green-500 p-6 hover:shadow-lg transition">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-green-100 text-sm font-medium">This Week</p>
-                                <p className="text-4xl font-bold mt-2">{stats.weekAppointments}</p>
+                                <p className="text-sm font-medium text-gray-600 mb-2">This Week</p>
+                                <p className="text-4xl font-bold text-gray-900">{stats.weekAppointments}</p>
+                                <p className="text-xs text-gray-500 mt-2">Total bookings</p>
                             </div>
-                            <div className="text-5xl opacity-80">📊</div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-green-400">
-                            <p className="text-sm text-green-100">
-                                Total bookings
-                            </p>
+                            <div className="text-5xl opacity-60">📊</div>
                         </div>
                     </div>
 
                     {/* Month Revenue */}
-                    <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white rounded-lg shadow-md border-l-4 border-yellow-500 p-6 bg-yellow-50 hover:shadow-lg transition">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-purple-100 text-sm font-medium">Month Revenue</p>
-                                <p className="text-4xl font-bold mt-2">€{stats.monthRevenue.toFixed(2)}</p>
+                                <p className="text-sm font-medium text-gray-600 mb-2">Month Revenue</p>
+                                <p className="text-4xl font-bold text-gray-900">€{stats.monthRevenue.toFixed(2)}</p>
+                                <p className="text-xs text-gray-500 mt-2">From completed bookings</p>
                             </div>
-                            <div className="text-5xl opacity-80">💰</div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-purple-400">
-                            <p className="text-sm text-purple-100">From completed bookings</p>
+                            <div className="text-5xl opacity-60">💰</div>
                         </div>
                     </div>
 
                     {/* Total Customers */}
-                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-xl shadow-lg transform transition hover:scale-105">
-                        <div className="flex items-center justify-between mb-3">
+                    <div className="bg-white rounded-lg shadow-md border-l-4 border-orange-500 p-6 hover:shadow-lg transition">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-orange-100 text-sm font-medium">Total Customers</p>
-                                <p className="text-4xl font-bold mt-2">{stats.totalCustomers}</p>
+                                <p className="text-sm font-medium text-gray-600 mb-2">Total Customers</p>
+                                <p className="text-4xl font-bold text-gray-900">{stats.totalCustomers}</p>
+                                <p className="text-xs text-gray-500 mt-2">clients</p>
                             </div>
-                            <div className="text-5xl opacity-80">👥</div>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-orange-400">
-                            <p className="text-sm text-orange-100">clients</p>
+                            <div className="text-5xl opacity-60">👥</div>
                         </div>
                     </div>
                 </div>
@@ -234,14 +222,14 @@ const Dashboard = () => {
                                 <div key={apt.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition border-l-4 border-blue-500">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                                            {apt.user?.name?.charAt(0) || apt.user?.username?.charAt(0) || 'U'}
+                                            {apt.user?. name?. charAt(0) || apt.user?.username?. charAt(0) || 'U'}
                                         </div>
                                         <div>
                                             <p className="font-semibold text-gray-900">
                                                 {apt.user?.name || apt.user?.username || 'Unknown'}
                                             </p>
                                             <p className="text-sm text-gray-600">
-                                                {apt.service?.serviceName || 'General Service'}
+                                                {apt.service?. serviceName || 'General Service'}
                                             </p>
                                         </div>
                                     </div>
@@ -250,7 +238,7 @@ const Dashboard = () => {
                                         <p className="text-sm text-gray-600">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                                 apt.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                                apt.status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
+                                                apt. status === 'CONFIRMED' ? 'bg-blue-100 text-blue-800' :
                                                 apt.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
                                                 'bg-gray-100 text-gray-800'
                                             }`}>

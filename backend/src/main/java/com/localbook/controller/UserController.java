@@ -42,75 +42,128 @@ public class UserController {
     
     // Register a new client
     @PostMapping("/register/client")
-    public ResponseEntity<User> registerClient(@RequestBody User user) {
-        try {
-            User newUser = userService.registerClient(user);
-            
-            // ✅ NEW: Create default notification settings
-            createDefaultNotificationSettings(newUser.getId());
-            
-            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        }
+public ResponseEntity<? > registerClient(@RequestBody User user) {
+    try {
+        User newUser = userService.registerClient(user);
+        
+        // ✅ Create default notification settings
+        createDefaultNotificationSettings(newUser.getId());
+        
+        // ✅ Generate JWT token
+        String token = jwtUtil.generateToken(
+            newUser.getId(),
+            newUser.getEmail(),
+            newUser.getRole().toString()
+        );
+        
+        // Build response with token
+        Map<String, Object> userResponse = new HashMap<>();
+        userResponse.put("id", newUser.getId());
+        userResponse.put("name", newUser. getName());
+        userResponse.put("email", newUser.getEmail());
+        userResponse.put("phoneNumber", newUser.getPhoneNumber());
+        userResponse. put("role", newUser.getRole().toString());
+        userResponse.put("businessId", newUser.getBusinessId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response. put("token", token);
+        response.put("user", userResponse);
+        
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        
+    } catch (IllegalArgumentException e) {
+        Map<String, String> error = new HashMap<>();
+        error.put("message", e.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
-    
-    // Register a new business owner
-    @PostMapping("/register/business-owner")
-    public ResponseEntity<User> registerBusinessOwner(@RequestBody User user) {
-        try {
-            User newUser = userService.registerBusinessOwner(user);
-            
-            // ✅ NEW: Create default notification settings
-            createDefaultNotificationSettings(newUser.getId());
-            
-            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        }
+}
+
+@PostMapping("/register/business-owner")
+public ResponseEntity<?> registerBusinessOwner(@RequestBody User user) {
+    try {
+        User newUser = userService.registerBusinessOwner(user);
+        
+        // ✅ Create default notification settings
+        createDefaultNotificationSettings(newUser.getId());
+        
+        // ✅ Generate JWT token
+        String token = jwtUtil.generateToken(
+            newUser.getId(),
+            newUser.getEmail(),
+            newUser.getRole().toString()
+        );
+        
+        // Build response with token
+        Map<String, Object> userResponse = new HashMap<>();
+        userResponse. put("id", newUser.getId());
+        userResponse.put("name", newUser.getName());
+        userResponse.put("email", newUser.getEmail());
+        userResponse.put("phoneNumber", newUser.getPhoneNumber());
+        userResponse.put("role", newUser.getRole().toString());
+        userResponse.put("businessId", newUser.getBusinessId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", userResponse);
+        
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        
+    } catch (IllegalArgumentException e) {
+        Map<String, String> error = new HashMap<>();
+        error.put("message", e.getMessage());
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
-    
+}
     // Login with JWT token generation
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
-        System.out.println("📥 Login request for: " + loginRequest.getEmail());
+public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+    System.out.println("📥 Login request for: " + loginRequest.getEmail());
+    
+    try {
+        // Authenticate user
+        User user = userService. getUserByEmail(loginRequest.getEmail())
+            .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
         
-        try {
-            // Authenticate user
-            User user = userService.getUserByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid credentials"));
-            
-            // Verify password (add proper password checking here)
-            // For now, assuming password is already validated in userService
-            
-            // ✅ NEW: Ensure notification settings exist
-            createDefaultNotificationSettings(user.getId());
-            
-            // Build response
-            Map<String, Object> userResponse = new HashMap<>();
-            userResponse.put("id", user.getId());
-            userResponse.put("name", user.getName());
-            userResponse.put("email", user.getEmail());
-            userResponse.put("phoneNumber", user.getPhoneNumber());
-            userResponse.put("role", user.getRole().toString());
-            userResponse.put("businessId", user.getBusinessId());
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("token", "token_" + user.getId());
-            response.put("user", userResponse);
-            
-            System.out.println("✅ Login successful: " + response);
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (IllegalArgumentException e) {
-            System.out.println("❌ Login failed: " + e.getMessage());
-            
-            Map<String, String> error = new HashMap<>();
-            error.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
-        }
+        // Verify password (add proper password checking here)
+        // For now, assuming password is already validated in userService
+        
+        // ✅ NEW: Ensure notification settings exist
+        createDefaultNotificationSettings(user.getId());
+        
+        // ✅ FIXED: Generate REAL JWT token
+        String token = jwtUtil.generateToken(
+            user.getId(),
+            user.getEmail(),
+            user. getRole(). toString()
+        );
+        
+        System.out.println("🔐 Generated JWT for user " + user.getId() + ": " + token. substring(0, 20) + "...");
+        
+        // Build response
+        Map<String, Object> userResponse = new HashMap<>();
+        userResponse.put("id", user.getId());
+        userResponse.put("name", user. getName());
+        userResponse.put("email", user.getEmail());
+        userResponse.put("phoneNumber", user.getPhoneNumber());
+        userResponse.put("role", user.getRole().toString());
+        userResponse.put("businessId", user.getBusinessId());
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);  // ✅ CHANGED: Use real JWT
+        response.put("user", userResponse);
+        
+        System. out.println("✅ Login successful for user: " + user.getId());
+        
+        return ResponseEntity. ok(response);
+        
+    } catch (IllegalArgumentException e) {
+        System.out.println("❌ Login failed: " + e.getMessage());
+        
+        Map<String, String> error = new HashMap<>();
+        error. put("message", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }
+}
     
     // ✅ NEW: Helper method to create default notification settings
     private void createDefaultNotificationSettings(Long userId) {

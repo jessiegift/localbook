@@ -412,63 +412,63 @@ useEffect(function() {
     fetchBookings();
   }
 
-  function handleCancelBooking(bookingId) {
-    const alertButtons = [
-      { 
-        text: 'Keep Booking', 
-        style: 'cancel' 
-      },
-      {
-        text: 'Cancel Booking',
-        style: 'destructive',
-        onPress: function() {
-          cancelBooking(bookingId);
-        },
-      },
-    ];
-    
-    Alert.alert(
-      'Cancel Booking? ',
-      'This action cannot be undone. Are you sure? ',
-      alertButtons
-    );
-  }
+ const handleCancelBooking = async (appointmentId) => {
+  try {
+    console.log('🗑️ Attempting to cancel appointment:', appointmentId);
 
-  async function cancelBooking(bookingId) {
-    try {
-      console.log('🗑️ Cancelling booking:', bookingId);
-
-      const userId = user. id;
-      const apiUrl = API_BASE_URL + '/appointments/' + bookingId. toString() + '/cancel? userId=' + userId. toString();
-      
-      const authHeader = 'Bearer ' + token;
-      const requestHeaders = {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-      };
-      
-      const requestOptions = {
-        method: 'PUT',
-        headers: requestHeaders,
-      };
-      
-      const response = await fetch(apiUrl, requestOptions);
-
-      const isResponseOk = response.ok;
-      if (isResponseOk === true) {
-        console. log('✅ Booking cancelled');
-        Alert.alert('Cancelled', 'Your booking has been cancelled');
-        fetchBookings();
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Failed to cancel:', errorText);
-        Alert.alert('Error', 'Failed to cancel booking');
-      }
-    } catch (error) {
-      console.error('❌ Error cancelling booking:', error);
-      Alert.alert('Error', 'Network error. Please try again.');
+    if (!user || !user.id) {
+      Alert.alert('Error', 'User information not found.  Please login again.');
+      return;
     }
+
+    Alert.alert(
+      'Cancel Appointment',
+      'Are you sure you want to cancel this appointment? ',
+      [
+        {
+          text: 'No',
+          style: 'cancel'
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const userId = user.id;
+              const url = API_BASE_URL + '/appointments/' + appointmentId.toString() + '/cancel?userId=' + userId.toString();
+              
+              const authHeader = 'Bearer ' + token;
+              const response = await fetch(url, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': authHeader,
+                  'Content-Type': 'application/json',
+                },
+              });
+
+              if (response.ok) {
+                console.log('✅ Appointment cancelled successfully');
+                Alert.alert('Success', 'Appointment cancelled successfully');
+                fetchBookings(); // ✅ FIXED: Changed from fetchUserBookings()
+              } else {
+                const errorText = await response.text();
+                console.error('❌ Cancel failed:', errorText);
+                Alert.alert('Error', 'Failed to cancel appointment. Please try again.');
+              }
+            } catch (error) {
+              console.error('❌ Cancel error:', error);
+              Alert. alert('Error', 'Network error. Please check your connection.');
+            }
+          }
+        }
+      ]
+    );
+  } catch (error) {
+    console.error('❌ Error:', error);
+    Alert.alert('Error', 'Something went wrong');
   }
+};
+ 
 
   // ✅ NEW: Handle navigate to review screen
   function handleLeaveReview(booking) {

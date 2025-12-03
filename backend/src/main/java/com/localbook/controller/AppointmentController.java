@@ -8,13 +8,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import com.localbook.model.Service;
+import java.util.Collections;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/appointments")
@@ -114,45 +116,93 @@ public ResponseEntity<List<Appointment>> getTodayBusinessAppointments(@PathVaria
         }
     }
 
-    @GetMapping("/business/{businessId}/booked-slots")
-public ResponseEntity<List<String>> getBookedSlots(
+   @GetMapping("/business/{businessId}/booked-slots")
+public ResponseEntity<? > getBookedSlots(
         @PathVariable Long businessId,
-        @RequestParam String date) {
+        @RequestParam(required = false) String date) {
     try {
-        System.out.println("📅 Fetching booked slots for business: " + businessId + " on date: " + date);
+        System.out.println("📅 Fetching booked slots for business: " + businessId);
+        System.out.println("📅 Date parameter received: " + date);
+        
+        // ✅ Validate date parameter
+        if (date == null || date.isEmpty()) {
+            System.err.println("❌ Date parameter is missing or empty");
+            return ResponseEntity.badRequest().body("Date parameter is required.  Format: YYYY-MM-DD");
+        }
         
         // Parse date: YYYY-MM-DD
-        LocalDate selectedDate = LocalDate.parse(date, DateTimeFormatter.ISO_DATE);
+        LocalDate selectedDate;
+        try {
+            selectedDate = LocalDate.parse(date, DateTimeFormatter.ISO_DATE);
+            System.out.println("✅ Parsed date: " + selectedDate);
+        } catch (DateTimeParseException e) {
+            System.err.println("❌ Invalid date format: " + date);
+            return ResponseEntity.badRequest().body("Invalid date format. Expected: YYYY-MM-DD");
+        }
         
         // Get all appointments for the business on that date
         List<Appointment> appointments = appointmentService.getBusinessAppointments(businessId);
+        
+        System.out.println("📋 Total appointments for business: " + appointments.size());
         
         List<String> bookedSlots = new ArrayList<>();
         
         for (Appointment apt : appointments) {
             LocalDate appointmentDate = apt.getAppointmentDateTime().toLocalDate();
             
+            System.out.println("  🔍 Checking appointment " + apt.getId() + 
+                             " | Date: " + appointmentDate + 
+                             " | Status: " + apt.getStatus());
+            
             // Only include appointments on the selected date that are CONFIRMED
             if (appointmentDate. equals(selectedDate) && apt.getStatus() == AppointmentStatus.CONFIRMED) {
-                // Extract time: HH:MM
-                String time = apt.getAppointmentDateTime().format(DateTimeFormatter.ofPattern("HH:mm"));
-                bookedSlots.add(time);
+                // Extract start time: HH:MM
+                String startTime = apt.getAppointmentDateTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                bookedSlots.add(startTime);
                 
-                System.out.println("  ✓ Booked: " + time);
+                // ✅ Also block slots during the service duration
+                Service service = apt.getService();
+                if (service != null && service.getDurationMinutes() != null) {
+                    int durationMinutes = service.getDurationMinutes();
+                    LocalDateTime startDateTime = apt.getAppointmentDateTime();
+                    LocalDateTime endDateTime = startDateTime.plusMinutes(durationMinutes);
+                    
+                    System.out.println("  ⏱️ Service duration: " + durationMinutes + " minutes");
+                    System.out.println("  🕐 Start: " + startTime + " | End: " + endDateTime. format(DateTimeFormatter.ofPattern("HH:mm")));
+                    
+                    // Block intermediate slots
+                    LocalDateTime currentSlot = startDateTime;
+                    while (currentSlot.isBefore(endDateTime)) {
+                        currentSlot = currentSlot.plusMinutes(15);
+                        if (currentSlot.isBefore(endDateTime)) {
+                            String slotTime = currentSlot. format(DateTimeFormatter.ofPattern("HH:mm"));
+                            if (!bookedSlots.contains(slotTime)) {
+                                bookedSlots.add(slotTime);
+                                System.out.println("  ✓ Also blocking: " + slotTime + " (during service)");
+                            }
+                        }
+                    }
+                }
+                
+                System.out.println("  ✓ Booked: " + startTime);
             }
         }
         
-        System.out.println("✅ Total booked slots: " + bookedSlots.size());
+        // Sort the booked slots
+        Collections.sort(bookedSlots);
+        
+        System.out.println("✅ Total booked slots returned: " + bookedSlots. size());
+        System.out. println("📋 Booked slots: " + bookedSlots);
         
         return ResponseEntity.ok(bookedSlots);
         
     } catch (Exception e) {
         System.err.println("❌ Error fetching booked slots: " + e.getMessage());
         e.printStackTrace();
-        return ResponseEntity.ok(new ArrayList<>());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                           .body("Internal server error: " + e.getMessage());
     }
 }
-    
     // ✅ FIXED: Cancel now uses userId (no changes needed, already correct)
     @PutMapping("/{id}/cancel")
     public ResponseEntity<Appointment> cancelAppointment(@PathVariable Long id, 

@@ -44,6 +44,10 @@ function BookAppointment(props) {
   const availableSlots = availableSlotsState[0];
   const setAvailableSlots = availableSlotsState[1];
 
+  const bookedSlotsState = useState([]);
+  const bookedSlots = bookedSlotsState[0];
+  const setBookedSlots = bookedSlotsState[1];
+
   const notesState = useState('');
   const notes = notesState[0];
   const setNotes = notesState[1];
@@ -58,193 +62,150 @@ function BookAppointment(props) {
 
   useEffect(function() {
     console.log('📅 Booking screen loaded');
-    console.log('🏢 Business:', business.businessName);
+    console.log('🏢 Business:', business. businessName);
     console.log('🕐 Opening hours:', business.openingHours);
+    console.log('⏱️ Service duration:', service. durationMinutes, 'minutes');
     generateTimeSlots();
+    fetchBookedSlots();
   }, [selectedDate]);
 
-  function isBusinessOpen(dateTime, businessHours) {
-    if (businessHours === null) {
-      return true;
-    }
-    if (businessHours === undefined) {
-      return true;
+  async function fetchBookedSlots() {
+  try {
+    setLoading(true);
+    
+    const hasBusinessId = business !== null && business !== undefined && business.id !== null && business.id !== undefined;
+    if (hasBusinessId === false) {
+      console.error('❌ Business ID is missing:', business);
+      setBookedSlots([]);
+      setLoading(false);
+      return;
     }
     
-    if (dateTime === null) {
-      return true;
-    }
-    if (dateTime === undefined) {
-      return true;
-    }
-
-    const date = new Date(dateTime);
-    const dayOfWeek = date.getDay();
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const timeInMinutes = hours * 60 + minutes;
-
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const dayName = dayNames[dayOfWeek];
-    const dayHours = businessHours[dayName];
-
-    if (dayHours === null) {
-      return true;
-    }
-    if (dayHours === undefined) {
-      return true;
-    }
-
-    const isClosedField = dayHours.isClosed;
-    if (isClosedField === true) {
-      return false;
-    }
-
-    const openTime = dayHours.openTime;
-    const closeTime = dayHours.closeTime;
-
-    if (openTime === null) {
-      return true;
-    }
-    if (openTime === undefined) {
-      return true;
-    }
-    if (closeTime === null) {
-      return true;
-    }
-    if (closeTime === undefined) {
-      return true;
-    }
-
-    const openParts = openTime.split(':');
-    const openHour = parseInt(openParts[0]);
-    const openMinute = parseInt(openParts[1]);
-    const openMinutes = openHour * 60 + openMinute;
-
-    const closeParts = closeTime.split(':');
-    const closeHour = parseInt(closeParts[0]);
-    const closeMinute = parseInt(closeParts[1]);
-    const closeMinutes = closeHour * 60 + closeMinute;
-
-    const isAfterOpen = timeInMinutes >= openMinutes;
-    const isBeforeClose = timeInMinutes < closeMinutes;
-    const isWithinHours = isAfterOpen && isBeforeClose;
+    const dateISOString = selectedDate.toISOString();
+    const dateParts = dateISOString. split('T');
+    const dateStr = dateParts[0];
     
-    return isWithinHours;
-  }
-
-  function getBusinessStatusForTime(timeSlot) {
-    const hasOpeningHours = business.openingHours !== null && business.openingHours !== undefined;
-    if (hasOpeningHours === false) {
-      return { isOpen: true, message: '' };
-    }
-
-    const slotDate = new Date(selectedDate);
-    const timeParts = timeSlot.split(':');
-    const hour = parseInt(timeParts[0]);
-    const minute = parseInt(timeParts[1]);
-    slotDate.setHours(hour);
-    slotDate.setMinutes(minute);
-    slotDate.setSeconds(0);
-    slotDate.setMilliseconds(0);
-
-    const dayOfWeek = slotDate.getDay();
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayName = dayNames[dayOfWeek];
-    const dayKey = dayName.toLowerCase();
-
-    const dayHours = business.openingHours[dayKey];
-
-    if (dayHours === null) {
-      return { isOpen: true, message: '' };
-    }
-    if (dayHours === undefined) {
-      return { isOpen: true, message: '' };
-    }
-
-    if (dayHours.isClosed === true) {
-      return {
-        isOpen: false,
-        message: 'Closed on ' + dayName + 's'
-      };
-    }
-
-    const isOpen = isBusinessOpen(slotDate, business.openingHours);
-
-    if (isOpen === false) {
-      const openTime = dayHours.openTime;
-      const closeTime = dayHours.closeTime;
-      const openTimeFormatted = formatTime12Hour(openTime);
-      const closeTimeFormatted = formatTime12Hour(closeTime);
-      return {
-        isOpen: false,
-        message: 'Closed. Open: ' + openTimeFormatted + ' - ' + closeTimeFormatted
-      };
-    }
-
-    return {
-      isOpen: true,
-      message: 'Open'
-    };
-  }
-
-  function getTodayStatus() {
-    const hasOpeningHours = business.openingHours !== null && business.openingHours !== undefined;
-    if (hasOpeningHours === false) {
-      return { isOpen: true, message: '' };
-    }
-
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const dayKey = dayNames[dayOfWeek];
-    const dayHours = business.openingHours[dayKey];
-
-    if (dayHours === null) {
-      return { isOpen: true, message: '' };
-    }
-    if (dayHours === undefined) {
-      return { isOpen: true, message: '' };
-    }
-
-    if (dayHours.isClosed === true) {
-      const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      const todayLabel = dayLabels[dayOfWeek];
-      return {
-        isOpen: false,
-        message: 'Closed on ' + todayLabel + 's'
-      };
-    }
-
-    const isCurrentlyOpen = isBusinessOpen(now, business.openingHours);
-    const openTime = dayHours.openTime;
-    const closeTime = dayHours.closeTime;
-
-    if (openTime === null) {
-      return { isOpen: true, message: '' };
-    }
-    if (openTime === undefined) {
-      return { isOpen: true, message: '' };
-    }
-    if (closeTime === null) {
-      return { isOpen: true, message: '' };
-    }
-    if (closeTime === undefined) {
-      return { isOpen: true, message: '' };
-    }
-
-    if (isCurrentlyOpen === true) {
-      const closeTimeFormatted = formatTime12Hour(closeTime);
-      return {
-        isOpen: true,
-        message: 'Open now • Closes at ' + closeTimeFormatted
-      };
+    const businessId = business.id;
+    const url = 'http://192.168.1.15:8080/api/appointments/business/' + businessId + '/booked-slots?date=' + dateStr;
+    
+    console.log('🔍 Fetching booked slots');
+    console.log('🔗 URL:', url);
+    console.log('🏢 Business ID:', businessId);
+    console.log('📅 Date:', dateStr);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response OK:', response.ok);
+    
+    if (response.ok) {
+      const bookedSlotsData = await response.json();
+      console.log('✅ Booked slots received:', bookedSlotsData);
+      console.log('✅ Number of booked slots:', bookedSlotsData.length);
+      
+      const isArray = Array.isArray(bookedSlotsData);
+      if (isArray === true) {
+        setBookedSlots(bookedSlotsData);
+      } else {
+        console.error('❌ Response is not an array:', bookedSlotsData);
+        setBookedSlots([]);
+      }
     } else {
-      const openTimeFormatted = formatTime12Hour(openTime);
-      return {
-        isOpen: false,
-        message: 'Closed now • Opens at ' + openTimeFormatted
-      };
+      const errorText = await response. text();
+      console.error('❌ Failed to fetch.  Status:', response.status);
+      console.error('❌ Error text:', errorText);
+      setBookedSlots([]);
+    }
+  } catch (error) {
+    console.error('❌ Network error:', error);
+    console.error('❌ Error message:', error. message);
+    console.error('❌ Error name:', error.name);
+    
+    const isNetworkError = error.message.includes('Network request failed');
+    if (isNetworkError === true) {
+      console.error('❌ Cannot reach server at http://192.168.1.15:8080');
+      console.error('❌ Make sure:');
+      console.error('   1. Backend server is running');
+      console.error('   2. You are on the same network');
+      console.error('   3. IP address is correct');
+    }
+    
+    setBookedSlots([]);
+  } finally {
+    setLoading(false);
+  }
+}
+function isTimeSlotInPast(date, timeString) {
+  const now = new Date();
+  
+  const selectedYear = date.getFullYear();
+  const selectedMonth = date.getMonth();
+  const selectedDay = date. getDate();
+  
+  const todayYear = now.getFullYear();
+  const todayMonth = now. getMonth();
+  const todayDay = now.getDate();
+  
+  const isSameYear = selectedYear === todayYear;
+  const isSameMonth = selectedMonth === todayMonth;
+  const isSameDay = selectedDay === todayDay;
+  const isToday = isSameYear === true && isSameMonth === true && isSameDay === true;
+  
+  if (isToday === false) {
+    return false;
+  }
+  
+  const timeParts = timeString.split(':');
+  const timeHour = parseInt(timeParts[0]);
+  const timeMinute = parseInt(timeParts[1]);
+  
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  
+  const isEarlierHour = timeHour < currentHour;
+  if (isEarlierHour === true) {
+    return true;
+  }
+  
+  const isSameHour = timeHour === currentHour;
+  if (isSameHour === true) {
+    const isEarlierOrSameMinute = timeMinute <= currentMinute;
+    if (isEarlierOrSameMinute === true) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+
+
+  function getSlotInterval() {
+    let serviceDuration = 30;
+    const hasDurationMinutes = service.durationMinutes !== null && service.durationMinutes !== undefined;
+    if (hasDurationMinutes === true) {
+      serviceDuration = service.durationMinutes;
+    }
+
+    if (serviceDuration <= 15) {
+      return 15;
+    } else if (serviceDuration <= 30) {
+      return 30;
+    } else if (serviceDuration <= 45) {
+      return 45;
+    } else if (serviceDuration <= 60) {
+      return 60;
+    } else if (serviceDuration <= 90) {
+      return 90;
+    } else if (serviceDuration <= 120) {
+      return 120;
+    } else {
+      return 60;
     }
   }
 
@@ -252,20 +213,292 @@ function BookAppointment(props) {
     const slots = [];
     const startHour = 9;
     const endHour = 18;
+    const intervalMinutes = getSlotInterval();
 
-    let hour = startHour;
-    while (hour < endHour) {
-      const hourString = hour.toString();
-      const paddedHourString = hourString.padStart(2, '0');
-      const slot1 = paddedHourString + ':00';
-      const slot2 = paddedHourString + ':30';
-      slots.push(slot1);
-      slots.push(slot2);
-      hour = hour + 1;
+    console.log('⏰ Generating slots with interval:', intervalMinutes, 'minutes');
+
+    const startMinutes = startHour * 60;
+    const endMinutes = endHour * 60;
+
+    let currentMinutes = startMinutes;
+    while (currentMinutes < endMinutes) {
+      const hours = Math.floor(currentMinutes / 60);
+      const minutes = currentMinutes % 60;
+      
+      const hoursString = hours.toString();
+      const minutesString = minutes.toString();
+      const paddedHours = hoursString. padStart(2, '0');
+      const paddedMinutes = minutesString.padStart(2, '0');
+      const timeSlot = paddedHours + ':' + paddedMinutes;
+      
+      slots.push(timeSlot);
+      
+      currentMinutes = currentMinutes + intervalMinutes;
     }
     
+    console.log('✅ Generated', slots.length, 'time slots');
     setAvailableSlots(slots);
   }
+
+  function doesSlotOverlapWithBooked(startTime) {
+    let serviceDuration = 30;
+    const hasDurationMinutes = service.durationMinutes !== null && service.durationMinutes !== undefined;
+    if (hasDurationMinutes === true) {
+      serviceDuration = service.durationMinutes;
+    }
+
+    const timeParts = startTime.split(':');
+    const startHour = parseInt(timeParts[0]);
+    const startMinute = parseInt(timeParts[1]);
+    const startMinutes = startHour * 60 + startMinute;
+    const endMinutes = startMinutes + serviceDuration;
+
+    let bookedIndex = 0;
+    while (bookedIndex < bookedSlots.length) {
+      const bookedTime = bookedSlots[bookedIndex];
+      const bookedParts = bookedTime.split(':');
+      const bookedHour = parseInt(bookedParts[0]);
+      const bookedMinute = parseInt(bookedParts[1]);
+      const bookedStartMinutes = bookedHour * 60 + bookedMinute;
+
+      const hasOverlap = bookedStartMinutes >= startMinutes && bookedStartMinutes < endMinutes;
+      if (hasOverlap === true) {
+        return true;
+      }
+
+      bookedIndex = bookedIndex + 1;
+    }
+
+    return false;
+  }
+
+  function isBusinessOpen(dateTime, businessHours) {
+  if (businessHours === null) {
+    return true;
+  }
+  if (businessHours === undefined) {
+    return true;
+  }
+  
+  if (dateTime === null) {
+    return true;
+  }
+  if (dateTime === undefined) {
+    return true;
+  }
+
+  // ✅ Parse if it's a string
+  let parsedHours = businessHours;
+  if (typeof businessHours === 'string') {
+    try {
+      parsedHours = JSON.parse(businessHours);
+    } catch (error) {
+      console.error('❌ Failed to parse opening hours:', error.message);
+      return true;
+    }
+  }
+
+  const date = new Date(dateTime);
+  const dayOfWeek = date.getDay();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const timeInMinutes = hours * 60 + minutes;
+
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayName = dayNames[dayOfWeek];
+  const dayHours = parsedHours[dayName];
+
+  if (dayHours === null) {
+    return true;
+  }
+  if (dayHours === undefined) {
+    return true;
+  }
+
+  // ✅ IMPORTANT: Check isClosed FIRST before accessing openTime/closeTime
+  const isClosedField = dayHours.isClosed;
+  if (isClosedField === true) {
+    return false;  // ✅ Return early if closed
+  }
+
+  const openTime = dayHours.openTime;
+  const closeTime = dayHours.closeTime;
+
+  // ✅ Now it's safe to check openTime/closeTime because we know it's not closed
+  if (openTime === null) {
+    return true;
+  }
+  if (openTime === undefined) {
+    return true;
+  }
+  if (closeTime === null) {
+    return true;
+  }
+  if (closeTime === undefined) {
+    return true;
+  }
+
+  const openParts = openTime.split(':');
+  const openHour = parseInt(openParts[0]);
+  const openMinute = parseInt(openParts[1]);
+  const openMinutes = openHour * 60 + openMinute;
+
+  const closeParts = closeTime. split(':');
+  const closeHour = parseInt(closeParts[0]);
+  const closeMinute = parseInt(closeParts[1]);
+  const closeMinutes = closeHour * 60 + closeMinute;
+
+  let serviceDuration = 30;
+  const hasDurationMinutes = service.durationMinutes !== null && service.durationMinutes !== undefined;
+  if (hasDurationMinutes === true) {
+    serviceDuration = service.durationMinutes;
+  }
+
+  const serviceEndMinutes = timeInMinutes + serviceDuration;
+
+  const isAfterOpen = timeInMinutes >= openMinutes;
+  const isBeforeClose = serviceEndMinutes <= closeMinutes;
+  const isWithinHours = isAfterOpen === true && isBeforeClose === true;
+  
+  return isWithinHours;
+}
+ function getBusinessStatusForTime(timeSlot) {
+  const hasOpeningHours = business.openingHours !== null && business.openingHours !== undefined;
+  if (hasOpeningHours === false) {
+    return { isOpen: true, message: '' };
+  }
+
+  const slotDate = new Date(selectedDate);
+  const timeParts = timeSlot.split(':');
+  const hour = parseInt(timeParts[0]);
+  const minute = parseInt(timeParts[1]);
+  slotDate.setHours(hour);
+  slotDate.setMinutes(minute);
+  slotDate.setSeconds(0);
+  slotDate.setMilliseconds(0);
+
+  const dayOfWeek = slotDate.getDay();
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[dayOfWeek];
+  const dayKey = dayName.toLowerCase();
+
+  // ✅ Parse if string
+  let parsedHours = business.openingHours;
+  if (typeof business.openingHours === 'string') {
+    try {
+      parsedHours = JSON.parse(business.openingHours);
+    } catch (error) {
+      return { isOpen: true, message: '' };
+    }
+  }
+
+  const dayHours = parsedHours[dayKey];
+
+  if (dayHours === null) {
+    return { isOpen: true, message: '' };
+  }
+  if (dayHours === undefined) {
+    return { isOpen: true, message: '' };
+  }
+
+  // ✅ Check isClosed FIRST
+  if (dayHours.isClosed === true) {
+    return {
+      isOpen: false,
+      message: 'Closed on ' + dayName + 's'
+    };
+  }
+
+  const isOpen = isBusinessOpen(slotDate, parsedHours);
+
+  if (isOpen === false) {
+    const openTime = dayHours.openTime;
+    const closeTime = dayHours.closeTime;
+    
+    // ✅ Check if times exist
+    if (openTime && closeTime) {
+      const openTimeFormatted = formatTime12Hour(openTime);
+      const closeTimeFormatted = formatTime12Hour(closeTime);
+      return {
+        isOpen: false,
+        message: 'Closed.   Open: ' + openTimeFormatted + ' - ' + closeTimeFormatted
+      };
+    } else {
+      return {
+        isOpen: false,
+        message: 'Closed'
+      };
+    }
+  }
+
+  return {
+    isOpen: true,
+    message: 'Open'
+  };
+}
+ function getTodayStatus() {
+  const hasOpeningHours = business.openingHours !== null && business. openingHours !== undefined;
+  if (hasOpeningHours === false) {
+    return { isOpen: true, message: '' };
+  }
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayKey = dayNames[dayOfWeek];
+
+  // ✅ Parse if string
+  let parsedHours = business.openingHours;
+  if (typeof business.openingHours === 'string') {
+    try {
+      parsedHours = JSON.parse(business.openingHours);
+    } catch (error) {
+      return { isOpen: true, message: '' };
+    }
+  }
+
+  const dayHours = parsedHours[dayKey];
+
+  if (dayHours === null) {
+    return { isOpen: true, message: '' };
+  }
+  if (dayHours === undefined) {
+    return { isOpen: true, message: '' };
+  }
+
+  // ✅ Check isClosed FIRST
+  if (dayHours.isClosed === true) {
+    const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const todayLabel = dayLabels[dayOfWeek];
+    return {
+      isOpen: false,
+      message: 'Closed on ' + todayLabel + 's'
+    };
+  }
+
+  const isCurrentlyOpen = isBusinessOpen(now, parsedHours);
+  const openTime = dayHours.openTime;
+  const closeTime = dayHours.closeTime;
+
+  // ✅ Check if times exist
+  if (openTime === null || openTime === undefined || closeTime === null || closeTime === undefined) {
+    return { isOpen: true, message: '' };
+  }
+
+  if (isCurrentlyOpen === true) {
+    const closeTimeFormatted = formatTime12Hour(closeTime);
+    return {
+      isOpen: true,
+      message: 'Open now • Closes at ' + closeTimeFormatted
+    };
+  } else {
+    const openTimeFormatted = formatTime12Hour(openTime);
+    return {
+      isOpen: false,
+      message: 'Closed now • Opens at ' + openTimeFormatted
+    };
+  }
+}
 
   function handleOpenDatePicker() {
     setTempDate(selectedDate);
@@ -375,7 +608,7 @@ function BookAppointment(props) {
         }
       ];
       
-      Alert.alert(
+      Alert. alert(
         'Session Expired',
         'Please login again to continue',
         alertButtons
@@ -394,10 +627,30 @@ function BookAppointment(props) {
       return;
     }
 
-    const status = getBusinessStatusForTime(selectedTime);
-    if (status.isOpen === false) {
-      const alertMessage = 'Sorry, this business is closed at the selected time. ' + status.message;
+    const hasOverlap = doesSlotOverlapWithBooked(selectedTime);
+    if (hasOverlap === true) {
       Alert.alert(
+        'Slot Unavailable',
+        'This time slot conflicts with an existing booking. Please select another time.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const isPastTime = isTimeSlotInPast(selectedDate, selectedTime);
+    if (isPastTime === true) {
+      Alert.alert(
+        'Invalid Time',
+        'This time slot has already passed. Please select a future time.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    const status = getBusinessStatusForTime(selectedTime);
+    if (status. isOpen === false) {
+      const alertMessage = 'Sorry, this business is closed at the selected time.  ' + status.message;
+      Alert. alert(
         'Business Closed',
         alertMessage,
         [{ text: 'OK' }]
@@ -425,13 +678,13 @@ function BookAppointment(props) {
 
     try {
       const dateISOString = selectedDate.toISOString();
-      const dateParts = dateISOString.split('T');
+      const dateParts = dateISOString. split('T');
       const dateStr = dateParts[0];
       const appointmentDateTime = dateStr + 'T' + selectedTime + ':00';
 
       const baseUrl = 'http://192.168.1.15:8080/api/appointments';
       
-      const userIdParam = 'userId=' + userId.toString();
+      const userIdParam = 'userId=' + userId. toString();
       const businessIdParam = 'businessId=' + businessId.toString();
       const serviceIdParam = 'serviceId=' + serviceId.toString();
       const encodedDateTime = encodeURIComponent(appointmentDateTime);
@@ -440,7 +693,7 @@ function BookAppointment(props) {
       const params = [];
       params.push(userIdParam);
       params.push(businessIdParam);
-      params.push(serviceIdParam);
+      params. push(serviceIdParam);
       params.push(dateTimeParam);
 
       const trimmedNotes = notes.trim();
@@ -495,7 +748,7 @@ function BookAppointment(props) {
           },
         ];
         
-        Alert.alert('Success! ✅', successMessage, alertButtons);
+        Alert.alert('Success!  ✅', successMessage, alertButtons);
       } else {
         console.error('❌ Booking failed');
         
@@ -548,13 +801,13 @@ function BookAppointment(props) {
   }
 
   let businessDisplayName = business.name;
-  const hasBusinessName = business.businessName !== null && business.businessName !== undefined;
+  const hasBusinessName = business.businessName !== null && business. businessName !== undefined;
   if (hasBusinessName === true) {
-    businessDisplayName = business.businessName;
+    businessDisplayName = business. businessName;
   }
 
   let serviceDuration = service.duration;
-  const hasDurationMinutes = service.durationMinutes !== null && service.durationMinutes !== undefined;
+  const hasDurationMinutes = service. durationMinutes !== null && service. durationMinutes !== undefined;
   if (hasDurationMinutes === true) {
     serviceDuration = service.durationMinutes;
   }
@@ -568,7 +821,7 @@ function BookAppointment(props) {
   const isIOS = platformOS === 'ios';
 
   const todayStatus = getTodayStatus();
-  const showStatusBadge = business.openingHours !== null && business.openingHours !== undefined;
+  const showStatusBadge = business.openingHours !== null && business. openingHours !== undefined;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f9fafb' }}>
@@ -811,6 +1064,13 @@ function BookAppointment(props) {
               alignItems: 'center',
             }}>
               <ActivityIndicator size="large" color="#7c3aed" />
+              <Text style={{
+                marginTop: 12,
+                color: '#6b7280',
+                fontSize: 14,
+              }}>
+                Loading available slots...
+              </Text>
             </View>
           )}
 
@@ -831,6 +1091,10 @@ function BookAppointment(props) {
                 {availableSlots.map(function(time, index) {
                   const status = getBusinessStatusForTime(time);
                   const isOpen = status.isOpen;
+                  
+                  const hasOverlap = doesSlotOverlapWithBooked(time);
+                  const isPastTime = isTimeSlotInPast(selectedDate, time);
+                  
                   const isSelected = selectedTime === time;
                   const indexPlusOne = index + 1;
                   const remainder = indexPlusOne % 3;
@@ -840,15 +1104,29 @@ function BookAppointment(props) {
                   let buttonBorderColor = '#d1d5db';
                   let textColor = '#374151';
                   let isDisabled = false;
+                  let labelText = '';
 
-                  if (isOpen === false) {
+                  if (isPastTime === true) {
                     buttonBgColor = '#f3f4f6';
                     buttonBorderColor = '#e5e7eb';
                     textColor = '#9ca3af';
                     isDisabled = true;
+                    labelText = '🕐 Past';
+                  } else if (hasOverlap === true) {
+                    buttonBgColor = '#fef3c7';
+                    buttonBorderColor = '#fbbf24';
+                    textColor = '#92400e';
+                    isDisabled = true;
+                    labelText = '❌ Booked';
+                  } else if (isOpen === false) {
+                    buttonBgColor = '#f3f4f6';
+                    buttonBorderColor = '#e5e7eb';
+                    textColor = '#9ca3af';
+                    isDisabled = true;
+                    labelText = 'Closed';
                   }
                   
-                  if (isSelected === true && isOpen === true) {
+                  if (isSelected === true && isOpen === true && hasOverlap === false && isPastTime === false) {
                     buttonBgColor = '#7c3aed';
                     buttonBorderColor = '#7c3aed';
                     textColor = '#ffffff';
@@ -861,7 +1139,7 @@ function BookAppointment(props) {
 
                   let opacity = 1;
                   if (isDisabled === true) {
-                    opacity = 0.5;
+                    opacity = 0.6;
                   }
 
                   const buttonStyle = {
@@ -889,6 +1167,8 @@ function BookAppointment(props) {
                     }
                   }
 
+                  const hasLabel = labelText.length > 0;
+
                   return (
                     <TouchableOpacity
                       key={index}
@@ -900,14 +1180,15 @@ function BookAppointment(props) {
                       <Text style={textStyle}>
                         {formatTime12Hour(time)}
                       </Text>
-                      {isDisabled === true && (
+                      {hasLabel === true && (
                         <Text style={{
                           textAlign: 'center',
                           fontSize: 10,
-                          color: '#9ca3af',
+                          color: textColor,
                           marginTop: 2,
+                          fontWeight: '700',
                         }}>
-                          Closed
+                          {labelText}
                         </Text>
                       )}
                     </TouchableOpacity>
@@ -1058,7 +1339,7 @@ function BookAppointment(props) {
                     fontWeight: '600',
                     color: '#111827',
                   }}>
-                    {selectedDate.toLocaleDateString()}
+                    {selectedDate. toLocaleDateString()}
                   </Text>
                 </View>
 
@@ -1170,7 +1451,7 @@ function BookAppointment(props) {
                   fontWeight: '700',
                   marginLeft: 8,
                 }}>
-                  Booking...
+                  Booking... 
                 </Text>
               </View>
             )}
