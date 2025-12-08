@@ -8,7 +8,7 @@ import {
   Alert, 
   ActivityIndicator,
 } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_BASE_URL } from '../../context/AuthContext';
 
 const ManageAppointmentScreen = function(props) {
   const navigation = props.navigation;
@@ -29,7 +29,7 @@ const ManageAppointmentScreen = function(props) {
     cancelled: 0
   });
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+  
 
   // Update current time every minute
   useEffect(function() {

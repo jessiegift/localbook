@@ -10,7 +10,7 @@ import {
   Modal,
   RefreshControl
 } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_BASE_URL } from '../../context/AuthContext';
 
 function BusinessProfileScreen() {
   const authContext = useAuth();
@@ -33,7 +33,6 @@ function BusinessProfileScreen() {
   const [showFaqModal, setShowFaqModal] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState(null);
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   const faqData = [
     {

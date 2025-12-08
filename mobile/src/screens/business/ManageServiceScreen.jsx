@@ -14,7 +14,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard
 } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_BASE_URL } from '../../context/AuthContext';
 
 function ManageServicesScreen() {
   const authContext = useAuth();
@@ -49,7 +49,7 @@ function ManageServicesScreen() {
         return;
       }
 
-      const url = `http://192.168.1.15:8080/api/services/business/${user.businessId}`;
+      const url = `${API_BASE_URL}/services/business/${user.businessId}`;
       console.log('Fetching services from:', url);
 
       const response = await fetch(url, {

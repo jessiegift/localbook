@@ -12,8 +12,9 @@ import {
   Dimensions,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useAuth } from '../../context/AuthContext';
+import { API_BASE_URL } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
 
 const screenDimensions = Dimensions.get('window');
 const SCREEN_WIDTH = screenDimensions. width;
@@ -44,7 +45,7 @@ function MyBookingsScreen(props) {
   const [bookingRatings, setBookingRatings] = useState({});
   const [checkingRatings, setCheckingRatings] = useState({});
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+
 
   useEffect(function() {
     const timer = setInterval(function() {

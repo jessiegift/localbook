@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, RefreshControl, Alert } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_BASE_URL } from '../../context/AuthContext';
 import LoadingSpinner from '../../common/LoadingSpinner';
 
 function BusinessRatingsScreen() {
@@ -16,7 +16,7 @@ function BusinessRatingsScreen() {
     totalRatings: 0,
   });
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+  
 
   useEffect(function() {
     fetchRatings();

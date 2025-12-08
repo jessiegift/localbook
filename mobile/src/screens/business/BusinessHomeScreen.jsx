@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, API_BASE_URL } from '../../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import Button from '../../common/Button';
@@ -42,7 +42,6 @@ function BusinessHomeScreen(props) {
   const ratings = ratingsState[0];
   const setRatings = ratingsState[1];
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   useEffect(function() {
     fetchDashboardData();

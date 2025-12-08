@@ -23,7 +23,7 @@ function ClientHomeScreen(props) {
   const navigation = props.navigation;
   const authContext = useAuth();
   const user = authContext.user;
-  
+  const API_BASE_URL = authContext.API_BASE_URL;
   const [businesses, setBusinesses] = useState([]);
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
   const [businessRatings, setBusinessRatings] = useState({});
@@ -39,7 +39,7 @@ function ClientHomeScreen(props) {
   const [categories, setCategories] = useState(['All']);
   const [loadingCategories, setLoadingCategories] = useState(true);
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+  //const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   useEffect(function() {
     getUserLocation();

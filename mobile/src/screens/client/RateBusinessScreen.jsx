@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import RatingStars from '../../Components/RatingStars';
+import { API_BASE_URL } from '../../context/AuthContext';  
 
 const RateBusinessScreen = ({ route, navigation }) => {
   // ✅ LOG PARAMETERS IMMEDIATELY
@@ -42,7 +43,7 @@ const RateBusinessScreen = ({ route, navigation }) => {
   const sentimentResult = sentimentResultState[0];
   const setSentimentResult = sentimentResultState[1];
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+  
 
   function getRatingText() {
     if (rating === 0) {

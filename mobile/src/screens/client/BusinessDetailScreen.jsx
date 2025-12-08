@@ -10,7 +10,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
-import { useAuth } from '../../context/AuthContext';
+import { API_BASE_URL, useAuth } from '../../context/AuthContext';
 import RatingStars from '../../Components/RatingStars';
 
 const screenDimensions = Dimensions.get('window');
@@ -40,7 +40,7 @@ function BusinessDetailScreen(props) {
     negative: 0,
   });
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+
 
   useEffect(function() {
     fetchBusinessDetails();

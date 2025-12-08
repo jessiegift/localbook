@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useAuth } from '../../context/AuthContext';
+import { API_BASE_URL, useAuth } from '../../context/AuthContext';
 
 function BookAppointment(props) {
   const route = props.route;
@@ -86,7 +86,7 @@ function BookAppointment(props) {
     const dateStr = dateParts[0];
     
     const businessId = business.id;
-    const url = 'http://192.168.1.15:8080/api/appointments/business/' + businessId + '/booked-slots?date=' + dateStr;
+    const url = `${API_BASE_URL}/appointments/business/` + businessId + '/booked-slots?date=' + dateStr;
     
     console.log('🔍 Fetching booked slots');
     console.log('🔗 URL:', url);
@@ -682,7 +682,7 @@ function isTimeSlotInPast(date, timeString) {
       const dateStr = dateParts[0];
       const appointmentDateTime = dateStr + 'T' + selectedTime + ':00';
 
-      const baseUrl = 'http://192.168.1.15:8080/api/appointments';
+     const baseUrl = `${API_BASE_URL}/appointments`;
       
       const userIdParam = 'userId=' + userId. toString();
       const businessIdParam = 'businessId=' + businessId.toString();

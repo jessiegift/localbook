@@ -18,7 +18,7 @@ function ClientProfileScreen(props) {
   const user = authContext.user;
   const token = authContext.token;
   const logout = authContext.logout;
-
+const API_BASE_URL = authContext.API_BASE_URL;
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showFaqModal, setShowFaqModal] = useState(false);
@@ -34,7 +34,7 @@ function ClientProfileScreen(props) {
     enableRescheduleNotifications: true,
   });
 
-  const API_BASE_URL = 'http://192.168.1.15:8080/api';
+  //const API_BASE_URL = 'http://192.168.1.15:8080/api';
 
   const faqData = [
     {

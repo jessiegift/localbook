@@ -2,11 +2,27 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-
+import Constants from 'expo-constants';
 const STORAGE_USER_KEY = '@localbook_user';
 const STORAGE_TOKEN_KEY = '@localbook_token';
 
-export const API_BASE_URL = 'http://192.168.1.15:8080/api';
+// Get API URL from app. config.js with safe fallback
+let API_BASE_URL = 'http://23. 22.22.249:8080/api';
+
+const hasExpoConfig = Constants.expoConfig !== null && Constants.expoConfig !== undefined;
+if (hasExpoConfig === true) {
+  const hasExtra = Constants.expoConfig.extra !== null && Constants.expoConfig.extra !== undefined;
+  if (hasExtra === true) {
+    const hasApiUrl = Constants.expoConfig. extra.apiUrl !== null && Constants.expoConfig.extra.apiUrl !== undefined;
+    if (hasApiUrl === true) {
+      API_BASE_URL = Constants.expoConfig.extra.apiUrl;
+    }
+  }
+}
+
+console.log('🚀 API Base URL from AuthContext:', API_BASE_URL);
+
+export { API_BASE_URL };
 
 const AuthContext = createContext(null);
 
@@ -26,45 +42,73 @@ export function AuthProvider(props) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+ 
   useEffect(function() {
-    let mounted = true;
-    
-    async function restoreAuth() {
-      try {
-        const storedUserPromise = AsyncStorage.getItem(STORAGE_USER_KEY);
-        const storedTokenPromise = AsyncStorage.getItem(STORAGE_TOKEN_KEY);
-        
-        const results = await Promise.all([storedUserPromise, storedTokenPromise]);
-        const storedUser = results[0];
-        const storedToken = results[1];
-        
-        if (mounted === true) {
-          const hasStoredUser = storedUser !== null && storedUser !== undefined;
-          if (hasStoredUser === true) {
+  let mounted = true;
+  
+  async function restoreAuth() {
+    try {
+      const storedUserPromise = AsyncStorage.getItem(STORAGE_USER_KEY);
+      const storedTokenPromise = AsyncStorage.getItem(STORAGE_TOKEN_KEY);
+      
+      const results = await Promise. all([storedUserPromise, storedTokenPromise]);
+      const storedUser = results[0];
+      const storedToken = results[1];
+      
+      if (mounted === true) {
+        const hasStoredUser = storedUser !== null && storedUser !== undefined;
+        if (hasStoredUser === true) {
+          try {
             const parsedUser = JSON.parse(storedUser);
-            setUser(parsedUser);
-          }
-          
-          const hasStoredToken = storedToken !== null && storedToken !== undefined;
-          if (hasStoredToken === true) {
-            setToken(storedToken);
+            
+            // ✅ VALIDATE: Ensure user has valid ID and email
+            const hasValidId = parsedUser.id !== null && 
+                              parsedUser.id !== undefined && 
+                              parsedUser. id !== 'null' &&
+                              typeof parsedUser.id === 'number';
+            const hasValidEmail = parsedUser. email !== null && parsedUser. email !== undefined;
+            
+            if (hasValidId === true && hasValidEmail === true) {
+              setUser(parsedUser);
+              console.log('✅ Restored valid user:', parsedUser.id);
+            } else {
+              console.warn('⚠️ Stored user has invalid ID or email, clearing storage');
+              await AsyncStorage.removeItem(STORAGE_USER_KEY);
+              await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+            }
+          } catch (parseError) {
+            console. warn('⚠️ Failed to parse stored user data, clearing storage');
+            await AsyncStorage.removeItem(STORAGE_USER_KEY);
+            await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
           }
         }
-      } catch (e) {
-        console.warn('Auth restore failed', e);
-      } finally {
-        if (mounted === true) {
-          setLoading(false);
+        
+        const hasStoredToken = storedToken !== null && storedToken !== undefined;
+        if (hasStoredToken === true) {
+          setToken(storedToken);
         }
       }
+    } catch (e) {
+      console.warn('⚠️ Auth restore failed, clearing storage:', e);
+      try {
+        await AsyncStorage.removeItem(STORAGE_USER_KEY);
+        await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+      } catch (clearError) {
+        console.warn('Failed to clear storage:', clearError);
+      }
+    } finally {
+      if (mounted === true) {
+        setLoading(false);
+      }
     }
-    
-    restoreAuth();
-    
-    return function() {
-      mounted = false;
-    };
-  }, []);
+  }
+  
+  restoreAuth();
+  
+  return function() {
+    mounted = false;
+  };
+}, []);
 
   async function safeParseJson(res) {
     const text = await res.text();
