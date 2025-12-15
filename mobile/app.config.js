@@ -36,7 +36,7 @@ export default {
       eas: {
         projectId: "0b50f5ad-0bfa-4d76-8187-26e91973f41f"
       },
-      apiUrl: "http://3.239.49.120:8080/api",  // ← CLOUD IP
+      apiUrl: "http://13.222.56.139:8080/api",  // ← CLOUD IP
       environment: "production"
     },
     owner: "onyinye23"
