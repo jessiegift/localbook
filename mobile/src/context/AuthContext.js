@@ -3,30 +3,63 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+
 const STORAGE_USER_KEY = '@localbook_user';
 const STORAGE_TOKEN_KEY = '@localbook_token';
 
-// Get API URL from app. config.js with safe fallback
-let API_BASE_URL = 'http://23. 22.22.249:8080/api';
+// ✅ UPDATED: Get API URL with local/cloud support
+let API_BASE_URL;
 
 const hasExpoConfig = Constants.expoConfig !== null && Constants.expoConfig !== undefined;
 if (hasExpoConfig === true) {
   const hasExtra = Constants.expoConfig.extra !== null && Constants.expoConfig.extra !== undefined;
   if (hasExtra === true) {
-    const hasApiUrl = Constants.expoConfig. extra.apiUrl !== null && Constants.expoConfig.extra.apiUrl !== undefined;
-    if (hasApiUrl === true) {
-      API_BASE_URL = Constants.expoConfig.extra.apiUrl;
+    const extra = Constants.expoConfig.extra;
+    
+    // Check if apiUrls configuration exists
+    const hasApiUrls = extra.apiUrls !== null && extra.apiUrls !== undefined;
+    const hasEnvironment = extra.environment !== null && extra. environment !== undefined;
+    
+    if (hasApiUrls === true && hasEnvironment === true) {
+      const environment = extra.environment;
+      const apiUrls = extra.apiUrls;
+      
+      // Use local IP in development, cloud IP in production
+      const isProduction = environment === 'production';
+      if (isProduction === true) {
+        API_BASE_URL = apiUrls.cloud;
+        console.log('🌐 Using CLOUD API:', API_BASE_URL);
+      } else {
+        API_BASE_URL = apiUrls.local;
+        console.log('💻 Using LOCAL API:', API_BASE_URL);
+      }
+    } else {
+      // Fallback to old method if apiUrls not configured
+      const hasApiUrl = extra.apiUrl !== null && extra.apiUrl !== undefined;
+      if (hasApiUrl === true) {
+        API_BASE_URL = extra.apiUrl;
+        console.log('📡 Using legacy API URL:', API_BASE_URL);
+      } else {
+        API_BASE_URL = 'http://192.168.1.15:8080/api'; // Default to local
+        console.log('⚠️ No API URL configured, using default local:', API_BASE_URL);
+      }
     }
+  } else {
+    API_BASE_URL = 'http://192.168.1.15:8080/api'; // Default to local
+    console.log('⚠️ No extra config, using default local:', API_BASE_URL);
   }
+} else {
+  API_BASE_URL = 'http://192.168.1.15:8080/api'; // Default to local
+  console.log('⚠️ No expo config, using default local:', API_BASE_URL);
 }
 
-console.log('🚀 API Base URL from AuthContext:', API_BASE_URL);
+console.log('🚀 Final API Base URL:', API_BASE_URL);
 
 export { API_BASE_URL };
 
 const AuthContext = createContext(null);
 
-// ✅ Configure notification handler
+// Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -42,77 +75,76 @@ export function AuthProvider(props) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
- 
   useEffect(function() {
-  let mounted = true;
-  
-  async function restoreAuth() {
-    try {
-      const storedUserPromise = AsyncStorage.getItem(STORAGE_USER_KEY);
-      const storedTokenPromise = AsyncStorage.getItem(STORAGE_TOKEN_KEY);
-      
-      const results = await Promise. all([storedUserPromise, storedTokenPromise]);
-      const storedUser = results[0];
-      const storedToken = results[1];
-      
-      if (mounted === true) {
-        const hasStoredUser = storedUser !== null && storedUser !== undefined;
-        if (hasStoredUser === true) {
-          try {
-            const parsedUser = JSON.parse(storedUser);
-            
-            // ✅ VALIDATE: Ensure user has valid ID and email
-            const hasValidId = parsedUser.id !== null && 
-                              parsedUser.id !== undefined && 
-                              parsedUser. id !== 'null' &&
-                              typeof parsedUser.id === 'number';
-            const hasValidEmail = parsedUser. email !== null && parsedUser. email !== undefined;
-            
-            if (hasValidId === true && hasValidEmail === true) {
-              setUser(parsedUser);
-              console.log('✅ Restored valid user:', parsedUser.id);
-            } else {
-              console.warn('⚠️ Stored user has invalid ID or email, clearing storage');
+    let mounted = true;
+    
+    async function restoreAuth() {
+      try {
+        const storedUserPromise = AsyncStorage.getItem(STORAGE_USER_KEY);
+        const storedTokenPromise = AsyncStorage.getItem(STORAGE_TOKEN_KEY);
+        
+        const results = await Promise.all([storedUserPromise, storedTokenPromise]);
+        const storedUser = results[0];
+        const storedToken = results[1];
+        
+        if (mounted === true) {
+          const hasStoredUser = storedUser !== null && storedUser !== undefined;
+          if (hasStoredUser === true) {
+            try {
+              const parsedUser = JSON.parse(storedUser);
+              
+              const hasValidId = parsedUser.id !== null && 
+                                parsedUser.id !== undefined && 
+                                parsedUser. id !== 'null' &&
+                                typeof parsedUser.id === 'number';
+              const hasValidEmail = parsedUser.email !== null && parsedUser.email !== undefined;
+              
+              if (hasValidId === true && hasValidEmail === true) {
+                setUser(parsedUser);
+                console.log('✅ Restored valid user:', parsedUser. id);
+                console.log('🏢 Restored businessId:', parsedUser.businessId);
+              } else {
+                console.warn('⚠️ Stored user has invalid ID or email, clearing storage');
+                await AsyncStorage.removeItem(STORAGE_USER_KEY);
+                await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+              }
+            } catch (parseError) {
+              console.warn('⚠️ Failed to parse stored user data, clearing storage');
               await AsyncStorage.removeItem(STORAGE_USER_KEY);
               await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
             }
-          } catch (parseError) {
-            console. warn('⚠️ Failed to parse stored user data, clearing storage');
-            await AsyncStorage.removeItem(STORAGE_USER_KEY);
-            await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+          }
+          
+          const hasStoredToken = storedToken !== null && storedToken !== undefined;
+          if (hasStoredToken === true) {
+            setToken(storedToken);
           }
         }
-        
-        const hasStoredToken = storedToken !== null && storedToken !== undefined;
-        if (hasStoredToken === true) {
-          setToken(storedToken);
+      } catch (e) {
+        console.warn('⚠️ Auth restore failed, clearing storage:', e);
+        try {
+          await AsyncStorage.removeItem(STORAGE_USER_KEY);
+          await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
+        } catch (clearError) {
+          console.warn('Failed to clear storage:', clearError);
+        }
+      } finally {
+        if (mounted === true) {
+          setLoading(false);
         }
       }
-    } catch (e) {
-      console.warn('⚠️ Auth restore failed, clearing storage:', e);
-      try {
-        await AsyncStorage.removeItem(STORAGE_USER_KEY);
-        await AsyncStorage.removeItem(STORAGE_TOKEN_KEY);
-      } catch (clearError) {
-        console.warn('Failed to clear storage:', clearError);
-      }
-    } finally {
-      if (mounted === true) {
-        setLoading(false);
-      }
     }
-  }
-  
-  restoreAuth();
-  
-  return function() {
-    mounted = false;
-  };
-}, []);
+    
+    restoreAuth();
+    
+    return function() {
+      mounted = false;
+    };
+  }, []);
 
   async function safeParseJson(res) {
     const text = await res.text();
-    const hasText = text !== null && text !== undefined && text.length > 0;
+    const hasText = text !== null && text !== undefined && text. length > 0;
     
     if (hasText === false) {
       return null;
@@ -147,7 +179,7 @@ export function AuthProvider(props) {
     
     const hasOptionsHeaders = finalOptions.headers !== null && finalOptions.headers !== undefined;
     if (hasOptionsHeaders === true) {
-      const optionHeaderKeys = Object.keys(finalOptions.headers);
+      const optionHeaderKeys = Object.keys(finalOptions. headers);
       let keyIndex = 0;
       while (keyIndex < optionHeaderKeys.length) {
         const key = optionHeaderKeys[keyIndex];
@@ -185,7 +217,7 @@ export function AuthProvider(props) {
       if (hasData === true) {
         const hasDataMessage = data.message !== null && data.message !== undefined;
         if (hasDataMessage === true) {
-          message = data.message;
+          message = data. message;
         } else {
           message = data;
         }
@@ -212,11 +244,13 @@ export function AuthProvider(props) {
       if (hasUserObj === true) {
         const userJson = JSON.stringify(userObj);
         await AsyncStorage.setItem(STORAGE_USER_KEY, userJson);
+        console.log('💾 User persisted to storage');
       }
       
       const hasTokenStr = tokenStr !== null && tokenStr !== undefined;
       if (hasTokenStr === true) {
         await AsyncStorage.setItem(STORAGE_TOKEN_KEY, tokenStr);
+        console.log('💾 Token persisted to storage');
       }
     } catch (e) {
       console.warn('Failed to persist auth', e);
@@ -233,20 +267,17 @@ export function AuthProvider(props) {
     }
   }
 
-  // ✅ NEW: Register push token
   async function registerPushToken(userId) {
     try {
       console.log('📱 Registering push token for user:', userId);
       
-      // Check if device supports push notifications
-      const isDevice = true; // You can add Device.isDevice check from expo-device
+      const isDevice = true;
       if (isDevice === false) {
         console.log('⚠️ Must use physical device for Push Notifications');
         return;
       }
       
-      // Request permissions
-      const existingPermissions = await Notifications.getPermissionsAsync();
+      const existingPermissions = await Notifications. getPermissionsAsync();
       let finalStatus = existingPermissions.status;
       
       const isGranted = finalStatus === 'granted';
@@ -261,13 +292,12 @@ export function AuthProvider(props) {
         return;
       }
       
-      // Get Expo push token
       let expoPushToken = await AsyncStorage.getItem('expoPushToken');
       const hasStoredToken = expoPushToken !== null && expoPushToken !== undefined;
       
       if (hasStoredToken === false) {
-       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: '0b50f5ad-0bfa-4d76-8187-26e91973f41f',
+        const tokenData = await Notifications. getExpoPushTokenAsync({
+          projectId: '0b50f5ad-0bfa-4d76-8187-26e91973f41f',
         });
         expoPushToken = tokenData.data;
         await AsyncStorage.setItem('expoPushToken', expoPushToken);
@@ -276,10 +306,9 @@ export function AuthProvider(props) {
         console.log('📱 Using stored Expo Push Token:', expoPushToken);
       }
       
-      // Register with backend
       const registerUrl = API_BASE_URL + '/notifications/mobile/register-token';
       const requestBody = {
-        userId: userId,
+        userId:  userId,
         pushToken: expoPushToken,
         platform: Platform.OS,
         type: 'expo',
@@ -309,7 +338,6 @@ export function AuthProvider(props) {
     }
   }
 
-  // ✅ NEW: Unregister push token
   async function unregisterPushToken(userId) {
     try {
       console.log('📱 Unregistering push token for user:', userId);
@@ -353,15 +381,16 @@ export function AuthProvider(props) {
       const requestBodyJson = JSON.stringify(requestBody);
       
       const requestOptions = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method:  'POST',
+        headers:  { 'Content-Type': 'application/json' },
         body: requestBodyJson,
       };
       
       const response = await fetch(loginUrl, requestOptions);
       const data = await safeParseJson(response);
       
-      console.log('📥 Login response:', data);
+      console.log('📥 ===== LOGIN RESPONSE =====');
+      console.log('Raw response data:', JSON.stringify(data, null, 2));
       
       const isResponseOk = response.ok;
       if (isResponseOk === false) {
@@ -389,7 +418,16 @@ export function AuthProvider(props) {
         receivedUser = data.user;
       }
       
-      console.log('👤 User object:', receivedUser);
+      // ✅ COMPREHENSIVE DEBUG LOGGING
+      console.log('🔍 ===== USER DEBUG =====');
+      console.log('Full user object:', JSON.stringify(receivedUser, null, 2));
+      console.log('User ID:', receivedUser.id);
+      console.log('User role:', receivedUser.role);
+      console.log('Business ID:', receivedUser.businessId);
+      console.log('User keys:', Object.keys(receivedUser));
+      console.log('Has businessId:', receivedUser.businessId !== null && receivedUser. businessId !== undefined);
+      console.log('BusinessId type:', typeof receivedUser.businessId);
+      console.log('========================');
 
       let receivedToken = null;
       const hasToken = data.token !== null && data.token !== undefined;
@@ -410,7 +448,6 @@ export function AuthProvider(props) {
 
       await persistAuth(receivedUser, receivedToken);
 
-      // ✅ NEW: Register push token after successful login
       const hasUserId = receivedUser.id !== null && receivedUser.id !== undefined;
       if (hasUserId === true) {
         await registerPushToken(receivedUser.id);
@@ -451,7 +488,7 @@ export function AuthProvider(props) {
       } else if (isBusinessOwner === true) {
         endpoint = API_BASE_URL + '/users/register/business-owner';
       } else {
-        const errorResult = { success: false, error: 'Invalid role' };
+        const errorResult = { success: false, error:  'Invalid role' };
         return errorResult;
       }
       
@@ -477,17 +514,17 @@ export function AuthProvider(props) {
         
         const hasLocation = userData.location !== null && userData.location !== undefined;
         if (hasLocation === true) {
-          requestBody.location = userData.location;
+          requestBody.location = userData. location;
         }
         
         const hasCategory = userData.category !== null && userData.category !== undefined;
         if (hasCategory === true) {
-          requestBody.category = userData.category;
+          requestBody.category = userData. category;
         }
         
         const hasDescription = userData.description !== null && userData.description !== undefined;
         if (hasDescription === true) {
-          requestBody.description = userData.description;
+          requestBody.description = userData. description;
         }
       }
       
@@ -495,8 +532,8 @@ export function AuthProvider(props) {
       
       const requestBodyJson = JSON.stringify(requestBody);
       const requestOptions = {
-        method: 'POST',
-        headers: { 
+        method:  'POST',
+        headers:  { 
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
@@ -526,24 +563,24 @@ export function AuthProvider(props) {
         }
         
         console.log('❌ Registration failed:', message);
-        const result = { success: false, error: message };
+        const result = { success:  false, error: message };
         return result;
       }
 
       let receivedUser = data;
-      const hasUserProperty = data.user !== null && data.user !== undefined;
+      const hasUserProperty = data. user !== null && data.user !== undefined;
       if (hasUserProperty === true) {
         receivedUser = data.user;
       }
 
       let receivedToken = null;
       const hasToken = data.token !== null && data.token !== undefined;
-      const hasAccessToken = data.accessToken !== null && data.accessToken !== undefined;
+      const hasAccessToken = data.accessToken !== null && data. accessToken !== undefined;
       
       if (hasToken === true) {
         receivedToken = data.token;
       } else if (hasAccessToken === true) {
-        receivedToken = data.accessToken;
+        receivedToken = data. accessToken;
       }
 
       const hasReceivedToken = receivedToken !== null && receivedToken !== undefined;
@@ -552,7 +589,6 @@ export function AuthProvider(props) {
         setToken(receivedToken);
         await persistAuth(receivedUser, receivedToken);
         
-        // ✅ NEW: Register push token after successful registration
         const hasUserId = receivedUser.id !== null && receivedUser.id !== undefined;
         if (hasUserId === true) {
           await registerPushToken(receivedUser.id);
@@ -570,7 +606,7 @@ export function AuthProvider(props) {
         finalErrorMessage = errorMessage;
       }
       
-      console.error('❌ Registration error:', error);
+      console. error('❌ Registration error:', error);
       const result = { success: false, error: finalErrorMessage };
       return result;
     } finally {
@@ -579,7 +615,6 @@ export function AuthProvider(props) {
   }
 
   async function logout() {
-    // ✅ NEW: Unregister push token before logout
     const hasUser = user !== null && user !== undefined;
     if (hasUser === true) {
       const hasUserId = user.id !== null && user.id !== undefined;
@@ -595,20 +630,20 @@ export function AuthProvider(props) {
   }
 
   const contextValue = {
-    user: user,
+    user:  user,
     token: token,
     loading: loading,
     login: login,
     register: register,
     logout: logout,
     authFetch: authFetch,
-    registerPushToken: registerPushToken, // ✅ NEW: Expose for manual registration
-    unregisterPushToken: unregisterPushToken, // ✅ NEW: Expose for manual unregistration
+    registerPushToken: registerPushToken,
+    unregisterPushToken: unregisterPushToken,
     API_BASE_URL: API_BASE_URL,
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext. Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

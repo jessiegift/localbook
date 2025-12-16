@@ -110,8 +110,8 @@ public void setBusinessId(Long businessId) {
         return role;
     }
     
-    public void setRole(UserRole role) {  // ✅ Takes UserRole enum
-        this.role = role;
+    public void setRole(UserRole client) {  // ✅ Takes UserRole enum
+        this.role = client;
     }
     
     public LocalDateTime getCreatedAt() {

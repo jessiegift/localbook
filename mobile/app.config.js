@@ -36,8 +36,11 @@ export default {
       eas: {
         projectId: "0b50f5ad-0bfa-4d76-8187-26e91973f41f"
       },
-      apiUrl: "http://13.222.56.139:8080/api",  // ← CLOUD IP
-      environment: "production"
+      apiUrls: {
+        cloud: "http://44.220.253.141:8080/api",
+        local: "http://192.168.1.15:8080/api"
+      },
+      environment: "development"
     },
     owner: "onyinye23"
   }

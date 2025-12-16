@@ -4,18 +4,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Get API URL from app.config.js with fallback to production URL
 let BASE_URL;
-if (Constants.expoConfig && Constants.expoConfig.extra && Constants.expoConfig.extra. apiUrl) {
-  BASE_URL = Constants.expoConfig. extra.apiUrl;
+if (
+  Constants.expoConfig &&
+  Constants.expoConfig.extra &&
+  Constants.expoConfig.extra.apiUrls
+) {
+  const { apiUrls, environment } = Constants.expoConfig.extra;
+  BASE_URL = environment === "production" ? apiUrls.cloud : apiUrls.local;
 } else {
-  BASE_URL = 'http://23.22.22.249:8080/api';
+  BASE_URL = "http://44.220.253.141:8080/api"; // fallback
 }
 
 export { BASE_URL };
 
+
+
 // Log configuration for debugging
 let environment;
 if (Constants.expoConfig && Constants.expoConfig.extra && Constants.expoConfig.extra.environment) {
-  environment = Constants.expoConfig.extra. environment;
+  environment = Constants.expoConfig.extra.environment;
 } else {
   environment = 'unknown';
 }

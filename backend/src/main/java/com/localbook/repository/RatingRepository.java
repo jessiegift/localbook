@@ -42,4 +42,7 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
     
     // ✅ Get rating count for a business
     Long countByBusinessId(Long businessId);
+
+    // ✅ Get all ratings for a business (without ordering)
+    List<Rating> findByBusinessId(Long businessId);
 }
